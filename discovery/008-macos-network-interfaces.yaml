@@ -1,0 +1,49 @@
+api_version: 2.0
+id: b8c9daeb-f107-4ddc-d6e7-f8a9bacaebed
+name: Enumerate macOS Network Interfaces and Configuration
+authors:
+  - security_team
+description: Identify all network interfaces, IP addresses, MAC addresses, and their configuration to assess network connectivity
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: List Network Interfaces
+    executor:
+      name: sh
+      command: ifconfig
+      timeout: 10
+  - name: Get Interface Status
+    executor:
+      name: sh
+      command: networksetup -listallhardwareports
+      timeout: 10
+  - name: Get IPv4 Configuration
+    executor:
+      name: sh
+      command: ifconfig | grep -E "inet |inet6" | grep -v "127.0.0.1"
+      timeout: 5
+  - name: Get Mac Addresses
+    executor:
+      name: sh
+      command: ifconfig | grep -E "ether|lladdr"
+      timeout: 5
+  - name: Get Network Services
+    executor:
+      name: sh
+      command: networksetup -listallnetworkservices
+      timeout: 5
+checks:
+  - name: Active Interfaces
+    executor:
+      name: sh
+      command: ifconfig | grep "UP,BROADCAST" | wc -l
+      timeout: 5
+  - name: Local Loopback
+    executor:
+      name: sh
+      command: ifconfig lo0 | grep "inet "
+      timeout: 5

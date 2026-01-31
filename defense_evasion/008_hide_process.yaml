@@ -1,0 +1,70 @@
+id: 008-hide-process
+name: Hide Process with proc_pidpath
+description: Hide process execution details using proc_pidpath manipulation
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - hide_artifacts
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  pid:
+    description: Process ID to hide
+    type: int
+    required: true
+  process_name:
+    description: Name of process to hide
+    type: string
+    default: ""
+
+steps:
+  find_process:
+    inline: ps aux | grep -v grep | grep "{{ args.process_name }}"
+    description: Find process by name
+    condition: "{{ args.process_name != '' }}"
+
+  get_process_info:
+    inline: ls -lah /proc/{{ args.pid }}/
+    description: Get process information from /proc filesystem
+    expected_exit_code: 1
+
+  check_process_path:
+    inline: cat /proc/{{ args.pid }}/cmdline 2>/dev/null || echo "Process not found"
+    description: Check process command line
+    expected_exit_code: 0
+
+checks:
+  process_exists:
+    inline: ps -p {{ args.pid }} > /dev/null 2>&1
+    expected_exit_code: 0
+    description: Verify process exists
+
+tests:
+  default:
+    args:
+      pid: 1
+    steps:
+      - check_process_path
+    expected_exit_code: 0
+
+  dry_run:
+    args:
+      pid: 1
+    steps:
+      - check_process_path
+    expected_exit_code: 0
+
+notes:
+  - macOS does not expose /proc filesystem like Linux
+  - Process hiding in macOS is limited without kernel extensions
+  - Use alternatives like process renaming or manipulation of environment variables

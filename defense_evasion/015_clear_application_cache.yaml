@@ -1,0 +1,99 @@
+id: 015-clear-application-cache
+name: Clear Application Cache
+description: Clear macOS application caches to remove evidence of software execution
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - indicator_removal_on_host
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  cache_type:
+    description: Type of cache to clear (all, browser, app, system)
+    type: string
+    default: all
+  application:
+    description: Specific application cache to clear
+    type: string
+    default: ""
+  preserve_size:
+    description: Estimate cache size before clearing
+    type: bool
+    default: false
+
+steps:
+  check_cache_locations:
+    inline: ls -la ~/Library/Caches/ 2>/dev/null | head -10
+    description: List cache directory contents
+
+  estimate_cache_size:
+    inline: du -sh ~/Library/Caches/ 2>/dev/null
+    description: Estimate total cache size
+    condition: "{{ args.preserve_size }}"
+
+  backup_cache:
+    inline: tar -czf /tmp/cache_backup_$(date +%s).tar.gz ~/Library/Caches/ 2>/dev/null || true
+    description: Backup caches before clearing
+
+  clear_browser_cache:
+    inline: rm -rf ~/Library/Caches/Google/Chrome ~/Library/Caches/Firefox ~/Library/Safari/* 2>/dev/null || true
+    description: Clear browser caches
+    condition: "{{ args.cache_type in ['browser', 'all'] }}"
+
+  clear_app_cache:
+    inline: rm -rf ~/Library/Caches/{{ args.application }}* 2>/dev/null || true
+    description: Clear specific application cache
+    condition: "{{ args.application != '' }}"
+
+  clear_all_caches:
+    inline: rm -rf ~/Library/Caches/* 2>/dev/null || true
+    description: Clear all application caches
+    condition: "{{ args.cache_type == 'all' }}"
+
+  clear_system_cache:
+    inline: sudo rm -rf /Library/Caches/* 2>/dev/null || true
+    description: Clear system-level caches
+
+  clear_temporary_files:
+    inline: rm -rf /var/tmp/* /tmp/com.apple.* 2>/dev/null || true
+    description: Clear temporary files
+
+checks:
+  cache_cleared:
+    inline: test $(find ~/Library/Caches -type f 2>/dev/null | wc -l) -eq 0
+    expected_exit_code: 0
+    description: Verify application caches are cleared
+
+tests:
+  default:
+    steps:
+      - estimate_cache_size
+      - backup_cache
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - estimate_cache_size
+    expected_exit_code: 0
+
+cleanup:
+  restore_cache:
+    inline: tar -xzf /tmp/cache_backup_*.tar.gz -C / 2>/dev/null || true
+    description: Restore cache from backup if needed
+
+notes:
+  - Application caches store execution history and data
+  - Some caches are recreated automatically
+  - Browser caches may contain sensitive browsing history
+  - Cache clearing is normal user activity and less suspicious
+  - System-level cache clearing requires elevated privileges

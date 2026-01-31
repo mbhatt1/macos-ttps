@@ -1,0 +1,49 @@
+api_version: 2.0
+id: daeabf10-1209-4fec-d8e9-f0a1bbbacdf0
+name: Enumerate macOS DNS Configuration
+authors:
+  - security_team
+description: Retrieve DNS resolver configuration, nameservers, and DNS search domains to understand name resolution setup
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get DNS Configuration
+    executor:
+      name: sh
+      command: cat /etc/resolv.conf
+      timeout: 5
+  - name: Get DNS Servers
+    executor:
+      name: sh
+      command: networksetup -getdnsservers Wi-Fi 2>/dev/null || echo "Wi-Fi DNS not available"
+      timeout: 5
+  - name: Get Search Domains
+    executor:
+      name: sh
+      command: networksetup -getsearchdomains Wi-Fi 2>/dev/null || echo "Search domains not available"
+      timeout: 5
+  - name: Get All Network DNS
+    executor:
+      name: sh
+      command: networksetup -listallnetworkservices | grep -v "asterisk" | while read service; do echo "=== $service ==="; networksetup -getdnsservers "$service" 2>/dev/null; done
+      timeout: 10
+  - name: Check mDNS Configuration
+    executor:
+      name: sh
+      command: cat /etc/hosts | head -10
+      timeout: 5
+checks:
+  - name: Resolv Config Exists
+    executor:
+      name: sh
+      command: test -f /etc/resolv.conf && echo "exists"
+      timeout: 5
+  - name: DNS Lookup Test
+    executor:
+      name: sh
+      command: nslookup localhost | head -5
+      timeout: 5

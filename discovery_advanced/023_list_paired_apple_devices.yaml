@@ -1,0 +1,79 @@
+id: 023
+name: List Paired Apple Devices
+api_version: 2.0
+description: Enumerate all paired Apple devices linked to the user account including iPhones, iPads, and Macs
+author: TTPForge
+created: "2026-01-30"
+uuid: "h8k0j5l9-biek-78li-g9l2-ka0j58m1j0k9"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: read_icloud_devices
+    name: Read iCloud device preferences
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.iCloud.plist 2>/dev/null
+
+  - id: enumerate_trusted_devices
+    name: Enumerate trusted devices
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.security.plist 2>/dev/null | grep -i "device\|trusted" | head -15
+
+  - id: check_handoff_config
+    name: Check Handoff paired devices configuration
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.parsecd.plist 2>/dev/null || echo "Handoff config not found"
+
+  - id: enumerate_continuity_devices
+    name: Enumerate Continuity and AirDrop devices
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.sharingd.plist 2>/dev/null | grep -i "device\|peer" | head -15
+
+  - id: check_apple_id_account
+    name: Check Apple ID account information
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.AppleIDSdkAccountsManager.plist 2>/dev/null | head -20
+
+  - id: list_system_keychain_devices
+    name: List device certificates in system keychain
+    type: command
+    command: |
+      security find-certificate -a ~/Library/Keychains/login.keychain 2>/dev/null | grep -i "device\|apple" | head -10
+
+checks:
+  - id: validate_icloud_output
+    name: Validate iCloud preferences output
+    type: regex
+    target: read_icloud_devices
+    pattern: "apple|iCloud|device"
+    required: false
+
+  - id: validate_continuity_config
+    name: Validate Continuity device configuration
+    type: regex
+    target: enumerate_continuity_devices
+    pattern: "device|peer"
+    required: false
+
+tests:
+  - id: dry_run_apple_devices
+    name: Dry run Apple device enumeration
+    type: dry_run
+    steps:
+      - read_icloud_devices
+      - enumerate_trusted_devices
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1120"
+  category: device_discovery
+  severity: low

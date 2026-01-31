@@ -1,0 +1,82 @@
+api_version: 2.0
+id: 007-vnc-connection-attempts
+name: VNC Connection Attempts
+description: Tests VNC connection attempts for remote desktop access via C2
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: vnc_host
+    type: string
+    description: VNC server hostname or IP
+    default: "192.168.1.50"
+  - name: vnc_port
+    type: integer
+    description: VNC server port
+    default: 5900
+  - name: vnc_password
+    type: string
+    description: VNC password (optional)
+    default: ""
+  - name: timeout
+    type: integer
+    description: Connection timeout in seconds
+    default: 5
+
+steps:
+  - name: check_vnc_port_open
+    description: Check if VNC port is open
+    command: |
+      timeout {{ timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ vnc_host }}/{{ vnc_port }}" && echo "VNC port {{ vnc_port }} is open" || echo "VNC port {{ vnc_port }} is closed"
+    type: command
+  
+  - name: scan_for_vnc_service
+    description: Scan for VNC service
+    command: |
+      if command -v nc &> /dev/null; then
+        timeout {{ timeout }} nc -zv {{ vnc_host }} {{ vnc_port }}
+      elif command -v ncat &> /dev/null; then
+        timeout {{ timeout }} ncat -zv {{ vnc_host }} {{ vnc_port }}
+      else
+        echo "nc/ncat not available for scanning"
+      fi
+    type: command
+  
+  - name: test_vnc_client
+    description: Test VNC client availability
+    command: |
+      if command -v open &> /dev/null; then
+        echo "macOS open command available for VNC launch"
+        echo "Would execute: open vnc://{{ vnc_host }}:{{ vnc_port }}"
+      else
+        echo "VNC client not readily available"
+      fi
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_vnc_reachable
+    description: Verify VNC port is reachable
+    condition: |
+      Port should respond or be reachable for VNC connection
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: close_vnc_connections
+    description: Close any VNC connection attempts
+    command: |
+      pkill -f "vnc" 2>/dev/null || true
+      pkill -f "remote-desktop" 2>/dev/null || true
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: high
+  category: remote_access

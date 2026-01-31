@@ -1,0 +1,116 @@
+id: 004-stage-data-documents
+name: Stage Data from Documents
+description: Stages sensitive data from the Documents folder for exfiltration
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  source_path:
+    description: Source directory to stage from
+    type: string
+    default: "~/Documents"
+  staging_path:
+    description: Staging directory path
+    type: string
+    default: "~/.staging/archives"
+  file_types:
+    description: File types to stage (space-separated extensions)
+    type: string
+    default: "*.pdf *.docx *.xlsx *.txt"
+  max_size:
+    description: Maximum file size in MB
+    type: string
+    default: "1024"
+steps:
+  - name: Verify source directory exists
+    type: command
+    executor: bash
+    command: |
+      src_path=$(eval echo '{{ args.source_path }}')
+      test -d "$src_path" || (echo "Source directory not found"; exit 1)
+    cleanup: false
+  
+  - name: Create staging directory
+    type: command
+    executor: bash
+    command: |
+      staging_path=$(eval echo '{{ args.staging_path }}')
+      mkdir -p "$staging_path"
+      chmod 700 "$staging_path"
+    cleanup: false
+  
+  - name: Copy matching files to staging
+    type: command
+    executor: bash
+    command: |
+      src_path=$(eval echo '{{ args.source_path }}')
+      staging_path=$(eval echo '{{ args.staging_path }}')
+      max_size={{ args.max_size }}
+      
+      for pattern in {{ args.file_types }}; do
+        find "$src_path" -maxdepth 3 -name "$pattern" -type f -size -${max_size}M -exec cp {} "$staging_path"/ \; 2>/dev/null || true
+      done
+    cleanup: false
+  
+  - name: Verify staged files
+    type: command
+    executor: bash
+    command: |
+      staging_path=$(eval echo '{{ args.staging_path }}')
+      echo "Staged files:"
+      ls -lh "$staging_path"
+      echo "Total staged size: $(du -sh "$staging_path" | cut -f1)"
+    cleanup: false
+checks:
+  - name: Staged files exist
+    description: Verify files were staged successfully
+    type: command
+    command: |
+      staging_path=$(eval echo '{{ args.staging_path }}')
+      [ $(ls -1 "$staging_path" | wc -l) -gt 0 ]
+  
+  - name: Staged data is readable
+    description: Verify staged files are readable
+    type: command
+    command: |
+      staging_path=$(eval echo '{{ args.staging_path }}')
+      for file in "$staging_path"/*; do
+        [ -r "$file" ] || exit 1
+      done
+tests:
+  default:
+    - name: Stage test documents
+      description: Test staging files from test directory
+      type: basic
+      steps:
+        - name: Create test documents
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_docs
+            echo "Test Document 1" > /tmp/test_docs/doc1.txt
+            echo "Test Document 2" > /tmp/test_docs/doc2.pdf
+            dd if=/dev/zero of=/tmp/test_docs/large.bin bs=1M count=50 2>/dev/null
+        
+        - name: Stage documents
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_staging
+            find /tmp/test_docs -maxdepth 1 -name "*.txt" -o -name "*.pdf" | xargs -I {} cp {} /tmp/test_staging/
+        
+        - name: Verify staging
+          type: command
+          executor: bash
+          command: ls -lh /tmp/test_staging/ | tail -5
+cleanup:
+  - name: Remove test documents
+    type: command
+    executor: bash
+    command: rm -rf /tmp/test_docs /tmp/test_staging
+    ignore_errors: true

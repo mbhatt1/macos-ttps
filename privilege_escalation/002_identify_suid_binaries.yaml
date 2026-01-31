@@ -1,0 +1,65 @@
+api_version: 2.0
+metadata:
+  id: 002-identify-suid-binaries
+  name: Identify SUID Binaries
+  description: Find all binaries with SUID bit set on the system
+  category: privilege_escalation
+  sub_category: enumeration
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440002
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Find all SUID binaries
+    type: command
+    description: Search for all files with SUID bit set
+    inline: |
+      find / -perm -4000 -type f 2>/dev/null
+
+  - name: Find SUID binaries with executable bit
+    type: command
+    description: Find SUID binaries that are executable
+    inline: |
+      find / -perm -4000 -type f -executable 2>/dev/null
+
+  - name: Check SUID binaries owned by root
+    type: command
+    description: Filter SUID binaries owned by root user
+    inline: |
+      find / -perm -4000 -type f -user root 2>/dev/null
+
+  - name: List SUID binary details with ls
+    type: command
+    description: Show detailed information about SUID binaries
+    inline: |
+      find / -perm -4000 -type f 2>/dev/null | while read f; do ls -la "$f"; done | head -20
+
+checks:
+  - name: Verify file permissions
+    type: command
+    inline: |
+      find /usr/bin -name 'sudo' -perm -4000 2>/dev/null | xargs ls -la
+
+  - name: Check current user ID
+    type: command
+    inline: id
+
+tests:
+  - name: Enumerate SUID binaries
+    type: default
+    description: Safe enumeration of SUID binaries
+    steps:
+      - step: 1
+      - step: 2
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: This is a read-only enumeration
+    inline: echo "SUID enumeration complete"

@@ -1,0 +1,49 @@
+api_version: 2.0
+id: e5f6a7b8-c9da-4bdc-d3e4-f5a6b7c8d9ea
+name: Enumerate macOS Groups and Group Memberships
+authors:
+  - security_team
+description: Retrieve all local groups, their GIDs, and group membership information to understand system access control structure
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: List All Groups
+    executor:
+      name: sh
+      command: dscl . list /Groups
+      timeout: 10
+  - name: Get Group Information
+    executor:
+      name: sh
+      command: dscl . readall /Groups GroupID
+      timeout: 10
+  - name: Get Group Members
+    executor:
+      name: sh
+      command: dscl . readall /Groups GroupMembership
+      timeout: 10
+  - name: Get Admin Group Members
+    executor:
+      name: sh
+      command: dscl . read /Groups/admin GroupMembership
+      timeout: 10
+  - name: Get Wheel Group Members
+    executor:
+      name: sh
+      command: dscl . read /Groups/wheel GroupMembership
+      timeout: 10
+checks:
+  - name: Group Count
+    executor:
+      name: sh
+      command: dscl . list /Groups | wc -l
+      timeout: 5
+  - name: Current User Groups
+    executor:
+      name: sh
+      command: groups
+      timeout: 5

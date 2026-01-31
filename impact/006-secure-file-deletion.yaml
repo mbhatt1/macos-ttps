@@ -1,0 +1,86 @@
+---
+id: 006
+name: Secure File Deletion
+description: Securely deletes files using overwrite methods to prevent recovery
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1561  # Disk Wipe
+  - T1485  # Data Destruction
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - rm
+    - srm
+    - dd
+    - shred
+
+args:
+  target_path:
+    description: File or directory path to securely delete
+    type: string
+    default: "~/.temp_delete"
+  
+  passes:
+    description: Number of overwrite passes (1-7)
+    type: integer
+    default: 3
+  
+  method:
+    description: Deletion method (srm, dd, shred)
+    type: string
+    default: srm
+
+steps:
+  - name: Create test file for deletion
+    command: echo "sensitive data to be destroyed" > ~/.temp_delete
+    
+  - name: Verify file exists before deletion
+    command: test -f ~/.temp_delete && echo "File exists"
+    
+  - name: Secure delete with srm (Gutmann method)
+    command: srm -f -z ~/.temp_delete 2>/dev/null || rm -P ~/.temp_delete 2>/dev/null || true
+    
+  - name: Verify file is deleted
+    command: test ! -f ~/.temp_delete && echo "File securely deleted"
+    
+  - name: Check filesystem for recovery
+    command: find ~ -name "temp_delete*" 2>/dev/null || echo "No recovery possible"
+
+checks:
+  - name: Verify secure deletion
+    command: test ! -f ~/.temp_delete && echo "Deletion successful"
+    expected_output: "Deletion successful"
+  
+  - name: Check for file fragments
+    command: find ~ -name "*temp_delete*" 2>/dev/null | wc -l
+    expected_output: 0
+
+tests:
+  - name: dry_run_test
+    description: Test secure deletion on test file without actual destruction
+    dry_run: true
+    steps:
+      - echo "Would securely overwrite and delete target file"
+      - echo "Method: {{ method }} with {{ passes }} passes"
+      - echo "Target: {{ target_path }}"
+
+cleanup:
+  - name: Remove any residual files
+    command: rm -f ~/.temp_delete* 2>/dev/null || true
+    
+  - name: Verify cleanup
+    command: test ! -f ~/.temp_delete && echo "Cleanup verified"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: high
+  uuid: "550e8400-e29b-41d4-a716-446655440006"

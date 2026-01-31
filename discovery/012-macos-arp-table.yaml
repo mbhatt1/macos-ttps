@@ -1,0 +1,49 @@
+api_version: 2.0
+id: fcbf0c12-3311-50ae-daeb-f2a3bdbbdf02
+name: Enumerate macOS ARP Table
+authors:
+  - security_team
+description: Retrieve Address Resolution Protocol table to identify MAC address to IP address mappings on the local network
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get ARP Table
+    executor:
+      name: sh
+      command: arp -a
+      timeout: 10
+  - name: Get ARP Entries
+    executor:
+      name: sh
+      command: arp -n
+      timeout: 10
+  - name: Show ARP Statistics
+    executor:
+      name: sh
+      command: netstat -na | grep ESTABLISHED | head -10
+      timeout: 10
+  - name: Get Network Neighbors
+    executor:
+      name: sh
+      command: ndp -a 2>/dev/null || echo "No IPv6 neighbors"
+      timeout: 10
+  - name: Check Duplicate ARP
+    executor:
+      name: sh
+      command: arp -a | sort -k3 | uniq -d
+      timeout: 5
+checks:
+  - name: ARP Table Non-Empty
+    executor:
+      name: sh
+      command: arp -a | wc -l
+      timeout: 5
+  - name: Localhost ARP Entry
+    executor:
+      name: sh
+      command: arp -a | grep -E "127|localhost" | wc -l
+      timeout: 5

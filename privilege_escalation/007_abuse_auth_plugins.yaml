@@ -1,0 +1,72 @@
+api_version: 2.0
+metadata:
+  id: 007-abuse-auth-plugins
+  name: Abuse of Auth Plugins
+  description: Exploit weaknesses in macOS authentication plugins for privilege escalation
+  category: privilege_escalation
+  sub_category: exploitation
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440007
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Enumerate PAM modules
+    type: command
+    description: List all PAM authentication modules on the system
+    inline: |
+      find /usr/lib/pam /etc/pam.d 2>/dev/null -type f
+
+  - name: Check login plugins
+    type: command
+    description: Identify login-related plugins
+    inline: |
+      ls -la /usr/lib/pam/ 2>/dev/null
+
+  - name: Check sudo PAM configuration
+    type: command
+    description: Examine sudo's PAM configuration
+    inline: |
+      cat /etc/pam.d/sudo 2>/dev/null || echo "PAM configuration not accessible"
+
+  - name: Look for writable plugin directories
+    type: command
+    description: Find writable directories in PAM path
+    inline: |
+      find /usr/lib/pam -type d -writable 2>/dev/null
+
+  - name: Check for authentication bypass opportunities
+    type: command
+    description: Identify potential authentication weaknesses
+    inline: |
+      find /etc/pam.d -type f -writable 2>/dev/null || echo "No writable PAM files found"
+
+checks:
+  - name: Verify current privilege level
+    type: command
+    inline: id
+
+  - name: Check file ownership of PAM modules
+    type: command
+    inline: |
+      ls -la /usr/lib/pam/*.so.* 2>/dev/null | head -5
+
+tests:
+  - name: Detect auth plugin weaknesses
+    type: dry_run
+    description: Safely enumerate auth plugin configurations without modification
+    steps:
+      - step: 1
+      - step: 2
+      - step: 3
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: Read-only enumeration only
+    inline: echo "Auth plugin enumeration complete"

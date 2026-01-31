@@ -1,0 +1,73 @@
+id: 016
+name: Enumerate Security Tools (EDR/AV Detection)
+api_version: 2.0
+description: Identify installed security tools, endpoint detection and response (EDR) solutions, and antivirus software on macOS
+author: TTPForge
+created: "2026-01-30"
+uuid: "a1f3c8e2-4b7d-11eb-92e5-f23c91f4c3d2"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: check_edr_processes
+    name: Check for running EDR processes
+    type: command
+    command: |
+      pgrep -l -i "crowdstrike|sentinel|defender|kaspersky|mcafee|norton|avast|avg|bitdefender|trend|palo|carbon|cortex" 2>/dev/null | head -20
+
+  - id: check_security_tools_files
+    name: Check for installed security tools
+    type: command
+    command: |
+      ls -la /Applications | grep -i "security\|defender\|kaspersky\|mcafee\|norton\|avast\|bitdefender\|palo" 2>/dev/null
+
+  - id: check_launchd_security
+    name: Check launchd for security agents
+    type: command
+    command: |
+      defaults read /Library/LaunchDaemons 2>/dev/null | grep -i "security\|edr\|antivirus\|defender" | head -10
+
+  - id: check_kernel_extensions
+    name: Enumerate kernel extensions related to security
+    type: command
+    command: |
+      kextstat 2>/dev/null | grep -i "security\|edr\|antivirus" || echo "No kernel extensions found"
+
+  - id: check_system_extensions
+    name: Check system extensions for security software
+    type: command
+    command: |
+      systemextensionsctl list 2>/dev/null || echo "SystemExtensions not available"
+
+checks:
+  - id: validate_edr_detection
+    name: Validate EDR process output
+    type: regex
+    target: check_edr_processes
+    pattern: "^[0-9]+"
+    required: false
+
+  - id: validate_application_list
+    name: Validate application directory listing
+    type: regex
+    target: check_security_tools_files
+    pattern: "Applications"
+    required: false
+
+tests:
+  - id: dry_run_edr_check
+    name: Dry run EDR process enumeration
+    type: dry_run
+    steps:
+      - check_edr_processes
+      - check_security_tools_files
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1010"
+  category: enumeration
+  severity: medium

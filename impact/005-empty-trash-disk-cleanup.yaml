@@ -1,0 +1,81 @@
+---
+id: 005
+name: Empty Trash and Disk Cleanup
+description: Empties Trash and performs aggressive disk cleanup to destroy user data
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1561  # Disk Wipe
+  - T1531  # Account Access Removal
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - rm
+    - defaults
+    - find
+
+args:
+  recursive:
+    description: Recursively clean all Trash directories
+    type: boolean
+    default: true
+  
+  secure_delete:
+    description: Use secure deletion method (overwrite data)
+    type: boolean
+    default: false
+  
+  cleanup_cache:
+    description: Also clean cache and temporary directories
+    type: boolean
+    default: false
+
+steps:
+  - name: Get Trash directory location
+    command: echo ~/.Trash
+    
+  - name: Empty user Trash
+    command: rm -rf ~/.Trash/*
+    
+  - name: Empty system Trash if accessible
+    command: rm -rf /var/Trash/* 2>/dev/null || true
+    
+  - name: Clean cache directories
+    command: find ~/Library/Caches -type f -mtime +7 -delete 2>/dev/null || true
+    
+  - name: Verify Trash is empty
+    command: ls -la ~/.Trash/ | wc -l
+
+checks:
+  - name: Verify Trash directory is empty
+    command: test -z "$(ls -A ~/.Trash 2>/dev/null)" && echo "Trash is empty"
+    expected_output: "Trash is empty"
+
+tests:
+  - name: dry_run_test
+    description: Test trash cleanup without actual file deletion
+    dry_run: true
+    steps:
+      - echo "Would empty Trash directory"
+      - echo "Would clean cache directories"
+      - echo "Would perform secure deletion if enabled"
+
+cleanup:
+  - name: Restore basic system directories
+    command: mkdir -p ~/.Trash /var/Trash 2>/dev/null || true
+    
+  - name: Verify cleanup completed
+    command: ls -la ~/.Trash/ | head -5
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: high
+  uuid: "550e8400-e29b-41d4-a716-446655440005"

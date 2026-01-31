@@ -1,0 +1,56 @@
+api_version: "2.0"
+id: "004"
+name: "Wake-on-LAN for System Discovery"
+description: "Use Wake-on-LAN (WOL) to wake up and identify macOS systems on the network"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "d4e5f6a7-b8c9-6abd-d3e4-f5a6b7c8d9ea"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  target_mac_address:
+    description: "MAC address of target system to wake"
+    type: "string"
+    required: true
+    default: "aa:bb:cc:dd:ee:ff"
+  broadcast_address:
+    description: "Broadcast address for WOL packet"
+    type: "string"
+    required: false
+    default: "192.168.1.255"
+  target_subnet:
+    description: "Network subnet for WOL broadcast"
+    type: "string"
+    required: false
+    default: "192.168.1.0/24"
+  wol_port:
+    description: "Port for WOL (typically 7 or 9)"
+    type: "integer"
+    required: false
+    default: 9
+
+steps:
+  - name: "Generate WOL magic packet"
+    executor: "sh"
+    command: "echo '[INFO] Generating WOL magic packet for {{ target_mac_address }}' && python3 -c \"import socket; mac = '{{ target_mac_address }}'.replace(':', ''); packet = b'\\xff' * 6 + bytes.fromhex(mac) * 16; print(f'Magic packet generated: {len(packet)} bytes')\""
+
+checks:
+  - name: "Verify network connectivity to broadcast address"
+    executor: "sh"
+    command: "ping -c 1 -W 1 {{ broadcast_address }} 2>/dev/null && echo 'Broadcast address reachable' || echo 'Broadcast address not reachable'"
+
+tests:
+  - name: "Dry run WOL magic packet transmission"
+    executor: "sh"
+    command: "echo '[DRY RUN] Would send WOL packet for MAC {{ target_mac_address }}' && echo '[DRY RUN] Broadcast to {{ broadcast_address }}:{{ wol_port }}' && echo '[DRY RUN] Waiting for system wake-up...'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "system-discovery"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "medium"

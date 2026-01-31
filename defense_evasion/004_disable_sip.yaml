@@ -1,0 +1,52 @@
+id: 004-disable-sip
+name: Disable System Integrity Protection
+description: Disable System Integrity Protection (SIP) on macOS
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - disable_or_modify_security_tools
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  status:
+    description: Check SIP status
+    type: bool
+    default: true
+
+steps:
+  check_sip_status:
+    inline: csrutil status
+    description: Check System Integrity Protection status
+
+checks:
+  verify_sip_enabled:
+    inline: csrutil status | grep -q "enabled"
+    expected_exit_code: 0
+    description: Verify SIP is enabled
+
+tests:
+  default:
+    steps:
+      - check_sip_status
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_sip_status
+    expected_exit_code: 0
+
+notes:
+  - SIP can only be disabled from Recovery Mode (Command+R)
+  - Requires reboot and Recovery Mode access
+  - Command in Recovery Mode: csrutil disable
+  - To re-enable: csrutil enable in Recovery Mode

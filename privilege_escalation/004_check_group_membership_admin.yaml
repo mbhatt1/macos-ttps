@@ -1,0 +1,72 @@
+api_version: 2.0
+metadata:
+  id: 004-check-group-membership-admin
+  name: Check Group Membership for Admin
+  description: Enumerate group membership to identify administrative privileges
+  category: privilege_escalation
+  sub_category: enumeration
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440004
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: List current user groups
+    type: command
+    description: Show all groups current user belongs to
+    inline: |
+      groups
+
+  - name: Check admin group membership
+    type: command
+    description: Verify if user is in admin group
+    inline: |
+      groups | grep -E "admin|wheel|sudo" || echo "No admin groups found"
+
+  - name: List all groups on system
+    type: command
+    description: Enumerate all groups with GIDs
+    inline: |
+      dscl . -list /Groups | head -20
+
+  - name: Check group details
+    type: command
+    description: Get detailed information about specific admin groups
+    inline: |
+      dscl . -read /Groups/admin 2>/dev/null | grep -E "GroupMembership|GeneratedUID"
+
+  - name: List user membership in all groups
+    type: command
+    description: Show all groups containing current user
+    inline: |
+      id -G -n
+
+checks:
+  - name: Get user identity
+    type: command
+    inline: id
+
+  - name: Verify group information
+    type: command
+    inline: |
+      dscl . -read /Users/$(whoami) | grep Groups
+
+tests:
+  - name: Enumerate group membership
+    type: default
+    description: Safe enumeration of group membership
+    steps:
+      - step: 1
+      - step: 2
+      - step: 5
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: This is a read-only enumeration
+    inline: echo "Group enumeration complete"

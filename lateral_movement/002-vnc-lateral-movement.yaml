@@ -1,0 +1,56 @@
+api_version: "2.0"
+id: "002"
+name: "VNC Lateral Movement to Neighboring Systems"
+description: "Establish VNC connections to neighboring macOS systems for lateral movement"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "b2c3d4e5-f6a7-489b-b1c2-d3e4f5a6b7c8"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  target_host:
+    description: "Target host IP address or hostname for VNC connection"
+    type: "string"
+    required: true
+    default: "192.168.1.101"
+  vnc_port:
+    description: "VNC port on target host"
+    type: "integer"
+    required: false
+    default: 5900
+  vnc_password:
+    description: "VNC password for authentication"
+    type: "string"
+    required: false
+    default: "password123"
+  connection_timeout:
+    description: "Connection timeout in seconds"
+    type: "integer"
+    required: false
+    default: 10
+
+steps:
+  - name: "Check VNC service availability"
+    executor: "sh"
+    command: "nc -w 2 {{ target_host }} {{ vnc_port }} < /dev/null && echo 'VNC port is open' || echo 'VNC port is closed'"
+
+checks:
+  - name: "Verify VNC protocol response"
+    executor: "sh"
+    command: "echo '' | nc -w 3 {{ target_host }} {{ vnc_port }} | grep -q 'RFB' && echo 'VNC service detected' || echo 'VNC service not confirmed'"
+
+tests:
+  - name: "Dry run VNC connection test"
+    executor: "sh"
+    command: "echo '[DRY RUN] VNC connection to {{ target_host }}:{{ vnc_port }} would be initiated' && timeout {{ connection_timeout }} bash -c 'exec 3<>/dev/tcp/{{ target_host }}/{{ vnc_port }}; cat <&3' 2>/dev/null | head -1 || echo '[DRY RUN] VNC protocol handshake would occur'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "remote-access-tools"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "high"

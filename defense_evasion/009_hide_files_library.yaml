@@ -1,0 +1,82 @@
+id: 009-hide-files-library
+name: Hide Files in Library
+description: Hide files and directories within Library folders using dotfiles convention
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - hide_artifacts
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  source_path:
+    description: Source file or directory path
+    type: string
+    required: true
+  library_path:
+    description: Destination path in Library
+    type: string
+    default: ~/Library/Application Support
+  new_name:
+    description: New hidden name (with . prefix)
+    type: string
+    required: true
+
+steps:
+  validate_source:
+    inline: test -e "{{ args.source_path }}"
+    description: Verify source path exists
+    expected_exit_code: 0
+
+  expand_home:
+    inline: eval echo "{{ args.library_path }}"
+    description: Expand home directory symbol
+
+  create_library_dir:
+    inline: mkdir -p "{{ args.library_path }}"
+    description: Create Library directory if needed
+
+  move_to_library:
+    inline: mv "{{ args.source_path }}" "{{ args.library_path }}/{{ args.new_name }}"
+    description: Move file to hidden location in Library
+
+  verify_moved:
+    inline: test -e "{{ args.library_path }}/{{ args.new_name }}"
+    description: Verify file moved successfully
+
+checks:
+  hidden_file_exists:
+    inline: test -e "{{ args.library_path }}/{{ args.new_name }}"
+    expected_exit_code: 0
+    description: Verify hidden file exists in Library
+
+tests:
+  default:
+    args:
+      source_path: /tmp/test_file_to_hide
+      new_name: .hidden_app
+    steps:
+      - validate_source
+    expected_exit_code: 1
+
+  dry_run:
+    args:
+      source_path: /tmp/test_file_to_hide
+      new_name: .hidden_app
+    steps:
+      - validate_source
+    expected_exit_code: 1
+
+cleanup:
+  restore_original:
+    inline: mv "{{ args.library_path }}/{{ args.new_name }}" "{{ args.source_path }}"
+    description: Restore file to original location

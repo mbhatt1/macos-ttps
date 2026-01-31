@@ -1,0 +1,49 @@
+api_version: 2.0
+id: b2c3d4e5-f6a7-48b9-c0d1-e2f3a4b5c6d7
+name: Gather macOS CPU and Memory Information
+authors:
+  - security_team
+description: Retrieve CPU core count, memory capacity, and processor information to understand system computational resources
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get CPU Information
+    executor:
+      name: sh
+      command: system_profiler SPHardwareDataType | grep -E "Processor|Core|Memory"
+      timeout: 10
+  - name: Get CPU Count
+    executor:
+      name: sh
+      command: sysctl -n hw.ncpu
+      timeout: 5
+  - name: Get Physical Memory
+    executor:
+      name: sh
+      command: sysctl -n hw.memsize | awk '{printf "%.2f GB\n", $1/1024/1024/1024}'
+      timeout: 5
+  - name: Get CPU Frequency
+    executor:
+      name: sh
+      command: sysctl -n hw.cpufrequency_max | awk '{printf "%.2f GHz\n", $1/1000000000}'
+      timeout: 5
+  - name: Get Memory Stats
+    executor:
+      name: sh
+      command: vm_stat | head -20
+      timeout: 5
+checks:
+  - name: CPU Count Verification
+    executor:
+      name: sh
+      command: sysctl -n hw.ncpu
+      timeout: 5
+  - name: Memory Size Verification
+    executor:
+      name: sh
+      command: sysctl -n hw.memsize
+      timeout: 5

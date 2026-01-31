@@ -1,0 +1,71 @@
+api_version: 2.0
+metadata:
+  id: 011-iokit-privilege-escalation
+  name: IOKit Privilege Escalation
+  description: Exploit IOKit framework vulnerabilities for privilege escalation
+  category: privilege_escalation
+  sub_category: exploitation
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440011
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Enumerate IOKit services
+    type: command
+    description: List all IOKit services available
+    inline: |
+      iokit-examine 2>/dev/null | head -20 || echo "IOKit examination tool not available"
+
+  - name: Check IOKit device classes
+    type: command
+    description: List IOKit device tree entries
+    inline: |
+      ioreg -l 2>/dev/null | head -30 || echo "IORegistry query failed"
+
+  - name: Look for kernel extensions
+    type: command
+    description: Enumerate loaded kernel extensions
+    inline: |
+      kextstat 2>/dev/null || echo "Cannot enumerate kernel extensions"
+
+  - name: Check for vulnerable IOKit services
+    type: command
+    description: Search for known vulnerable IOKit services
+    inline: |
+      ioreg -l -n "IOHIDSystem" 2>/dev/null || echo "IOHIDSystem service not found"
+
+  - name: Enumerate hardware services
+    type: command
+    description: List hardware-related IOKit services
+    inline: |
+      ioreg -l -n "AppleACPIPlatformExpert" 2>/dev/null || echo "Not available"
+
+checks:
+  - name: Verify privilege level
+    type: command
+    inline: id
+
+  - name: Check system integrity protection
+    type: command
+    inline: |
+      csrutil status 2>/dev/null | grep -q enabled && echo "SIP enabled" || echo "SIP disabled or unknown"
+
+tests:
+  - name: Enumerate IOKit vulnerabilities
+    type: dry_run
+    description: Safely enumerate IOKit services without exploitation
+    steps:
+      - step: 1
+      - step: 2
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: Read-only enumeration only
+    inline: echo "IOKit enumeration complete"

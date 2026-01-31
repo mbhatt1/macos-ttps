@@ -1,0 +1,49 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000003
+name: Export Certificates from Keychain
+description: Export certificates and keys from macOS keychain
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.001
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: output_dir
+    description: Directory to store exported certificates
+    default: "/tmp/cert_export"
+  - name: certificate_name
+    description: Specific certificate to export (optional)
+    default: ""
+steps:
+  - name: Create Export Directory
+    type: command
+    command: "mkdir -p {{ output_dir }}"
+    
+  - name: List Certificates
+    type: command
+    command: "security find-certificate -a -p login.keychain-db 2>/dev/null | head -50"
+    
+  - name: Export Certificate Identity
+    type: command
+    command: "security find-identity -p codesigning login.keychain-db 2>/dev/null"
+
+checks:
+  - type: stdout_contains
+    value: "-----BEGIN"
+    description: Verify certificate output contains PEM format
+
+tests:
+  - name: List Certificates
+    description: List certificates without export
+    test_type: default
+    steps:
+      - "security find-certificate -a login.keychain-db 2>/dev/null | head -10"
+
+cleanup:
+  - type: command
+    command: "rm -rf {{ output_dir }}"
+    description: Remove exported certificates

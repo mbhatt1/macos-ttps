@@ -1,0 +1,73 @@
+api_version: 2.0
+metadata:
+  id: 005-enumerate-authorization-policies
+  name: Enumerate Authorization Policies
+  description: Check macOS authorization framework policies and rights
+  category: privilege_escalation
+  sub_category: enumeration
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440005
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: List authorization policies
+    type: command
+    description: Enumerate authorization rights in the system
+    inline: |
+      security authorizationdb read 2>/dev/null | head -50
+
+  - name: Check admin authentication policies
+    type: command
+    description: Look for admin authentication bypass opportunities
+    inline: |
+      security authorizationdb read system.preferences 2>/dev/null
+
+  - name: List authorization rules
+    type: command
+    description: Show all authorization rules
+    inline: |
+      security authorizationdb read > /tmp/authdb.txt 2>/dev/null && wc -l /tmp/authdb.txt && rm /tmp/authdb.txt
+
+  - name: Check sudoers policies
+    type: command
+    description: Review sudoers configuration for privilege escalation opportunities
+    inline: |
+      sudo -l 2>&1 || echo "Sudo access restricted"
+
+  - name: Enumerate default authorization database
+    type: command
+    description: Check default authorization rights configuration
+    inline: |
+      security authorizationdb read system.login.screensaver 2>/dev/null
+
+checks:
+  - name: Verify current user context
+    type: command
+    inline: whoami && id
+
+  - name: Check authorization database access
+    type: command
+    inline: |
+      security authorizationdb read system.privileges.admin.Bluetooth 2>/dev/null | grep -q class && echo "Can read authdb" || echo "No authdb access"
+
+tests:
+  - name: Enumerate authorization policies
+    type: default
+    description: Safe enumeration of authorization policies
+    steps:
+      - step: 1
+      - step: 2
+
+cleanup:
+  - name: Remove temporary files
+    type: command
+    description: Clean up any temporary files
+    inline: |
+      rm -f /tmp/authdb.txt 2>/dev/null
+      echo "Authorization enumeration complete"

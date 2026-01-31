@@ -1,0 +1,77 @@
+api_version: 2.0
+uuid: 12345678-1111-1111-1111-111111111111
+name: Create LaunchAgent plist
+description: Creates a LaunchAgent plist file in ~/Library/LaunchAgents to achieve persistence
+mitre_attack_id: T1547.011
+mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  agent_name:
+    description: Name of the LaunchAgent (without .plist extension)
+    type: string
+    default: com.apple.assistant.support
+  script_path:
+    description: Path to the script to execute
+    type: string
+    default: /tmp/persistence.sh
+  run_at_load:
+    description: Run the agent when loaded
+    type: bool
+    default: true
+steps:
+  - name: create_launchagent_script
+    type: create_file
+    path: "{{ script_path }}"
+    contents: |
+      #!/bin/bash
+      echo "LaunchAgent persistence activated at $(date)" >> /tmp/agent.log
+      # Add malicious payload here
+    permissions: "0755"
+  
+  - name: create_launchagent_plist
+    type: create_file
+    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
+    contents: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>{{ agent_name }}</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>{{ script_path }}</string>
+          </array>
+          <key>RunAtLoad</key>
+          <{{ run_at_load|lower }}/>>
+          <key>StandardOutPath</key>
+          <string>/tmp/agent_stdout.log</string>
+          <key>StandardErrorPath</key>
+          <string>/tmp/agent_stderr.log</string>
+      </dict>
+      </plist>
+    permissions: "0644"
+
+checks:
+  - type: file_exists
+    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
+  - type: file_contains
+    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
+    value: "{{ agent_name }}"
+
+cleanup:
+  - type: remove_file
+    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
+  - type: remove_file
+    path: "{{ script_path }}"
+  - type: remove_file
+    path: "/tmp/agent.log"
+  - type: remove_file
+    path: "/tmp/agent_stdout.log"
+  - type: remove_file
+    path: "/tmp/agent_stderr.log"

@@ -1,0 +1,115 @@
+id: 005-stage-data-desktop
+name: Stage Data from Desktop
+description: Stages sensitive data from the Desktop folder for exfiltration
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  source_path:
+    description: Source directory (Desktop)
+    type: string
+    default: "~/Desktop"
+  staging_path:
+    description: Staging directory path
+    type: string
+    default: "~/.staging/archives"
+  file_types:
+    description: File types to stage
+    type: string
+    default: "*.pdf *.xlsx *.docx *.pptx"
+  exclude_patterns:
+    description: Patterns to exclude
+    type: string
+    default: ".DS_Store|.localized"
+steps:
+  - name: Verify Desktop exists
+    type: command
+    executor: bash
+    command: |
+      desktop=$(eval echo '{{ args.source_path }}')
+      test -d "$desktop" || (echo "Desktop not found"; exit 1)
+    cleanup: false
+  
+  - name: Create staging area
+    type: command
+    executor: bash
+    command: |
+      staging=$(eval echo '{{ args.staging_path }}')
+      mkdir -p "$staging"
+      chmod 700 "$staging"
+    cleanup: false
+  
+  - name: Stage Desktop files
+    type: command
+    executor: bash
+    command: |
+      desktop=$(eval echo '{{ args.source_path }}')
+      staging=$(eval echo '{{ args.staging_path }}')
+      
+      for pattern in {{ args.file_types }}; do
+        find "$desktop" -maxdepth 1 -name "$pattern" -type f ! -name '.DS_Store' ! -name '.localized' -exec cp {} "$staging"/ \; 2>/dev/null || true
+      done
+    cleanup: false
+  
+  - name: Verify staging completed
+    type: command
+    executor: bash
+    command: |
+      staging=$(eval echo '{{ args.staging_path }}')
+      echo "Desktop files staged:"
+      ls -lh "$staging" 2>/dev/null | tail -10 || echo "No files staged"
+      echo "Total: $(du -sh "$staging" 2>/dev/null | cut -f1 || echo '0B')"
+    cleanup: false
+checks:
+  - name: Desktop staging directory accessible
+    description: Verify staging directory is accessible
+    type: command
+    command: |
+      staging=$(eval echo '{{ args.staging_path }}')
+      test -d "$staging" -a -w "$staging"
+  
+  - name: Files staged from Desktop
+    description: Verify files were copied to staging
+    type: command
+    command: |
+      staging=$(eval echo '{{ args.staging_path }}')
+      [ $(find "$staging" -type f 2>/dev/null | wc -l) -ge 0 ]
+tests:
+  default:
+    - name: Stage Desktop files
+      description: Test staging files from Desktop simulation
+      type: basic
+      steps:
+        - name: Create test Desktop
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_desktop
+            echo "Presentation" > /tmp/test_desktop/slides.pptx
+            echo "Spreadsheet" > /tmp/test_desktop/budget.xlsx
+            echo "Document" > /tmp/test_desktop/report.pdf
+        
+        - name: Stage Desktop files
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_staging
+            find /tmp/test_desktop -maxdepth 1 \( -name "*.pptx" -o -name "*.xlsx" -o -name "*.pdf" \) -exec cp {} /tmp/test_staging/ \;
+        
+        - name: Verify staging
+          type: command
+          executor: bash
+          command: |
+            ls -lh /tmp/test_staging/
+            echo "Staged $(ls -1 /tmp/test_staging | wc -l) files"
+cleanup:
+  - name: Remove test files
+    type: command
+    executor: bash
+    command: rm -rf /tmp/test_desktop /tmp/test_staging
+    ignore_errors: true

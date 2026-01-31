@@ -1,0 +1,75 @@
+api_version: 2.0
+metadata:
+  id: 012-authorization-framework-abuse
+  name: Authorization Framework Abuse
+  description: Exploit macOS authorization framework for privilege escalation
+  category: privilege_escalation
+  sub_category: exploitation
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440012
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Dump authorization database
+    type: command
+    description: Export the system authorization database
+    inline: |
+      security authorizationdb read > /tmp/authdb_backup.txt 2>/dev/null
+      wc -l /tmp/authdb_backup.txt
+      cat /tmp/authdb_backup.txt | head -50
+
+  - name: Check for admin authorization rights
+    type: command
+    description: Look for admin-level authorization rights
+    inline: |
+      security authorizationdb read system.privileges.admin.Bluetooth 2>/dev/null || echo "Authorization right not found"
+
+  - name: Enumerate authorization mechanisms
+    type: command
+    description: List authentication mechanisms
+    inline: |
+      security authorizationdb read system.login.console 2>/dev/null | grep -E "mechanisms|rule" || echo "No mechanisms found"
+
+  - name: Check default authorization rules
+    type: command
+    description: Review default authorization rule configuration
+    inline: |
+      security authorizationdb read system.preferences 2>/dev/null | head -30
+
+  - name: Look for user authentication bypasses
+    type: command
+    description: Search for authorization rules without password requirement
+    inline: |
+      security authorizationdb read 2>/dev/null | grep -B2 "authenticate" | head -20
+
+checks:
+  - name: Verify current privilege level
+    type: command
+    inline: id
+
+  - name: Check authorization database integrity
+    type: command
+    inline: |
+      security authorizationdb read system.logout 2>/dev/null | wc -l && echo "Authorization DB accessible"
+
+tests:
+  - name: Detect authorization framework weaknesses
+    type: dry_run
+    description: Safely enumerate authorization rules without modification
+    steps:
+      - step: 1
+      - step: 2
+
+cleanup:
+  - name: Remove temporary files
+    type: command
+    description: Clean up backed-up authorization database
+    inline: |
+      rm -f /tmp/authdb_backup.txt 2>/dev/null
+      echo "Authorization framework enumeration complete"

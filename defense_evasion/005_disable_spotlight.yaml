@@ -1,0 +1,69 @@
+id: 005-disable-spotlight
+name: Disable Spotlight Indexing
+description: Disable macOS Spotlight indexing to avoid detection through searches
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - disable_or_modify_security_tools
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  disable:
+    description: Disable Spotlight indexing
+    type: bool
+    default: false
+  target_volume:
+    description: Target volume to disable Spotlight on
+    type: string
+    default: /
+  path:
+    description: Specific path to exclude from Spotlight
+    type: string
+    default: ""
+
+steps:
+  check_spotlight_status:
+    inline: mdutil -s /
+    description: Check Spotlight indexing status
+
+  disable_spotlight:
+    inline: mdutil -i off "{{ args.target_volume }}"
+    description: Disable Spotlight indexing on target volume
+    condition: "{{ args.disable }}"
+
+  exclude_path:
+    inline: mdutil -E "{{ args.path }}"
+    description: Exclude specific path from Spotlight indexing
+    condition: "{{ args.path != '' }}"
+
+checks:
+  verify_disabled:
+    inline: mdutil -s / | grep -q "indexing disabled"
+    expected_exit_code: 0
+    description: Verify Spotlight indexing is disabled
+
+tests:
+  default:
+    steps:
+      - check_spotlight_status
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_spotlight_status
+    expected_exit_code: 0
+
+cleanup:
+  restore_spotlight:
+    inline: mdutil -i on /
+    description: Re-enable Spotlight indexing

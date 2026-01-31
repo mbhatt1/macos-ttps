@@ -1,0 +1,74 @@
+api_version: 2.0
+metadata:
+  id: 003-find-world-writable-directories
+  name: Find World-Writable Directories
+  description: Locate world-writable directories that could be exploited for privilege escalation
+  category: privilege_escalation
+  sub_category: enumeration
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440003
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Find world-writable directories
+    type: command
+    description: Search for directories with world write permissions
+    inline: |
+      find / -type d -perm -002 2>/dev/null
+
+  - name: Find world-writable directories with sticky bit missing
+    type: command
+    description: Identify dangerous world-writable directories without sticky bit
+    inline: |
+      find / -type d -perm -002 ! -perm -1000 2>/dev/null
+
+  - name: Check /tmp permissions
+    type: command
+    description: Verify /tmp directory permissions
+    inline: |
+      ls -ld /tmp
+
+  - name: Find world-writable files
+    type: command
+    description: Search for world-writable files
+    inline: |
+      find / -type f -perm -002 2>/dev/null | head -20
+
+  - name: Check common writable directories
+    type: command
+    description: Verify permissions of common directories
+    inline: |
+      ls -ld /tmp /var/tmp /dev/shm 2>/dev/null
+
+checks:
+  - name: Verify current user permissions
+    type: command
+    inline: |
+      touch /tmp/test_write_$$ 2>/dev/null && rm /tmp/test_write_$$ && echo "Write access confirmed" || echo "No write access"
+
+  - name: Check user ID
+    type: command
+    inline: id
+
+tests:
+  - name: Enumerate world-writable directories
+    type: default
+    description: Safe enumeration of world-writable locations
+    steps:
+      - step: 1
+      - step: 3
+      - step: 5
+
+cleanup:
+  - name: Remove test files
+    type: command
+    description: Clean up any test files created
+    inline: |
+      rm -f /tmp/test_write_* 2>/dev/null
+      echo "Cleanup complete"

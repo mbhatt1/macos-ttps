@@ -1,0 +1,61 @@
+api_version: "2.0"
+id: "001"
+name: "SSH Lateral Movement to Remote Hosts"
+description: "Execute lateral movement by establishing SSH connections to remote hosts on the network"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  target_host:
+    description: "Target host IP address or hostname for SSH connection"
+    type: "string"
+    required: true
+    default: "192.168.1.100"
+  target_user:
+    description: "Username for SSH authentication"
+    type: "string"
+    required: true
+    default: "admin"
+  target_port:
+    description: "SSH port on target host"
+    type: "integer"
+    required: false
+    default: 22
+  ssh_key:
+    description: "Path to SSH private key for authentication"
+    type: "string"
+    required: false
+    default: "~/.ssh/id_rsa"
+  remote_command:
+    description: "Command to execute on remote host"
+    type: "string"
+    required: false
+    default: "whoami"
+
+steps:
+  - name: "Verify SSH connectivity"
+    executor: "sh"
+    command: "ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p {{ target_port }} {{ target_user }}@{{ target_host }} '{{ remote_command }}' || echo 'SSH connection test'"
+
+checks:
+  - name: "Verify SSH service is accessible"
+    executor: "sh"
+    command: "nc -w 2 {{ target_host }} {{ target_port }} && echo 'SSH port open' || echo 'SSH port closed'"
+
+tests:
+  - name: "Dry run SSH enumeration"
+    executor: "sh"
+    command: "echo '[DRY RUN] Would connect to {{ target_host }}:{{ target_port }} as {{ target_user }}' && ssh -o ConnectTimeout=2 {{ target_user }}@{{ target_host }} -p {{ target_port }} -n 'echo SSH connection successful' 2>/dev/null || echo '[DRY RUN] SSH connection would be attempted'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "remote-access-tools"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "high"

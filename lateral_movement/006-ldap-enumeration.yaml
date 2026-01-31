@@ -1,0 +1,56 @@
+api_version: "2.0"
+id: "006"
+name: "LDAP Directory Enumeration"
+description: "Enumerate LDAP directory services for network movement and credential discovery"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "f6a7b8c9-dae0-8cdf-f5a6-b7c8d9eafb0c"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  ldap_server:
+    description: "LDAP server address"
+    type: "string"
+    required: true
+    default: "192.168.1.150"
+  ldap_port:
+    description: "LDAP server port"
+    type: "integer"
+    required: false
+    default: 389
+  base_dn:
+    description: "LDAP base distinguished name"
+    type: "string"
+    required: false
+    default: "dc=example,dc=com"
+  ldap_user:
+    description: "LDAP bind user"
+    type: "string"
+    required: false
+    default: "cn=admin,dc=example,dc=com"
+
+steps:
+  - name: "Query LDAP directory"
+    executor: "sh"
+    command: "ldapsearch -h {{ ldap_server }} -p {{ ldap_port }} -b '{{ base_dn }}' -x 'objectClass=*' 2>/dev/null | head -50 || echo 'LDAP query initiated'"
+
+checks:
+  - name: "Verify LDAP service connectivity"
+    executor: "sh"
+    command: "nc -w 2 {{ ldap_server }} {{ ldap_port }} < /dev/null && echo 'LDAP port open' || echo 'LDAP port closed'"
+
+tests:
+  - name: "Dry run LDAP enumeration"
+    executor: "sh"
+    command: "echo '[DRY RUN] LDAP enumeration from {{ ldap_server }}:{{ ldap_port }}' && echo '[DRY RUN] Base DN: {{ base_dn }}' && echo '[DRY RUN] Users found:' && echo '[DRY RUN] - user1' && echo '[DRY RUN] - user2' && echo '[DRY RUN] - admin'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "directory-enumeration"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "medium"

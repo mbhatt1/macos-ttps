@@ -1,0 +1,77 @@
+id: 8f4e2a9c-1b3d-4e6f-a8b2-7c5d9e1f3a4b
+api_version: 2.0
+metadata:
+  name: Collect Screen Captures
+  description: Collect screenshots and screen recording artifacts from macOS system
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - screen-capture
+    - reconnaissance
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  screenshot_dir:
+    description: Directory to collect screenshots from
+    type: string
+    default: "~/Library/Caches/com.apple.bird"
+  
+  output_path:
+    description: Output path for collected screenshots
+    type: string
+    default: "/tmp/screen_captures"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Collect screenshot cache
+    command: find ~/Library/Caches -name "*.png" -o -name "*.jpg" 2>/dev/null | head -20
+    timeout: 30
+
+  - name: Copy screenshot files
+    command: |
+      if [ -d "{{ screenshot_dir }}" ]; then
+        cp -r "{{ screenshot_dir }}" "{{ output_path }}/bird_cache" 2>/dev/null || true
+      fi
+
+  - name: Collect macOS screen recordings
+    command: find ~/Library/Application\ Support -name "*.mov" -o -name "*.mp4" 2>/dev/null | head -10
+    timeout: 30
+
+  - name: List collected items
+    command: ls -lah {{ output_path }}/ 2>/dev/null || echo "No items collected"
+
+checks:
+  - name: Verify output directory exists
+    command: test -d {{ output_path }} && echo "Output directory created"
+    expected_output: "Output directory created"
+
+  - name: Check for collected files
+    command: |
+      count=$(find {{ output_path }} -type f 2>/dev/null | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "Collected $count files"
+      else
+        echo "No files collected (expected on clean system)"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify paths
+        command: test -d ~/Library/Caches && echo "Caches directory exists"
+
+cleanup:
+  - name: Remove collected screenshots
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Cleanup completed"

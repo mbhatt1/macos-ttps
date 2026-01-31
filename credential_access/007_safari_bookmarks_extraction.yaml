@@ -1,0 +1,46 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000007
+name: Safari Bookmarks Extraction
+description: Extract bookmarks from Safari application
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.003
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: output_file
+    description: File to store extracted bookmarks
+    default: "/tmp/safari_bookmarks.plist"
+steps:
+  - name: Check Safari Bookmarks
+    type: command
+    command: "test -f ~/Library/Safari/Bookmarks.plist && echo 'Safari bookmarks found'"
+    
+  - name: Copy Bookmarks File
+    type: command
+    command: "cp ~/Library/Safari/Bookmarks.plist {{ output_file }} 2>/dev/null || true"
+    
+  - name: Extract Bookmark URLs
+    type: command
+    command: "plutil -extract 'Children' raw ~/Library/Safari/Bookmarks.plist 2>/dev/null || echo 'Bookmarks extracted'"
+
+checks:
+  - type: file_exists
+    value: "{{ output_file }}"
+    description: Verify bookmarks file was copied
+
+tests:
+  - name: Access Bookmarks
+    description: Access Safari bookmarks file
+    test_type: default
+    steps:
+      - "test -f ~/Library/Safari/Bookmarks.plist && echo 'Bookmarks available'"
+
+cleanup:
+  - type: command
+    command: "rm -f {{ output_file }}"
+    description: Remove extracted bookmarks file

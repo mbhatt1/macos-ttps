@@ -1,0 +1,79 @@
+id: 7c3e1a9f-2b4d-5f7g-8h9i-0j1k2l3m4n5o
+api_version: 2.0
+metadata:
+  name: Collect Clipboard Contents
+  description: Collect clipboard data and clipboard history from macOS system
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - clipboard
+    - reconnaissance
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for clipboard data
+    type: string
+    default: "/tmp/clipboard_data"
+  
+  history_depth:
+    description: Number of clipboard history items to capture
+    type: integer
+    default: 50
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Capture current clipboard content
+    command: pbpaste > {{ output_path }}/clipboard_current.txt 2>/dev/null || echo "Clipboard empty"
+
+  - name: Collect Pasty clipboard history
+    command: |
+      if [ -d "~/Library/Application Support/Pasty" ]; then
+        cp -r "~/Library/Application Support/Pasty" "{{ output_path }}/pasty_history" 2>/dev/null || true
+      fi
+
+  - name: Check for clipboard sync
+    command: |
+      if [ -d "~/Library/Saved Application State/com.apple.universalclipboard" ]; then
+        cp -r "~/Library/Saved Application State/com.apple.universalclipboard" "{{ output_path }}/universal_clipboard" 2>/dev/null || true
+      fi
+
+  - name: Verify clipboard collection
+    command: ls -lah {{ output_path }}/
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Output directory verified"
+    expected_output: "Output directory verified"
+
+  - name: Check clipboard file
+    command: test -f {{ output_path }}/clipboard_current.txt && echo "Clipboard data collected"
+
+  - name: Validate clipboard content
+    command: |
+      if [ -f {{ output_path }}/clipboard_current.txt ]; then
+        size=$(wc -c < {{ output_path }}/clipboard_current.txt)
+        echo "Clipboard data size: $size bytes"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify clipboard command availability
+        command: which pbpaste && echo "Clipboard tools available"
+
+cleanup:
+  - name: Remove clipboard data
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Clipboard cleanup completed"

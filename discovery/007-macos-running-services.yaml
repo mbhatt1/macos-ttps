@@ -1,0 +1,49 @@
+api_version: 2.0
+id: a7b8c9da-eb06-4dcb-d5e6-f7a8b9cadaec
+name: Enumerate macOS Running Services and Daemons
+authors:
+  - security_team
+description: Identify all running system services, daemons, and launchd agents to understand system service configuration and startup behavior
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: List Launch Daemons
+    executor:
+      name: sh
+      command: launchctl list
+      timeout: 10
+  - name: Get System Services
+    executor:
+      name: sh
+      command: launchctl list | grep -v "^-" | head -20
+      timeout: 10
+  - name: List LaunchAgents
+    executor:
+      name: sh
+      command: ls -la /Library/LaunchAgents/
+      timeout: 5
+  - name: List System LaunchDaemons
+    executor:
+      name: sh
+      command: ls -la /Library/LaunchDaemons/
+      timeout: 5
+  - name: Check User LaunchAgents
+    executor:
+      name: sh
+      command: ls -la ~/Library/LaunchAgents/ 2>/dev/null || echo "No user launch agents"
+      timeout: 5
+checks:
+  - name: Launchctl Available
+    executor:
+      name: sh
+      command: launchctl version
+      timeout: 5
+  - name: Launch Services Count
+    executor:
+      name: sh
+      command: launchctl list | wc -l
+      timeout: 5

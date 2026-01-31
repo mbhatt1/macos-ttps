@@ -1,0 +1,79 @@
+id: 020
+name: Enumerate Paired Devices and Connected Hardware
+api_version: 2.0
+description: Enumerate all paired devices including iCloud devices, USB devices, and connected peripherals
+author: TTPForge
+created: "2026-01-30"
+uuid: "e5h7g2i6-8fbh-45if-d6i9-h67g25j8g7h6"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: enumerate_usb_devices
+    name: Enumerate USB connected devices
+    type: command
+    command: |
+      system_profiler SPUSBDataType 2>/dev/null
+
+  - id: enumerate_icloud_devices
+    name: Check for paired iCloud devices
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.iCloud.plist 2>/dev/null | grep -i "device\|account" | head -15
+
+  - id: check_paired_watches
+    name: Check for paired Apple Watch devices
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.watch.plist 2>/dev/null || echo "No Apple Watch paired"
+
+  - id: enumerate_network_devices
+    name: Enumerate network attached devices
+    type: command
+    command: |
+      arp -a 2>/dev/null | head -20
+
+  - id: check_launchservices_devices
+    name: Check Launch Services for paired device handlers
+    type: command
+    command: |
+      lsof -i -P 2>/dev/null | grep -i "paired\|device" | head -10
+
+  - id: check_wireless_devices
+    name: Check wireless and network devices
+    type: command
+    command: |
+      system_profiler SPAirPortDataType 2>/dev/null
+
+checks:
+  - id: validate_usb_enum
+    name: Validate USB device enumeration
+    type: regex
+    target: enumerate_usb_devices
+    pattern: "USB|Device"
+    required: false
+
+  - id: validate_network_devices
+    name: Validate network device listing
+    type: regex
+    target: enumerate_network_devices
+    pattern: "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+"
+    required: false
+
+tests:
+  - id: dry_run_paired_devices
+    name: Dry run paired device enumeration
+    type: dry_run
+    steps:
+      - enumerate_usb_devices
+      - enumerate_icloud_devices
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1120"
+  category: peripheral_device_discovery
+  severity: low

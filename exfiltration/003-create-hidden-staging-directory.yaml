@@ -1,0 +1,93 @@
+id: 003-create-hidden-staging-directory
+name: Create Hidden Staging Directory
+description: Creates a hidden directory for staging data before exfiltration
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  staging_directory:
+    description: Hidden directory path for data staging
+    type: string
+    default: "~/.staging"
+  permissions:
+    description: Directory permissions (octal)
+    type: string
+    default: "700"
+  subdirectories:
+    description: Subdirectories to create
+    type: string
+    default: "archives|encrypted|uploads"
+steps:
+  - name: Create hidden staging directory
+    type: command
+    executor: bash
+    command: |
+      mkdir -p '{{ args.staging_directory }}'
+      chmod {{ args.permissions }} '{{ args.staging_directory }}'
+    cleanup: false
+  
+  - name: Create subdirectories
+    type: command
+    executor: bash
+    command: |
+      for subdir in $(echo '{{ args.subdirectories }}' | tr '|' '\n'); do
+        mkdir -p '{{ args.staging_directory }}/'$subdir
+        chmod 700 '{{ args.staging_directory }}/'$subdir
+      done
+    cleanup: false
+  
+  - name: Set directory attributes
+    type: command
+    executor: bash
+    command: |
+      # Hide directory from Finder
+      chflags hidden '{{ args.staging_directory }}' 2>/dev/null || true
+      
+      # Verify directory structure
+      echo "Staging directory structure:"
+      ls -lah '{{ args.staging_directory }}'
+    cleanup: false
+checks:
+  - name: Directory exists and is hidden
+    description: Verify hidden directory was created
+    type: command
+    command: test -d '{{ args.staging_directory }}' && [ $(stat -f%Lp '{{ args.staging_directory }}') = "d-rwx------" ]
+  
+  - name: Subdirectories exist
+    description: Verify all subdirectories were created
+    type: command
+    command: |
+      for subdir in archives encrypted uploads; do
+        test -d '{{ args.staging_directory }}/'$subdir || exit 1
+      done
+tests:
+  default:
+    - name: Create hidden staging directory
+      description: Test hidden directory creation
+      type: basic
+      steps:
+        - name: Create test staging directory
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_staging
+            chmod 700 /tmp/test_staging
+            mkdir -p /tmp/test_staging/{archives,encrypted,uploads}
+        
+        - name: Verify structure
+          type: command
+          executor: bash
+          command: |
+            ls -la /tmp/test_staging/ | wc -l
+            echo "Directories created successfully"
+cleanup:
+  - name: Remove staging structure
+    type: command
+    executor: bash
+    command: rm -rf /tmp/test_staging
+    ignore_errors: true

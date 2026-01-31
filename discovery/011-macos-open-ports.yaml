@@ -1,0 +1,49 @@
+api_version: 2.0
+id: ebeabf11-2210-4ffd-d9ea-f1a2bccadef1
+name: Enumerate macOS Open Ports and Network Listeners
+authors:
+  - security_team
+description: Identify all listening network ports, bound addresses, and associated processes to detect active network services
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get Listening TCP Ports
+    executor:
+      name: sh
+      command: netstat -tlnp
+      timeout: 10
+  - name: Get Listening UDP Ports
+    executor:
+      name: sh
+      command: netstat -ulmn
+      timeout: 10
+  - name: Get All Listening Sockets
+    executor:
+      name: sh
+      command: netstat -an | grep LISTEN
+      timeout: 10
+  - name: Get Process to Port Mapping
+    executor:
+      name: sh
+      command: lsof -iTCP -sTCP:LISTEN -P -n
+      timeout: 10
+  - name: Get UDP Listeners
+    executor:
+      name: sh
+      command: lsof -iUDP -P -n
+      timeout: 10
+checks:
+  - name: Listening Ports Count
+    executor:
+      name: sh
+      command: netstat -an | grep LISTEN | wc -l
+      timeout: 5
+  - name: SSH Port Check
+    executor:
+      name: sh
+      command: netstat -an | grep ":22" | grep LISTEN || echo "SSH not listening"
+      timeout: 5

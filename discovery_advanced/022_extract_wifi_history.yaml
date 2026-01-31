@@ -1,0 +1,73 @@
+id: 022
+name: Extract WiFi Network History
+api_version: 2.0
+description: Extract WiFi network history, SSID information, and connection details from the macOS system
+author: TTPForge
+created: "2026-01-30"
+uuid: "g7j9i4k8-ahdj-67kh-f8k1-j89i47l0i9j8"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: enumerate_preferred_networks
+    name: Extract WiFi preferred networks
+    type: command
+    command: |
+      defaults read /Library/Preferences/SystemConfiguration/com.apple.airport.airport.plist 2>/dev/null | grep -i "ssid\|network" | head -20
+
+  - id: check_wifi_history
+    name: Check WiFi network history and known networks
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.airport.plist 2>/dev/null | grep -i "ssid\|network\|bssid" | head -20
+
+  - id: extract_networkservice_info
+    name: Extract network service information
+    type: command
+    command: |
+      networksetup -listallnetworkservices 2>/dev/null
+
+  - id: get_current_wifi
+    name: Get current WiFi network information
+    type: command
+    command: |
+      /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null
+
+  - id: check_wifi_passwords
+    name: Check for stored WiFi passwords (requires elevated access)
+    type: command
+    command: |
+      security find-generic-password -ga "AirPort" ~/Library/Keychains/login.keychain 2>/dev/null || echo "No WiFi passwords accessible"
+
+checks:
+  - id: validate_ssid_output
+    name: Validate SSID extraction
+    type: regex
+    target: enumerate_preferred_networks
+    pattern: "ssid|SSID"
+    required: false
+
+  - id: validate_wifi_status
+    name: Validate WiFi status output
+    type: regex
+    target: get_current_wifi
+    pattern: "SSID|agrctlrssi"
+    required: false
+
+tests:
+  - id: dry_run_wifi_extract
+    name: Dry run WiFi history extraction
+    type: dry_run
+    steps:
+      - enumerate_preferred_networks
+      - get_current_wifi
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1526"
+  category: network_discovery
+  severity: medium

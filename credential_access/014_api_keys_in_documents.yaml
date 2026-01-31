@@ -1,0 +1,49 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000014
+name: API Keys in Documents
+description: Search for API keys and credentials in common document locations
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1552.007
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: search_dirs
+    description: Directories to search for API keys
+    default: "~/Documents:~/Downloads:~/.config"
+  - name: output_file
+    description: File to store found API keys
+    default: "/tmp/api_keys_found.txt"
+steps:
+  - name: Search Documents for API Keys
+    type: command
+    command: "grep -r 'api[_-]?key\\|api[_-]?secret\\|token\\|password' ~/Documents 2>/dev/null | grep -E '\\.json|\\.yaml|\\.conf|\\.txt' | head -20 || echo 'Search complete'"
+    
+  - name: Search Download Folder
+    type: command
+    command: "find ~/Downloads -type f \\( -name '*.json' -o -name '*.yaml' -o -name '*.env' \\) 2>/dev/null | head -10"
+    
+  - name: Check for .env Files
+    type: command
+    command: "find ~ -maxdepth 3 -name '.env*' 2>/dev/null | head -10 || echo 'No .env files found'"
+
+checks:
+  - type: stdout_contains
+    value: "api"
+    description: Verify API key search was performed
+
+tests:
+  - name: Scan for API Keys
+    description: Search for API keys in documents
+    test_type: default
+    steps:
+      - "test -d ~/Documents && echo 'Documents accessible' || echo 'Check complete'"
+
+cleanup:
+  - type: command
+    command: "rm -f {{ output_file }}"
+    description: Remove found API keys list

@@ -1,0 +1,63 @@
+api_version: 2.0
+uuid: 12345678-8888-8888-8888-888888888888
+name: Modify login.plist
+description: Modifies login window plist to execute code during login process
+mitre_attack_id: T1547.015
+mitre_attack_technique: Login Items
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  plist_path:
+    description: Path to login plist
+    type: string
+    default: ~/Library/Preferences/com.apple.loginwindow.plist
+  backup_path:
+    description: Path to backup the original plist
+    type: string
+    default: ~/Library/Preferences/com.apple.loginwindow.plist.bak
+  app_path:
+    description: Path to application or script to launch at login
+    type: string
+    default: /usr/local/bin/loginagent
+steps:
+  - name: backup_original_plist
+    type: shell_command
+    command: "cp {{ plist_path }} {{ backup_path }} 2>/dev/null || true"
+  
+  - name: create_launch_script
+    type: create_file
+    path: "{{ app_path }}"
+    contents: |
+      #!/bin/bash
+      echo "Login hook executed at $(date)" >> /tmp/login.log
+      # Persistence payload
+    permissions: "0755"
+  
+  - name: modify_login_plist
+    type: shell_command
+    command: |
+      defaults write ~/Library/Preferences/com.apple.loginwindow LoginHook "{{ app_path }}"
+
+checks:
+  - type: file_exists
+    path: "{{ plist_path }}"
+  - type: shell_command
+    command: "defaults read ~/Library/Preferences/com.apple.loginwindow LoginHook"
+    expected_output: "{{ app_path }}"
+
+cleanup:
+  - type: shell_command
+    command: |
+      defaults delete ~/Library/Preferences/com.apple.loginwindow LoginHook 2>/dev/null || true
+      if [ -f "{{ backup_path }}" ]; then
+        cp {{ backup_path }} {{ plist_path }}
+        rm {{ backup_path }}
+      fi
+  - type: remove_file
+    path: "{{ app_path }}"
+  - type: remove_file
+    path: "/tmp/login.log"

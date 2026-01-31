@@ -1,0 +1,73 @@
+id: 018
+name: Check for Monitoring Software
+api_version: 2.0
+description: Detect monitoring, logging, and surveillance software running on the system
+author: TTPForge
+created: "2026-01-30"
+uuid: "c3f5e0g4-6d9f-23gd-b4g7-f45e03h6e5f4"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: check_monitoring_processes
+    name: Check for running monitoring processes
+    type: command
+    command: |
+      pgrep -l -i "splunk|osquery|auditd|syslog|datadog|newrelic|elastic|prometheus|grafana" 2>/dev/null | head -20
+
+  - id: check_audit_logging
+    name: Check audit logging configuration
+    type: command
+    command: |
+      auditctl -l 2>/dev/null || audit -l 2>/dev/null || echo "Audit not configured"
+
+  - id: check_system_logs
+    name: Check system log locations
+    type: command
+    command: |
+      ls -la /var/log/ 2>/dev/null | grep -E "system|auth|access|security" | head -10
+
+  - id: check_monitoring_files
+    name: Check for monitoring configuration files
+    type: command
+    command: |
+      find /etc -name "*monitoring*" -o -name "*audit*" -o -name "*logging*" 2>/dev/null | head -10
+
+  - id: check_lsof_network
+    name: Check open network connections from monitoring processes
+    type: command
+    command: |
+      lsof -i -P 2>/dev/null | grep -i "splunk\|osquery\|datadog\|elastic" | head -10
+
+checks:
+  - id: validate_monitoring_output
+    name: Validate monitoring process output
+    type: regex
+    target: check_monitoring_processes
+    pattern: "^[0-9]+"
+    required: false
+
+  - id: validate_log_files
+    name: Validate log file listing
+    type: regex
+    target: check_system_logs
+    pattern: "/var/log"
+    required: false
+
+tests:
+  - id: dry_run_monitoring_check
+    name: Dry run monitoring detection
+    type: dry_run
+    steps:
+      - check_monitoring_processes
+      - check_system_logs
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1057"
+  category: process_discovery
+  severity: medium

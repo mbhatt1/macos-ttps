@@ -1,0 +1,79 @@
+id: 021
+name: Read System Preferences and Configuration
+api_version: 2.0
+description: Extract and enumerate system preferences, configuration settings, and security policies from macOS
+author: TTPForge
+created: "2026-01-30"
+uuid: "f6i8h3j7-9gci-56jg-e7j0-i78h36k9h8i7"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: read_general_prefs
+    name: Read general system preferences
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/.GlobalPreferences 2>/dev/null | head -30
+
+  - id: read_security_prefs
+    name: Read security and privacy preferences
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.security 2>/dev/null || echo "Security preferences not found"
+
+  - id: read_firewall_settings
+    name: Read firewall configuration
+    type: command
+    command: |
+      defaults read /Library/Preferences/com.apple.alf.plist 2>/dev/null | grep -i "enabled\|blocked\|incoming" | head -10
+
+  - id: read_screensaver_prefs
+    name: Read screensaver and sleep preferences
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.screensaver 2>/dev/null
+
+  - id: read_dock_prefs
+    name: Read Dock configuration
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.dock 2>/dev/null | head -30
+
+  - id: read_siri_prefs
+    name: Read Siri configuration
+    type: command
+    command: |
+      defaults read ~/Library/Preferences/com.apple.assistant.support 2>/dev/null || echo "Siri preferences not found"
+
+checks:
+  - id: validate_prefs_format
+    name: Validate preferences output format
+    type: regex
+    target: read_general_prefs
+    pattern: "=|\\{"
+    required: false
+
+  - id: validate_firewall_config
+    name: Validate firewall configuration output
+    type: regex
+    target: read_firewall_settings
+    pattern: "enabled|blocked"
+    required: false
+
+tests:
+  - id: dry_run_prefs_read
+    name: Dry run system preferences enumeration
+    type: dry_run
+    steps:
+      - read_general_prefs
+      - read_firewall_settings
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1526"
+  category: configuration_discovery
+  severity: medium

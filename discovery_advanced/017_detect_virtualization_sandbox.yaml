@@ -1,0 +1,73 @@
+id: 017
+name: Detect Virtualization and Sandbox Environment
+api_version: 2.0
+description: Detect if the macOS system is running in virtualization environment or sandbox, useful for evasion detection
+author: TTPForge
+created: "2026-01-30"
+uuid: "b2e4d9f3-5c8e-12fc-a3f6-e34d92g5d4e3"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: check_hw_model
+    name: Check hardware model identifier
+    type: command
+    command: |
+      sysctl hw.model 2>/dev/null
+
+  - id: check_vm_detection
+    name: Detect virtualization platforms
+    type: command
+    command: |
+      ioreg -l 2>/dev/null | grep -i "vmware\|parallels\|virtualbox\|kvm\|xen\|hyperv" | head -10
+
+  - id: check_sandbox_profile
+    name: Check if process is sandboxed
+    type: command
+    command: |
+      grep -i "sandbox" /proc/$$/environ 2>/dev/null || echo "No sandbox detected"
+
+  - id: check_system_serial
+    name: Enumerate system serial number (VM indicators)
+    type: command
+    command: |
+      system_profiler SPHardwareDataType 2>/dev/null | grep -i "serial\|model"
+
+  - id: check_vm_tools
+    name: Check for VM tools presence
+    type: command
+    command: |
+      ls -la /usr/bin | grep -i "vmware\|parallels\|vbox" 2>/dev/null || echo "No VM tools found"
+
+checks:
+  - id: validate_hardware_model
+    name: Validate hardware model output
+    type: regex
+    target: check_hw_model
+    pattern: "hw.model"
+    required: false
+
+  - id: validate_vm_detection
+    name: Validate VM detection results
+    type: regex
+    target: check_vm_detection
+    pattern: "IODeviceTree|ioreg"
+    required: false
+
+tests:
+  - id: dry_run_virtualization_check
+    name: Dry run virtualization detection
+    type: dry_run
+    steps:
+      - check_hw_model
+      - check_system_serial
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1518"
+  category: environment_detection
+  severity: medium

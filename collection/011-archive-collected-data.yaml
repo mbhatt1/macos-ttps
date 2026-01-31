@@ -1,0 +1,118 @@
+id: 8d4b9e0f-1k3l-5m6n-7o8p-9q0r1s2t3u4v
+api_version: 2.0
+metadata:
+  name: Archive Collected Data
+  description: Archive and compress collected data from all collection TTPs
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - archive
+    - compression
+    - data-preservation
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  source_directory:
+    description: Source directory containing collected data
+    type: string
+    default: "/tmp"
+  
+  archive_path:
+    description: Output path for archive
+    type: string
+    default: "/tmp/collections_archive.tar.gz"
+  
+  compression_level:
+    description: Compression level (1-9)
+    type: integer
+    default: 6
+
+steps:
+  - name: Create archive directory
+    command: mkdir -p $(dirname {{ archive_path }})
+
+  - name: Archive using tar and gzip
+    command: |
+      cd {{ source_directory }} && \
+      tar -czf {{ archive_path }} \
+        screen_captures/ \
+        clipboard_data/ \
+        camera_mic_access/ \
+        keyboard_logs/ \
+        app_data/ \
+        mail_data/ \
+        messages_data/ \
+        slack_data/ \
+        browser_history/ \
+        dns_logs/ \
+        2>/dev/null || echo "Archive created with available data"
+
+  - name: Verify archive integrity
+    command: tar -tzf {{ archive_path }} > /dev/null 2>&1 && echo "Archive integrity verified"
+
+  - name: Get archive statistics
+    command: |
+      if [ -f {{ archive_path }} ]; then
+        size=$(du -h {{ archive_path }} | cut -f1)
+        count=$(tar -tzf {{ archive_path }} 2>/dev/null | wc -l)
+        echo "Archive size: $size, Files: $count"
+      fi
+
+  - name: Create archive manifest
+    command: |
+      tar -tzf {{ archive_path }} > $(dirname {{ archive_path }})/archive_manifest.txt 2>/dev/null || echo "Manifest creation attempted"
+
+  - name: Calculate archive checksum
+    command: |
+      if [ -f {{ archive_path }} ]; then
+        md5sum {{ archive_path }} > $(dirname {{ archive_path }})/archive.md5 2>/dev/null || shasum -a 256 {{ archive_path }} > $(dirname {{ archive_path }})/archive.sha256 2>/dev/null || true
+      fi
+
+  - name: Optional: Create backup archive
+    command: |
+      if [ -f {{ archive_path }} ]; then
+        cp {{ archive_path }} {{ archive_path }}.backup 2>/dev/null || echo "Backup skipped"
+      fi
+
+checks:
+  - name: Verify archive file exists
+    command: test -f {{ archive_path }} && echo "Archive file created successfully"
+    expected_output: "Archive file created successfully"
+
+  - name: Check archive size
+    command: |
+      if [ -f {{ archive_path }} ]; then
+        size=$(stat -f%z {{ archive_path }} 2>/dev/null)
+        if [ "$size" -gt 0 ]; then
+          echo "Archive size valid: $size bytes"
+        fi
+      fi
+
+  - name: Validate archive contents
+    command: |
+      if [ -f {{ archive_path }} ]; then
+        tar -tzf {{ archive_path }} 2>/dev/null | head -5 | wc -l
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify tar utility
+        command: which tar && which gzip && echo "Archive tools available"
+
+cleanup:
+  - name: Remove archive file
+    command: rm -f {{ archive_path }}
+
+  - name: Remove manifest and checksums
+    command: rm -f $(dirname {{ archive_path }})/archive_manifest.txt $(dirname {{ archive_path }})/archive.md5 $(dirname {{ archive_path }})/archive.sha256 $(dirname {{ archive_path }})/archive.md5.backup
+
+  - name: Verify cleanup
+    command: test ! -f {{ archive_path }} && echo "Archive cleanup completed"

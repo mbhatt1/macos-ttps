@@ -1,0 +1,89 @@
+id: 014-clear-bash-history
+name: Clear Bash History
+description: Clear bash command history to remove evidence of executed commands
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - indicator_removal_on_host
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  shell_type:
+    description: Shell type to clear (bash, zsh, all)
+    type: string
+    default: all
+  user:
+    description: User whose history to clear
+    type: string
+    default: ""
+  clear_memory:
+    description: Clear history from memory as well
+    type: bool
+    default: true
+
+steps:
+  backup_history:
+    inline: cp ~/.bash_history ~/.bash_history.bak 2>/dev/null || true
+    description: Backup bash history before clearing
+
+  clear_bash_history:
+    inline: rm ~/.bash_history && touch ~/.bash_history
+    description: Remove and recreate bash history file
+    condition: "{{ args.shell_type in ['bash', 'all'] }}"
+
+  clear_zsh_history:
+    inline: rm ~/.zsh_history && touch ~/.zsh_history 2>/dev/null || true
+    description: Remove and recreate zsh history file
+    condition: "{{ args.shell_type in ['zsh', 'all'] }}"
+
+  clear_history_in_memory:
+    inline: history -c
+    description: Clear history from current shell session
+    condition: "{{ args.clear_memory }}"
+
+  clear_extended_attributes:
+    inline: xattr -d "com.apple.metadata:kMDItemFinderComment" ~/.bash_history 2>/dev/null || true
+    description: Clear metadata attributes
+
+  remove_history_files:
+    inline: find ~ -name "*history*" -type f -delete 2>/dev/null || true
+    description: Remove all history files in home directory
+
+checks:
+  history_cleared:
+    inline: test ! -f ~/.bash_history || [ $(wc -l < ~/.bash_history) -eq 0 ]
+    expected_exit_code: 0
+    description: Verify bash history is cleared
+
+tests:
+  default:
+    steps:
+      - backup_history
+      - clear_bash_history
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - backup_history
+    expected_exit_code: 0
+
+cleanup:
+  restore_history:
+    inline: mv ~/.bash_history.bak ~/.bash_history 2>/dev/null || true
+    description: Restore history from backup
+
+notes:
+  - History clearing is detectable if backups exist
+  - Shell history may also be in ~/.sh_history or other locations
+  - Some shells store history in XDG directories
+  - Process accounting logs may still capture commands

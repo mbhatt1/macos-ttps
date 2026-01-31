@@ -1,0 +1,82 @@
+id: 5a1c7b6e-4d6f-7h9i-0j1k-2l3m4n5o6p7q
+api_version: 2.0
+metadata:
+  name: Collect Keyboard Input Monitoring
+  description: Collect keyboard input logs and keystroke monitoring artifacts
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - keyboard
+    - keystroke
+    - input-monitoring
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for keyboard input logs
+    type: string
+    default: "/tmp/keyboard_logs"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Check accessibility permissions database
+    command: |
+      sqlite3 /Library/Application\ Support/com.apple.sharedfilelist/com.apple.LSSharedFileList.ApplicationRecentDocuments.sfl2 \
+        "SELECT * FROM item LIMIT 20" 2>/dev/null > {{ output_path }}/recent_apps.txt || echo "No accessibility DB access"
+
+  - name: Collect keystroke monitoring apps
+    command: |
+      find /Applications -name "*keystroke*" -o -name "*logger*" -o -name "*monitor*" 2>/dev/null > {{ output_path }}/monitoring_apps.txt || true
+
+  - name: Extract accessibility logs
+    command: |
+      if [ -f "~/Library/Preferences/com.apple.accessibility.plist" ]; then
+        cp "~/Library/Preferences/com.apple.accessibility.plist" "{{ output_path }}/accessibility.plist" 2>/dev/null || true
+      fi
+
+  - name: Check Universal Clipboard/Handoff
+    command: |
+      defaults read ~/Library/Preferences/com.apple.universalclipboard 2>/dev/null > {{ output_path }}/clipboard_prefs.txt || true
+
+  - name: Collect input history
+    command: |
+      find ~/Library -name "*input*" -type f 2>/dev/null | head -20 > {{ output_path }}/input_files.txt || true
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Output directory created"
+    expected_output: "Output directory created"
+
+  - name: Check monitoring apps file
+    command: test -f {{ output_path }}/monitoring_apps.txt && echo "Monitoring apps collected"
+
+  - name: Validate collection
+    command: |
+      count=$(find {{ output_path }} -type f 2>/dev/null | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "Collected $count files"
+      else
+        echo "Directory prepared (no artifacts found)"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Check for accessibility framework
+        command: test -d /System/Library/Frameworks/Accessibility.framework && echo "Accessibility framework present"
+
+cleanup:
+  - name: Remove keyboard logs
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Keyboard logs cleanup completed"

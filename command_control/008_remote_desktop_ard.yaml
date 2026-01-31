@@ -1,0 +1,89 @@
+api_version: 2.0
+id: 008-remote-desktop-ard
+name: Remote Desktop via ARD (Apple Remote Desktop)
+description: Tests Apple Remote Desktop connectivity for C2 remote access
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: ard_host
+    type: string
+    description: ARD target hostname or IP
+    default: "192.168.1.100"
+  - name: ard_port
+    type: integer
+    description: ARD port
+    default: 5900
+  - name: ard_username
+    type: string
+    description: ARD username
+    default: "admin"
+  - name: ard_password
+    type: string
+    description: ARD password
+    default: ""
+  - name: timeout
+    type: integer
+    description: Connection timeout
+    default: 5
+
+steps:
+  - name: check_ard_service
+    description: Check if ARD service is running/accessible
+    command: |
+      timeout {{ timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ ard_host }}/{{ ard_port }}" && echo "ARD port {{ ard_port }} is open" || echo "ARD port {{ ard_port }} is closed"
+    type: command
+  
+  - name: scan_ard_ports
+    description: Scan common ARD ports
+    command: |
+      echo "Scanning ARD ports on {{ ard_host }}..."
+      for port in 3283 5900 5901; do
+        timeout {{ timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ ard_host }}/$port" && echo "Port $port: OPEN" || echo "Port $port: CLOSED"
+      done
+    type: command
+  
+  - name: list_ard_agents
+    description: List available ARD agents on local network
+    command: |
+      if command -v dns-sd &> /dev/null; then
+        timeout 5 dns-sd -B _ard._tcp local 2>/dev/null | head -10 || echo "No ARD services found"
+      else
+        echo "dns-sd not available"
+      fi
+    type: command
+  
+  - name: test_ard_connection
+    description: Test ARD connection capability
+    command: |
+      echo "Testing ARD connection to {{ ard_host }}:{{ ard_port }}"
+      echo "Would use: /System/Library/CoreServices/Remote\ Desktop\ Connection.app or similar"
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_ard_accessible
+    description: Verify ARD is accessible
+    condition: |
+      ARD ports should be reachable or ARD service discoverable
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: close_ard_sessions
+    description: Close any ARD connection attempts
+    command: |
+      pkill -f "Remote Desktop" 2>/dev/null || true
+      pkill -f "ard" 2>/dev/null || true
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: high
+  category: remote_access

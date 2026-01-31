@@ -1,0 +1,65 @@
+id: 001-disable-gatekeeper
+name: Disable Gatekeeper
+description: Disable Apple's Gatekeeper security feature to allow unsigned applications to run
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - bypass_application_whitelisting
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  status:
+    description: Check current Gatekeeper status
+    type: bool
+    default: true
+  disable:
+    description: Disable Gatekeeper
+    type: bool
+    default: false
+
+steps:
+  check_status:
+    inline: spctl --status
+    description: Check current Gatekeeper status
+
+  disable_gatekeeper:
+    inline: spctl --master-disable
+    description: Disable Gatekeeper entirely
+    condition: "{{ args.disable }}"
+
+  re_enable_gatekeeper:
+    inline: spctl --master-enable
+    description: Re-enable Gatekeeper
+    condition: "{{ args.disable }}"
+
+checks:
+  verify_disabled:
+    inline: spctl --status | grep -q "disabled"
+    expected_exit_code: 0
+    description: Verify Gatekeeper is disabled
+
+tests:
+  default:
+    steps:
+      - check_status
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_status
+    expected_exit_code: 0
+
+cleanup:
+  restore_gatekeeper:
+    inline: spctl --master-enable
+    description: Re-enable Gatekeeper to default state

@@ -1,0 +1,73 @@
+api_version: 2.0
+metadata:
+  id: 008-dylib-hijacking-dyld-insert
+  name: Dylib Hijacking via DYLD_INSERT_LIBRARIES
+  description: Exploit dylib hijacking through DYLD_INSERT_LIBRARIES environment variable
+  category: privilege_escalation
+  sub_category: exploitation
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440008
+  created: 2026-01-30
+  updated: 2026-01-30
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Check if DYLD_INSERT_LIBRARIES is restricted
+    type: command
+    description: Verify if environment variable injection is possible
+    inline: |
+      DYLD_INSERT_LIBRARIES=/tmp/test.dylib /bin/bash -c 'echo DYLD test' 2>&1 || echo "DYLD_INSERT_LIBRARIES may be restricted"
+
+  - name: Find SUID binaries vulnerable to dylib hijacking
+    type: command
+    description: Identify SUID binaries that might be vulnerable
+    inline: |
+      find / -perm -4000 -type f -executable 2>/dev/null | head -10
+
+  - name: Check for missing dylib dependencies
+    type: command
+    description: Use otool to identify library dependencies
+    inline: |
+      /usr/bin/sudo -n -l 2>&1 | grep -q NOPASSWD && otool -L /usr/bin/sudo 2>/dev/null | head -10 || echo "Run with appropriate access"
+
+  - name: Identify writable library search paths
+    type: command
+    description: Find writable directories in dylib search path
+    inline: |
+      find /usr/local/lib /opt /usr/lib -type d -writable 2>/dev/null
+
+  - name: Check DYLD environment restrictions
+    type: command
+    description: Test system restrictions on DYLD variables
+    inline: |
+      /usr/bin/id
+      printenv | grep DYLD || echo "No DYLD variables in environment"
+
+checks:
+  - name: Verify current user ID
+    type: command
+    inline: id
+
+  - name: Check SIP status
+    type: command
+    inline: |
+      csrutil status 2>/dev/null || echo "Cannot determine SIP status"
+
+tests:
+  - name: Test dylib hijacking detection
+    type: dry_run
+    description: Safely detect dylib hijacking opportunities without exploitation
+    steps:
+      - step: 1
+      - step: 2
+      - step: 5
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: No dylib files were created
+    inline: echo "Dylib hijacking enumeration complete"

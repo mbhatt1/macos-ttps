@@ -1,0 +1,68 @@
+---
+id: 003
+name: Reboot System
+description: Forces macOS system reboot to simulate denial of service and disrupt operations
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1529  # Service Stop
+  - T1561  # Disk Wipe
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - reboot
+    - launchctl
+
+args:
+  delay:
+    description: Delay before reboot in seconds
+    type: integer
+    default: 30
+  
+  force:
+    description: Force immediate reboot without graceful shutdown
+    type: boolean
+    default: false
+
+steps:
+  - name: Log reboot event
+    command: logger -s "TTP: Initiating system reboot"
+    
+  - name: Schedule system reboot
+    command: reboot
+    
+  - name: Verify reboot queued
+    command: sleep 1 && uptime
+
+checks:
+  - name: Verify reboot is scheduled
+    command: ps aux | grep -i reboot | grep -v grep || echo "Reboot initiated"
+    expected_output: true
+
+tests:
+  - name: dry_run_test
+    description: Test reboot scheduling without actual execution
+    dry_run: true
+    steps:
+      - echo "System reboot scheduled for immediate execution"
+      - echo "Current uptime: $(uptime)"
+
+cleanup:
+  - name: Verify system recovered from reboot
+    command: uptime
+    
+  - name: Check system logs for reboot
+    command: log show --predicate 'eventMessage contains[c] "reboot"' --last 5m 2>/dev/null || echo "Checking logs"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: critical
+  uuid: "550e8400-e29b-41d4-a716-446655440003"

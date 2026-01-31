@@ -1,0 +1,79 @@
+id: 025
+name: Check System Configuration Profiles
+api_version: 2.0
+description: Extract and enumerate Mobile Device Management (MDM) and configuration profiles deployed on the system
+author: TTPForge
+created: "2026-01-30"
+uuid: "jaml2l7n1-dkgm-90nk-ibno4-mc2l70o3l2m1"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: list_configuration_profiles
+    name: List installed configuration profiles
+    type: command
+    command: |
+      profiles list 2>/dev/null || profiles show 2>/dev/null || echo "No profiles installed"
+
+  - id: check_mdm_enrollment
+    name: Check for MDM enrollment
+    type: command
+    command: |
+      profiles show -all 2>/dev/null | grep -i "mdm\|device management" | head -10
+
+  - id: enumerate_profile_payloads
+    name: Enumerate configuration profile payloads
+    type: command
+    command: |
+      find /Library/Managed\ Preferences -name "*.plist" 2>/dev/null | head -15
+
+  - id: check_system_preferences_locked
+    name: Check for restricted system preferences
+    type: command
+    command: |
+      defaults read /Library/Managed\ Preferences/.GlobalPreferences 2>/dev/null | grep -i "disabled\|restricted\|lock" | head -10
+
+  - id: check_app_restrictions
+    name: Check application installation restrictions
+    type: command
+    command: |
+      defaults read /Library/Managed\ Preferences/com.apple.LaunchServices 2>/dev/null || echo "No app restrictions found"
+
+  - id: enumerate_mdm_certificates
+    name: Enumerate MDM related certificates
+    type: command
+    command: |
+      security find-certificate -a /Library/Keychains/System.keychain 2>/dev/null | grep -i "mdm\|device\|management" | head -10
+
+checks:
+  - id: validate_profiles_list
+    name: Validate configuration profiles listing
+    type: regex
+    target: list_configuration_profiles
+    pattern: "profile|Profile"
+    required: false
+
+  - id: validate_mdm_status
+    name: Validate MDM enrollment status
+    type: regex
+    target: check_mdm_enrollment
+    pattern: "mdm|MDM|enrollment"
+    required: false
+
+tests:
+  - id: dry_run_profiles_check
+    name: Dry run configuration profiles enumeration
+    type: dry_run
+    steps:
+      - list_configuration_profiles
+      - check_mdm_enrollment
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1526"
+  category: configuration_discovery
+  severity: high

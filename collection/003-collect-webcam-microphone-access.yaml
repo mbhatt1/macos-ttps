@@ -1,0 +1,91 @@
+id: 6b2d8f7e-3c5e-6g8h-9i0j-1k2l3m4n5o6p
+api_version: 2.0
+metadata:
+  name: Collect Webcam and Microphone Access Logs
+  description: Collect logs of webcam and microphone access attempts from macOS system
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - webcam
+    - microphone
+    - access-logs
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for access logs
+    type: string
+    default: "/tmp/camera_mic_access"
+  
+  days_back:
+    description: Number of days to look back in logs
+    type: integer
+    default: 7
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Collect camera/mic entitlements
+    command: |
+      find /Applications -name "*.app" -exec codesign -d --entitlements :- {} \; 2>/dev/null | grep -i "camera\|microphone\|AVCapture" > {{ output_path }}/entitlements.txt 2>/dev/null || true
+
+  - name: Extract Camera app data
+    command: |
+      if [ -d "~/Library/Application Support/FaceTime" ]; then
+        cp -r "~/Library/Application Support/FaceTime" "{{ output_path }}/facetime_data" 2>/dev/null || true
+      fi
+
+  - name: Collect Zoom camera access logs
+    command: |
+      if [ -d "~/Library/Logs/zoom.us" ]; then
+        cp -r "~/Library/Logs/zoom.us" "{{ output_path }}/zoom_logs" 2>/dev/null || true
+      fi
+
+  - name: Check system privacy database
+    command: |
+      sqlite3 ~/Library/Application\ Support/CrashReporter/DiagnosticMessagesHistory.db \
+        "SELECT * FROM DiagnosticMessagesMetaData LIMIT 10" 2>/dev/null > {{ output_path }}/diagnostic_metadata.txt || true
+
+  - name: Collect privacy preferences
+    command: |
+      if [ -f "~/Library/Preferences/com.apple.privacy.plist" ]; then
+        cp "~/Library/Preferences/com.apple.privacy.plist" "{{ output_path }}/privacy.plist" 2>/dev/null || true
+      fi
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Output directory verified"
+    expected_output: "Output directory verified"
+
+  - name: Check for collected logs
+    command: |
+      count=$(find {{ output_path }} -type f 2>/dev/null | wc -l)
+      echo "Collected $count files"
+
+  - name: Validate collected data
+    command: |
+      if [ -f {{ output_path }}/diagnostic_metadata.txt ]; then
+        lines=$(wc -l < {{ output_path }}/diagnostic_metadata.txt)
+        echo "Diagnostic data: $lines lines"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify sqlite3 availability
+        command: which sqlite3 && echo "sqlite3 available"
+
+cleanup:
+  - name: Remove access logs
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Access logs cleanup completed"

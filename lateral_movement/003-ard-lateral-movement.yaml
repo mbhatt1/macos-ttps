@@ -1,0 +1,57 @@
+api_version: "2.0"
+id: "003"
+name: "Apple Remote Desktop (ARD) Lateral Movement"
+description: "Utilize ARD protocol for lateral movement to macOS systems"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "c3d4e5f6-a7b8-59ac-c2d3-e4f5a6b7c8d9"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  target_host:
+    description: "Target macOS host IP address or hostname"
+    type: "string"
+    required: true
+    default: "192.168.1.102"
+  ard_port:
+    description: "ARD listening port"
+    type: "integer"
+    required: false
+    default: 5900
+  ard_username:
+    description: "ARD username for authentication"
+    type: "string"
+    required: false
+    default: "admin"
+  ard_password:
+    description: "ARD password for authentication"
+    type: "string"
+    required: false
+    default: "changeme"
+
+steps:
+  - name: "Enumerate ARD service"
+    executor: "sh"
+    command: "nc -w 2 {{ target_host }} {{ ard_port }} < /dev/null && echo 'ARD port accessible' || echo 'ARD port not accessible'"
+
+checks:
+  - name: "Verify ARD daemon is running"
+    executor: "sh"
+    command: "echo '[CHECK] Scanning for ARD service on {{ target_host }}' && timeout 5 bash -c 'exec 3<>/dev/tcp/{{ target_host }}/{{ ard_port }}; echo \"\" >&3; cat <&3' 2>/dev/null | head -1"
+
+tests:
+  - name: "Dry run ARD connection"
+    executor: "sh"
+    command: "echo '[DRY RUN] ARD connection attempt to {{ target_host }}:{{ ard_port }} as {{ ard_username }}' && echo '[DRY RUN] ARD authentication would be performed' && echo '[DRY RUN] Remote screen sharing would be initiated'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "remote-access-tools"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+    - "https://support.apple.com/en-us/HT201710"
+  severity: "high"

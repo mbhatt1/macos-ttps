@@ -1,0 +1,66 @@
+---
+id: 002
+name: Shutdown System
+description: Gracefully shuts down the macOS system to simulate denial of service
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1529  # Service Stop
+  - T1561  # Disk Wipe
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - shutdown
+
+args:
+  delay:
+    description: Delay before shutdown in seconds
+    type: integer
+    default: 60
+  
+  message:
+    description: Message to display before shutdown
+    type: string
+    default: "System will shutdown"
+
+steps:
+  - name: Log shutdown event
+    command: logger -s "TTP: Initiating system shutdown"
+    
+  - name: Schedule system shutdown
+    command: shutdown -h +{{ delay_minutes }}
+    
+  - name: Verify shutdown is scheduled
+    command: sleep 2 && ps aux | grep -i shutdown | grep -v grep
+
+checks:
+  - name: Verify shutdown process scheduled
+    command: ps aux | grep -i shutdown | grep -v grep
+    expected_output: true
+
+tests:
+  - name: dry_run_test
+    description: Test shutdown without actual execution
+    dry_run: true
+    steps:
+      - echo "System shutdown scheduled for $(date)"
+
+cleanup:
+  - name: Cancel scheduled shutdown
+    command: shutdown -c
+    
+  - name: Verify cancellation
+    command: ps aux | grep -i shutdown | grep -v grep || echo "Shutdown cancelled"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: critical
+  uuid: "550e8400-e29b-41d4-a716-446655440002"

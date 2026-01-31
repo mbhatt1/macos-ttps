@@ -1,0 +1,53 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000010
+name: Browser Cache Access
+description: Access and extract data from browser cache files
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.003
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: output_dir
+    description: Directory to store extracted cache
+    default: "/tmp/browser_cache"
+  - name: browser
+    description: Browser to target (safari, chrome, firefox)
+    default: "safari"
+steps:
+  - name: Create Output Directory
+    type: command
+    command: "mkdir -p {{ output_dir }}"
+    
+  - name: Extract Safari Cache
+    type: command
+    command: "cp -r ~/Library/Safari/LocalStorage {{ output_dir }}/safari_storage 2>/dev/null || true"
+    
+  - name: Extract Chrome Cache
+    type: command
+    command: "cp -r ~/Library/Application\\ Support/Google/Chrome/Default/Cache {{ output_dir }}/chrome_cache 2>/dev/null || true"
+    
+  - name: List Cache Files
+    type: command
+    command: "find {{ output_dir }} -type f 2>/dev/null | head -20"
+
+checks:
+  - type: file_exists
+    value: "{{ output_dir }}"
+    description: Verify cache output directory created
+
+tests:
+  - name: Verify Cache Locations
+    description: Verify browser cache locations exist
+    test_type: default
+    steps:
+      - "test -d ~/Library/Safari/LocalStorage && echo 'Safari cache exists'"
+
+cleanup:
+  - type: command
+    command: "rm -rf {{ output_dir }}"
+    description: Remove extracted browser cache

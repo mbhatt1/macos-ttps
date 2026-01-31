@@ -1,0 +1,60 @@
+id: 003-disable-filevault
+name: Disable FileVault
+description: Disable FileVault full disk encryption on macOS
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - disable_or_modify_security_tools
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  status:
+    description: Check FileVault status
+    type: bool
+    default: true
+  disable:
+    description: Disable FileVault
+    type: bool
+    default: false
+
+steps:
+  check_filevault_status:
+    inline: fdesetup status
+    description: Check FileVault encryption status
+
+  disable_filevault:
+    inline: fdesetup disable -verbose
+    description: Disable FileVault encryption
+    condition: "{{ args.disable }}"
+
+checks:
+  verify_disabled:
+    inline: fdesetup status | grep -q "FileVault is Off"
+    expected_exit_code: 0
+    description: Verify FileVault is disabled
+
+tests:
+  default:
+    steps:
+      - check_filevault_status
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_filevault_status
+    expected_exit_code: 0
+
+cleanup:
+  status_check:
+    inline: fdesetup status
+    description: Display final FileVault status

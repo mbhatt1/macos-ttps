@@ -1,0 +1,49 @@
+api_version: 2.0
+id: d4e5f6a7-b8c9-4acb-d2e3-f4a5b6c7d8e9
+name: Enumerate macOS Users and Accounts
+authors:
+  - security_team
+description: Identify all local user accounts, their UIDs, home directories, and shell assignments on the system
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: List All Users
+    executor:
+      name: sh
+      command: dscl . list /Users
+      timeout: 10
+  - name: Get User Information
+    executor:
+      name: sh
+      command: dscl . readall /Users UserID RealName
+      timeout: 10
+  - name: List Users with UID
+    executor:
+      name: sh
+      command: dscl . list /Users UniqueID
+      timeout: 10
+  - name: Get User Shells
+    executor:
+      name: sh
+      command: dscl . list /Users UserShell
+      timeout: 10
+  - name: Get User Home Directories
+    executor:
+      name: sh
+      command: dscl . list /Users NFSHomeDirectory
+      timeout: 10
+checks:
+  - name: User Count
+    executor:
+      name: sh
+      command: dscl . list /Users | wc -l
+      timeout: 5
+  - name: Current User Check
+    executor:
+      name: sh
+      command: whoami
+      timeout: 5

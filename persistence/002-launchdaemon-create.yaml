@@ -1,0 +1,79 @@
+api_version: 2.0
+uuid: 12345678-2222-2222-2222-222222222222
+name: Create LaunchDaemon plist
+description: Creates a LaunchDaemon plist file in /Library/LaunchDaemons for elevated persistence
+mitre_attack_id: T1547.011
+mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  daemon_name:
+    description: Name of the LaunchDaemon (without .plist extension)
+    type: string
+    default: com.apple.system.logger
+  script_path:
+    description: Path to the script to execute
+    type: string
+    default: /usr/local/bin/daemon_script.sh
+  run_at_load:
+    description: Run the daemon when loaded
+    type: bool
+    default: true
+  start_interval:
+    description: Interval in seconds to run the script
+    type: int
+    default: 3600
+steps:
+  - name: create_daemon_script
+    type: create_file
+    path: "{{ script_path }}"
+    contents: |
+      #!/bin/bash
+      echo "LaunchDaemon persistence activated at $(date)" >> /var/log/daemon.log
+      # Add system-level malicious payload here
+    permissions: "0755"
+  
+  - name: create_launchdaemon_plist
+    type: create_file
+    path: "/Library/LaunchDaemons/{{ daemon_name }}.plist"
+    contents: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>{{ daemon_name }}</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>{{ script_path }}</string>
+          </array>
+          <key>RunAtLoad</key>
+          <{{ run_at_load|lower }}/>>
+          <key>StartInterval</key>
+          <integer>{{ start_interval }}</integer>
+          <key>StandardOutPath</key>
+          <string>/var/log/daemon_stdout.log</string>
+          <key>StandardErrorPath</key>
+          <string>/var/log/daemon_stderr.log</string>
+      </dict>
+      </plist>
+    permissions: "0644"
+
+checks:
+  - type: file_exists
+    path: "/Library/LaunchDaemons/{{ daemon_name }}.plist"
+  - type: file_contains
+    path: "/Library/LaunchDaemons/{{ daemon_name }}.plist"
+    value: "{{ daemon_name }}"
+
+cleanup:
+  - type: remove_file
+    path: "/Library/LaunchDaemons/{{ daemon_name }}.plist"
+  - type: remove_file
+    path: "{{ script_path }}"
+  - type: remove_file
+    path: "/var/log/daemon.log"

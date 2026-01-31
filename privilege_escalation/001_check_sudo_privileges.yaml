@@ -1,0 +1,59 @@
+api_version: 2.0
+metadata:
+  id: 001-check-sudo-privileges
+  name: Check Sudo Privileges
+  description: Enumerate sudo privileges available to current user using sudo -l
+  category: privilege_escalation
+  sub_category: enumeration
+  author: TTPForge
+  uuid: 550e8400-e29b-41d4-a716-446655440001
+  created: 2026-01-30
+  updated: 2026-01-30
+  
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+steps:
+  - name: Check sudo privileges without password
+    type: command
+    description: List all commands available to current user via sudo
+    inline: |
+      sudo -l 2>&1
+
+  - name: Check sudo privileges for specific user
+    type: command
+    description: Enumerate commands without password requirement
+    inline: |
+      sudo -l -U $(whoami) 2>&1 | grep -E "NOPASSWD|password"
+
+  - name: Identify passwordless commands
+    type: command
+    description: Filter for commands executable without sudo password
+    inline: |
+      sudo -l 2>&1 | grep "NOPASSWD"
+
+checks:
+  - name: Verify current user
+    type: command
+    inline: id
+
+  - name: Check sudo group membership
+    type: command
+    inline: groups $(whoami) | grep -q sudo && echo "User in sudo group" || echo "User not in sudo group"
+
+tests:
+  - name: Check sudo privileges
+    type: default
+    description: Safe enumeration of sudo configuration
+    steps:
+      - step: 1
+      - step: 2
+      - step: 3
+
+cleanup:
+  - name: No cleanup required
+    type: command
+    description: This is a read-only enumeration
+    inline: echo "Enumeration complete - no system changes made"

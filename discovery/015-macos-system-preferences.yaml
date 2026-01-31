@@ -1,0 +1,59 @@
+api_version: 2.0
+id: feee0f15-6614-53bh-edfe-f5a6c0ccf1f1
+name: Enumerate macOS System Preferences and Configuration
+authors:
+  - security_team
+description: Retrieve system preferences, security settings, firewall configuration, and system defaults to assess security posture
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get Firewall Status
+    executor:
+      name: sh
+      command: defaults read /Library/Preferences/com.apple.alf globalstate 2>/dev/null || echo "Firewall status unavailable"
+      timeout: 5
+  - name: Get Screen Lock Status
+    executor:
+      name: sh
+      command: defaults read com.apple.screensaver askForPassword 2>/dev/null || echo "Screen lock status unavailable"
+      timeout: 5
+  - name: Get System Hostname
+    executor:
+      name: sh
+      command: scutil --get ComputerName && scutil --get HostName && scutil --get LocalHostName
+      timeout: 5
+  - name: Get Time Zone
+    executor:
+      name: sh
+      command: systemsetup -gettimezone
+      timeout: 5
+  - name: Get Software Update Info
+    executor:
+      name: sh
+      command: softwareupdate -l 2>/dev/null | head -10 || echo "Update info unavailable"
+      timeout: 10
+  - name: Get System Language
+    executor:
+      name: sh
+      command: defaults read NSGlobalDomain AppleLanguages 2>/dev/null || echo "Language info unavailable"
+      timeout: 5
+  - name: Get Bluetooth Status
+    executor:
+      name: sh
+      command: defaults read /Library/Preferences/com.apple.Bluetooth 2>/dev/null | grep -i "Enabled" || echo "Bluetooth info unavailable"
+      timeout: 5
+checks:
+  - name: System Name Exists
+    executor:
+      name: sh
+      command: scutil --get ComputerName | wc -c
+      timeout: 5
+  - name: System Running
+    executor:
+      name: sh
+      command: sysctl -n kern.ostype
+      timeout: 5

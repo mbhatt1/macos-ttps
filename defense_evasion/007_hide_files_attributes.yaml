@@ -1,0 +1,72 @@
+id: 007-hide-files-attributes
+name: Hide Files with File Attributes
+description: Hide files by setting extended file attributes to make them invisible
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - hide_artifacts
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  file_path:
+    description: Full path to file or directory to hide
+    type: string
+    required: true
+  attribute_name:
+    description: Extended attribute name
+    type: string
+    default: com.apple.finder.hidden
+  attribute_value:
+    description: Attribute value
+    type: string
+    default: "1"
+
+steps:
+  validate_path:
+    inline: test -e "{{ args.file_path }}"
+    description: Verify file/directory exists
+    expected_exit_code: 0
+
+  set_hidden_attribute:
+    inline: xattr -w "{{ args.attribute_name }}" "{{ args.attribute_value }}" "{{ args.file_path }}"
+    description: Set extended attribute to hide file
+
+  list_attributes:
+    inline: xattr -l "{{ args.file_path }}"
+    description: List all extended attributes on file
+
+checks:
+  verify_attribute_set:
+    inline: xattr -p "{{ args.attribute_name }}" "{{ args.file_path }}" | grep -q "{{ args.attribute_value }}"
+    expected_exit_code: 0
+    description: Verify hidden attribute is set
+
+tests:
+  default:
+    args:
+      file_path: /tmp/test_attribute_file
+    steps:
+      - validate_path
+    expected_exit_code: 1
+
+  dry_run:
+    args:
+      file_path: /tmp/test_attribute_file
+    steps:
+      - validate_path
+    expected_exit_code: 1
+
+cleanup:
+  remove_attribute:
+    inline: xattr -d "{{ args.attribute_name }}" "{{ args.file_path }}"
+    description: Remove hidden attribute during cleanup

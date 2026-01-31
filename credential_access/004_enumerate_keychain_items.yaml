@@ -1,0 +1,46 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000004
+name: Enumerate Keychain Items
+description: Enumerate all items stored in macOS keychain databases
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: keychain_db
+    description: Keychain database to enumerate
+    default: "login.keychain-db"
+steps:
+  - name: List All Keychains
+    type: command
+    command: "security list-keychains"
+    
+  - name: Enumerate Generic Passwords
+    type: command
+    command: "security dump-keychain -d {{ keychain_db }} 2>/dev/null | grep -E 'class|labl|acct' | head -50"
+    
+  - name: Count Keychain Items
+    type: command
+    command: "security dump-keychain -d {{ keychain_db }} 2>/dev/null | grep -c 'class'"
+
+checks:
+  - type: stdout_contains
+    value: "class"
+    description: Verify output contains keychain item classes
+
+tests:
+  - name: List Keychains
+    description: List all available keychains
+    test_type: default
+    steps:
+      - "security list-keychains"
+
+cleanup:
+  - type: command
+    command: "true"
+    description: No cleanup required for read-only operation

@@ -1,0 +1,93 @@
+id: 9e5c0f2a-0j2k-4l5m-6n7o-8p9q0r1s2t3u
+api_version: 2.0
+metadata:
+  name: Collect DNS Query Logs
+  description: Collect DNS query logs and DNS cache information from macOS system
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - dns
+    - network-logs
+    - reconnaissance
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for DNS logs
+    type: string
+    default: "/tmp/dns_logs"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Dump DNS cache
+    command: |
+      dscacheutil -cachedump -entries host > {{ output_path }}/dns_cache_dump.txt 2>/dev/null || echo "No DNS cache data"
+
+  - name: Extract system DNS queries
+    command: |
+      dscacheutil -statistics > {{ output_path }}/dns_stats.txt 2>/dev/null || true
+
+  - name: Collect mDNSResponder logs
+    command: |
+      if [ -f "/var/log/system.log" ]; then
+        grep -i "dns\|mDNS" /var/log/system.log > {{ output_path }}/mdns_system_log.txt 2>/dev/null || true
+      fi
+
+  - name: Extract resolver configuration
+    command: |
+      cat /etc/resolv.conf > {{ output_path }}/resolv_conf.txt 2>/dev/null || true
+      if [ -d "/etc/resolver" ]; then
+        cp -r /etc/resolver {{ output_path }}/ 2>/dev/null || true
+      fi
+
+  - name: Collect network interface DNS settings
+    command: |
+      networksetup -getdnsservers Wi-Fi > {{ output_path }}/wifi_dns.txt 2>/dev/null || true
+      networksetup -getdnsservers Ethernet >> {{ output_path }}/ethernet_dns.txt 2>/dev/null || true
+
+  - name: Extract DNS lookup history
+    command: |
+      log show --predicate 'process == "mDNSResponder"' --last 24h > {{ output_path }}/mdns_last24h.txt 2>/dev/null || true
+
+  - name: Collect DNS-related preferences
+    command: |
+      defaults read /Library/Preferences/SystemConfiguration/com.apple.dnssd.plist > {{ output_path }}/dnssd_prefs.txt 2>/dev/null || true
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "DNS logs output directory created"
+    expected_output: "DNS logs output directory created"
+
+  - name: Check DNS cache dump
+    command: |
+      if [ -f {{ output_path }}/dns_cache_dump.txt ]; then
+        lines=$(wc -l < {{ output_path }}/dns_cache_dump.txt)
+        echo "DNS cache entries: $lines"
+      fi
+
+  - name: Validate collected data
+    command: |
+      count=$(find {{ output_path }} -type f -size +0 2>/dev/null | wc -l)
+      echo "Non-empty log files: $count"
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify dscacheutil availability
+        command: which dscacheutil && echo "DNS tools available"
+
+cleanup:
+  - name: Remove DNS logs
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "DNS logs cleanup completed"

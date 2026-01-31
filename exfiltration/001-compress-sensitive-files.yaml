@@ -1,0 +1,97 @@
+id: 001-compress-sensitive-files
+name: Compress Sensitive Files
+description: Stages sensitive files by compressing them into a tar archive for easier exfiltration
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  source_path:
+    description: Path to files or directory to compress
+    type: string
+    default: "~/Documents"
+  output_archive:
+    description: Output tar.gz archive path
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  exclude_patterns:
+    description: Patterns to exclude from compression
+    type: string
+    default: "*.tmp|*.cache"
+steps:
+  - name: Create staging directory
+    type: command
+    executor: bash
+    command: mkdir -p "$(dirname '{{ args.output_archive }}')"
+  
+  - name: Compress files to archive
+    type: command
+    executor: bash
+    command: |
+      tar czf '{{ args.output_archive }}' \
+        --exclude='{{ args.exclude_patterns }}' \
+        '{{ args.source_path }}'
+    cleanup: false
+  
+  - name: Verify archive created
+    type: command
+    executor: bash
+    command: |
+      if [ -f '{{ args.output_archive }}' ]; then
+        ls -lh '{{ args.output_archive }}'
+        echo "Archive size: $(du -h '{{ args.output_archive }}' | cut -f1)"
+      else
+        echo "ERROR: Archive creation failed"
+        exit 1
+      fi
+    cleanup: false
+checks:
+  - name: Archive exists and is readable
+    description: Verify compressed archive was created successfully
+    type: command
+    command: test -f '{{ args.output_archive }}' && file '{{ args.output_archive }}'
+  
+  - name: Archive contains data
+    description: Verify archive is not empty
+    type: command
+    command: test -s '{{ args.output_archive }}'
+tests:
+  default:
+    - name: Compress sample documents
+      description: Test compression of sample files
+      type: basic
+      steps:
+        - name: Create test files
+          type: command
+          executor: bash
+          command: |
+            mkdir -p /tmp/test_docs
+            echo "Sensitive Document 1" > /tmp/test_docs/doc1.txt
+            echo "Sensitive Document 2" > /tmp/test_docs/doc2.txt
+        
+        - name: Run compression
+          type: command
+          executor: bash
+          command: tar czf /tmp/test_archive.tar.gz /tmp/test_docs
+        
+        - name: Verify compression
+          type: command
+          executor: bash
+          command: |
+            tar tzf /tmp/test_archive.tar.gz | head -5
+cleanup:
+  - name: Remove test archive
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_archive.tar.gz /tmp/test_docs/doc*.txt
+    ignore_errors: true
+  
+  - name: Remove test directory
+    type: command
+    executor: bash
+    command: rmdir /tmp/test_docs 2>/dev/null || true
+    ignore_errors: true

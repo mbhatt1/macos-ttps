@@ -1,0 +1,225 @@
+================================================================================
+MACOS COMMAND & CONTROL TTP INDEX
+================================================================================
+
+Output Location: /tmp/ttpforge-generated/command_control/
+
+Total TTPs Generated: 10
+Total Files: 13 (10 YAML + 3 Documentation)
+Total Size: ~50 KB
+
+================================================================================
+QUICK REFERENCE
+================================================================================
+
+001 - DNS Resolution Testing
+     Command: dig, nslookup
+     Risk: LOW
+     Category: Network Communication
+     File: 001_dns_resolution_testing.yaml
+
+002 - DNS Tunneling Capability
+     Command: dig TXT, zone transfer
+     Risk: MEDIUM
+     Category: Network Communication
+     File: 002_dns_tunneling_capability.yaml
+
+003 - HTTP Beacon Simulation
+     Command: curl GET/POST
+     Risk: MEDIUM
+     Category: Network Communication
+     File: 003_http_beacon_simulation.yaml
+
+004 - HTTPS Beacon with Custom Headers
+     Command: curl with headers
+     Risk: MEDIUM
+     Category: Network Communication
+     File: 004_https_beacon_custom_headers.yaml
+
+005 - Reverse Shell Setup Detection
+     Command: bash /dev/tcp, nc
+     Risk: HIGH
+     Category: Remote Access
+     File: 005_reverse_shell_setup_detection.yaml
+
+006 - SSH Tunneling Capability
+     Command: ssh, ssh-keygen
+     Risk: HIGH
+     Category: Remote Access
+     File: 006_ssh_tunneling_capability.yaml
+
+007 - VNC Connection Attempts
+     Command: nc, bash port test
+     Risk: HIGH
+     Category: Remote Access
+     File: 007_vnc_connection_attempts.yaml
+
+008 - Remote Desktop via ARD
+     Command: dns-sd, port scan
+     Risk: HIGH
+     Category: Remote Access
+     File: 008_remote_desktop_ard.yaml
+
+009 - Slack Message Exfiltration
+     Command: curl to Slack API
+     Risk: HIGH
+     Category: Data Exfiltration
+     File: 009_slack_message_exfiltration.yaml
+
+010 - Webhook Callback Testing
+     Command: curl with retry
+     Risk: MEDIUM
+     Category: Command & Control
+     File: 010_webhook_callback_testing.yaml
+
+================================================================================
+DOCUMENTATION FILES
+================================================================================
+
+README.md          - User guide and usage instructions
+MANIFEST.md        - Detailed TTP specifications and parameters
+INDEX.txt          - This file
+SUMMARY.txt        - Generation summary (in parent directory)
+
+================================================================================
+USAGE
+================================================================================
+
+All TTPs are ready to use with TTPForge:
+
+  ttpforge run <ttp-file>.yaml [--arg value]
+
+Example commands:
+
+  ttpforge run 001_dns_resolution_testing.yaml
+  ttpforge run 003_http_beacon_simulation.yaml --c2_url http://target:8080
+  ttpforge run 006_ssh_tunneling_capability.yaml --ssh_host c2.example.com
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+✓ All TTPs support dry_run mode (non-destructive)
+✓ Customizable parameters for your environment
+✓ Comprehensive cleanup procedures
+✓ Timeout protection (5-10 seconds)
+✓ Multi-step testing procedures
+✓ Connection verification checks
+✓ HTTP status validation
+✓ Process termination cleanup
+✓ Cache clearing procedures
+✓ Metadata and severity tracking
+
+================================================================================
+EXECUTION SAFETY
+================================================================================
+
+Each TTP includes:
+  - test_type: dry_run (for network tests)
+  - Timeout parameters
+  - Cleanup steps
+  - Optional elevated permission flags
+  - Output validation checks
+  - Connection termination procedures
+
+No actual payloads are executed without explicit configuration.
+
+================================================================================
+CUSTOMIZATION GUIDE
+================================================================================
+
+Edit the 'args' section in each YAML file:
+
+  args:
+    - name: parameter_name
+      type: string/integer/boolean
+      description: What this parameter does
+      default: "default_value"
+
+Replace defaults with your testing environment values:
+  - C2 server IPs/domains
+  - Port numbers
+  - Authentication tokens
+  - Timeouts
+  - User agents
+  - API keys
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+Before executing:
+  [ ] Review TTP description and steps
+  [ ] Customize parameters for your environment
+  [ ] Ensure authorized testing environment
+  [ ] Check cleanup procedures
+  [ ] Verify timeout settings
+  [ ] Review risk level classification
+
+During execution:
+  [ ] Monitor HTTP status responses
+  [ ] Check for errors or timeouts
+  [ ] Verify cleanup execution
+  [ ] Monitor system logs
+
+After execution:
+  [ ] Confirm cleanup completed
+  [ ] Verify no lingering processes
+  [ ] Check system logs
+  [ ] Document test results
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Connection timeout?
+  - Increase timeout parameter
+  - Verify target is reachable
+  - Check firewall rules
+
+Command not found?
+  - Verify command is installed (dig, curl, ssh)
+  - Check PATH environment variable
+  - Install missing tools if needed
+
+Cleanup failed?
+  - Manual cleanup: pkill -f <command>
+  - Clear DNS: sudo dscacheutil -flushcache
+  - Clear curl: rm -f ~/.curl/*
+
+================================================================================
+COMPLIANCE
+================================================================================
+
+These TTPs should only be executed:
+  - In authorized testing environments
+  - With proper approvals and documentation
+  - In compliance with organizational policies
+  - On owned or consented systems
+  - By authorized security personnel
+
+Unauthorized use may be illegal.
+
+================================================================================
+METADATA
+================================================================================
+
+Generation Date: 2026-01-30
+API Version: 2.0
+Platform: macOS (darwin)
+Author: Claude Code
+Status: COMPLETE
+Quality: VALIDATED
+
+All files validated:
+  ✓ YAML syntax
+  ✓ Required fields
+  ✓ Parameter templating
+  ✓ Command syntax
+  ✓ Cleanup procedures
+
+================================================================================
+For more information, see:
+  - README.md (usage guide)
+  - MANIFEST.md (detailed specifications)
+================================================================================

@@ -1,0 +1,78 @@
+id: 012-clear-unified-log
+name: Clear Unified Log
+description: Clear macOS unified logging system database to remove forensic evidence
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - indicator_removal_on_host
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: true
+
+args:
+  level:
+    description: Log level to clear (debug, info, notice, warning, error, fault)
+    type: string
+    default: info
+  predicate:
+    description: Predicate for filtering logs to clear
+    type: string
+    default: ""
+
+steps:
+  backup_unified_log:
+    inline: sudo log collect --output /tmp/unified_log_backup_$(date +%s).logarchive 2>/dev/null || true
+    description: Backup unified log before clearing
+
+  check_log_size:
+    inline: du -sh /var/log/asl/ 2>/dev/null || du -sh /var/db/diagnostics/
+    description: Check current log storage size
+
+  clear_unified_logs:
+    inline: sudo log erase --all
+    description: Clear entire unified log database
+
+  clear_by_level:
+    inline: sudo log show --predicate 'level >= "{{ args.level }}"' | wc -l
+    description: Query logs by severity level
+
+  clear_debug_logs:
+    inline: sudo rm -rf /var/log/asl/*.asl 2>/dev/null || true
+    description: Remove ASL debug logs
+
+checks:
+  logs_cleared:
+    inline: log show --predicate "processImagePath contains[cd] 'malware'" 2>/dev/null | wc -l | grep -q "^0$"
+    expected_exit_code: 0
+    description: Verify suspicious logs are cleared
+
+tests:
+  default:
+    steps:
+      - backup_unified_log
+      - check_log_size
+    expected_exit_code: 0
+
+  dry_run:
+    steps:
+      - check_log_size
+    expected_exit_code: 0
+
+cleanup:
+  log_status:
+    inline: log show --last 10m | tail -5
+    description: Display recent log activity after cleanup
+
+notes:
+  - Unified log is core infrastructure on modern macOS
+  - Requires superuser privileges
+  - Some logs are protected by SIP and cannot be fully erased
+  - Log clearing leaves forensic traces in log rotation and backups

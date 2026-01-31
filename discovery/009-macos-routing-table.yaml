@@ -1,0 +1,49 @@
+api_version: 2.0
+id: c9daebf1-0208-4edb-d7e8-f9a0bbadbcfe
+name: Enumerate macOS Network Routing Table
+authors:
+  - security_team
+description: Retrieve the system routing table to understand network path configuration and gateway setup
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get Routing Table
+    executor:
+      name: sh
+      command: netstat -rn
+      timeout: 10
+  - name: Get IPv4 Routes
+    executor:
+      name: sh
+      command: netstat -rn -f inet
+      timeout: 10
+  - name: Get IPv6 Routes
+    executor:
+      name: sh
+      command: netstat -rn -f inet6
+      timeout: 10
+  - name: Get Default Gateway
+    executor:
+      name: sh
+      command: netstat -rn | grep default
+      timeout: 5
+  - name: Get Route Details
+    executor:
+      name: sh
+      command: route -n show
+      timeout: 10
+checks:
+  - name: Routing Table Non-Empty
+    executor:
+      name: sh
+      command: netstat -rn | wc -l
+      timeout: 5
+  - name: Default Route Present
+    executor:
+      name: sh
+      command: netstat -rn | grep "default" | wc -l
+      timeout: 5

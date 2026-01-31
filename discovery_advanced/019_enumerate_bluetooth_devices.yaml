@@ -1,0 +1,73 @@
+id: 019
+name: Enumerate Bluetooth Devices
+api_version: 2.0
+description: Discover and enumerate all Bluetooth devices paired with or visible to the macOS system
+author: TTPForge
+created: "2026-01-30"
+uuid: "d4g6f1h5-7eag-34he-c5h8-g56f14i7f6g5"
+
+requirements:
+  platforms:
+    - os: darwin
+      min_version: "10.13"
+
+steps:
+  - id: check_bluetooth_paired
+    name: Enumerate paired Bluetooth devices
+    type: command
+    command: |
+      defaults read /Library/Preferences/com.apple.bluetooth.plist | grep -i "device\|address\|name" 2>/dev/null | head -20
+
+  - id: check_bluetooth_stack
+    name: Check Bluetooth daemon status
+    type: command
+    command: |
+      pgrep -l blued 2>/dev/null || pgrep -l bluetoothd 2>/dev/null || echo "Bluetooth daemon not found"
+
+  - id: enumerate_ioreg_bluetooth
+    name: Enumerate Bluetooth devices via IORegistry
+    type: command
+    command: |
+      ioreg -l -p IODeviceTree 2>/dev/null | grep -i "bluetooth" | head -15
+
+  - id: check_system_profiler_bluetooth
+    name: List Bluetooth devices via system_profiler
+    type: command
+    command: |
+      system_profiler SPBluetoothDataType 2>/dev/null
+
+  - id: check_bluetooth_cache
+    name: Check Bluetooth cache and history
+    type: command
+    command: |
+      ls -la ~/Library/Preferences/ByHost/ 2>/dev/null | grep -i bluetooth
+
+checks:
+  - id: validate_bluetooth_list
+    name: Validate Bluetooth device listing
+    type: regex
+    target: check_system_profiler_bluetooth
+    pattern: "Bluetooth|Device"
+    required: false
+
+  - id: validate_ioreg_output
+    name: Validate IORegistry output
+    type: regex
+    target: enumerate_ioreg_bluetooth
+    pattern: "Bluetooth|IORegistry"
+    required: false
+
+tests:
+  - id: dry_run_bluetooth_enum
+    name: Dry run Bluetooth enumeration
+    type: dry_run
+    steps:
+      - check_system_profiler_bluetooth
+      - enumerate_ioreg_bluetooth
+
+metadata:
+  attack_stage: discovery
+  tactic: discovery
+  technique: "T1120"
+  category: peripheral_device_discovery
+  severity: low

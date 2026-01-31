@@ -1,0 +1,103 @@
+id: 002-encrypt-archive-openssl
+name: Encrypt Archive with OpenSSL
+description: Encrypts a data archive using OpenSSL with AES-256-CBC encryption
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  input_archive:
+    description: Path to unencrypted archive
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  output_encrypted:
+    description: Output encrypted file path
+    type: string
+    default: "/tmp/.staging/data.tar.gz.enc"
+  encryption_password:
+    description: Password for encryption
+    type: string
+    default: "SecurePass123!"
+  encryption_cipher:
+    description: OpenSSL cipher algorithm
+    type: string
+    default: "aes-256-cbc"
+steps:
+  - name: Verify input archive exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.input_archive }}' || (echo "Input archive not found"; exit 1)
+    cleanup: false
+  
+  - name: Encrypt archive with OpenSSL
+    type: command
+    executor: bash
+    command: |
+      openssl enc -{{ args.encryption_cipher }} \
+        -in '{{ args.input_archive }}' \
+        -out '{{ args.output_encrypted }}' \
+        -k '{{ args.encryption_password }}' \
+        -S $(openssl rand -hex 4) \
+        -p
+    cleanup: false
+  
+  - name: Verify encrypted file
+    type: command
+    executor: bash
+    command: |
+      if [ -f '{{ args.output_encrypted }}' ]; then
+        ls -lh '{{ args.output_encrypted }}'
+        file '{{ args.output_encrypted }}'
+      else
+        echo "ERROR: Encryption failed"
+        exit 1
+      fi
+    cleanup: false
+checks:
+  - name: Encrypted file exists
+    description: Verify encrypted archive was created
+    type: command
+    command: test -f '{{ args.output_encrypted }}'
+  
+  - name: Encrypted file is valid
+    description: Verify encrypted file can be decrypted
+    type: command
+    command: |
+      openssl enc -d -{{ args.encryption_cipher }} \
+        -in '{{ args.output_encrypted }}' \
+        -k '{{ args.encryption_password }}' \
+        -p 2>&1 | head -1 | grep -q "salt" && echo "Valid encrypted file"
+tests:
+  default:
+    - name: Test OpenSSL encryption
+      description: Test file encryption with OpenSSL
+      type: basic
+      steps:
+        - name: Create test archive
+          type: command
+          executor: bash
+          command: echo "test data" | gzip > /tmp/test.tar.gz
+        
+        - name: Encrypt test archive
+          type: command
+          executor: bash
+          command: |
+            openssl enc -aes-256-cbc \
+              -in /tmp/test.tar.gz \
+              -out /tmp/test.tar.gz.enc \
+              -k "testpass" -S $(openssl rand -hex 4)
+        
+        - name: Verify encryption
+          type: command
+          executor: bash
+          command: test -f /tmp/test.tar.gz.enc && echo "Encryption successful"
+cleanup:
+  - name: Remove test files
+    type: command
+    executor: bash
+    command: rm -f /tmp/test.tar.gz /tmp/test.tar.gz.enc
+    ignore_errors: true

@@ -1,0 +1,44 @@
+api_version: 2.0
+id: a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6
+name: Gather macOS OS Version and Hardware Information
+authors:
+  - security_team
+description: Retrieve detailed OS version and hardware information from the system including system model, serial number, and hardware overview
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get OS Version
+    executor:
+      name: sh
+      command: system_profiler SPSoftwareDataType
+      timeout: 10
+  - name: Get Hardware Overview
+    executor:
+      name: sh
+      command: system_profiler SPHardwareDataType
+      timeout: 10
+  - name: Get Model Identifier
+    executor:
+      name: sh
+      command: sysctl hw.model
+      timeout: 5
+  - name: Get Serial Number
+    executor:
+      name: sh
+      command: system_profiler SPHardwareDataType | grep "Serial Number"
+      timeout: 5
+checks:
+  - name: OS Version Check
+    executor:
+      name: sh
+      command: sw_vers -productVersion
+      timeout: 5
+  - name: System Model Check
+    executor:
+      name: sh
+      command: sysctl hw.model
+      timeout: 5

@@ -1,0 +1,117 @@
+id: 0a6d1b1f-9i1j-3k4l-5m6n-7o8p9q0r1s2t
+api_version: 2.0
+metadata:
+  name: Browser History Collection
+  description: Extract and collect browser history from major browsers on macOS
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - browser-history
+    - reconnaissance
+    - internet-activity
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for browser history
+    type: string
+    default: "/tmp/browser_history"
+  
+  browsers:
+    description: Comma-separated browsers to collect from
+    type: string
+    default: "Chrome,Firefox,Safari,Edge"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Extract Chrome history
+    command: |
+      chrome_path="~/Library/Application Support/Google/Chrome/Default"
+      if [ -d "$chrome_path" ]; then
+        mkdir -p {{ output_path }}/chrome
+        cp "$chrome_path/History" "{{ output_path }}/chrome/" 2>/dev/null || true
+        cp "$chrome_path/History-journal" "{{ output_path }}/chrome/" 2>/dev/null || true
+        sqlite3 "$chrome_path/History" "SELECT url, title, visit_count, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT 100;" 2>/dev/null > {{ output_path }}/chrome/history.txt || true
+      fi
+
+  - name: Extract Firefox history
+    command: |
+      firefox_path="~/Library/Application Support/Firefox"
+      if [ -d "$firefox_path" ]; then
+        mkdir -p {{ output_path }}/firefox
+        find "$firefox_path" -name "places.sqlite" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/firefox/ 2>/dev/null || true
+        if [ -f {{ output_path }}/firefox/places.sqlite ]; then
+          sqlite3 {{ output_path }}/firefox/places.sqlite "SELECT url, title, visit_count, visit_date FROM moz_historyvisits JOIN moz_places ON moz_historyvisits.place_id = moz_places.id ORDER BY visit_date DESC LIMIT 100;" 2>/dev/null > {{ output_path }}/firefox/history.txt || true
+        fi
+      fi
+
+  - name: Extract Safari history
+    command: |
+      safari_path="~/Library/Safari"
+      if [ -d "$safari_path" ]; then
+        mkdir -p {{ output_path }}/safari
+        cp "$safari_path/History.db" "{{ output_path }}/safari/" 2>/dev/null || true
+        if [ -f {{ output_path }}/safari/History.db ]; then
+          sqlite3 {{ output_path }}/safari/History.db "SELECT url, domain_expansion, visit_count, last_visit_time FROM history_items ORDER BY last_visit_time DESC LIMIT 100;" 2>/dev/null > {{ output_path }}/safari/history.txt || true
+        fi
+      fi
+
+  - name: Extract Edge history
+    command: |
+      edge_path="~/Library/Application Support/Microsoft Edge/Default"
+      if [ -d "$edge_path" ]; then
+        mkdir -p {{ output_path }}/edge
+        cp "$edge_path/History" "{{ output_path }}/edge/" 2>/dev/null || true
+        sqlite3 "$edge_path/History" "SELECT url, title, visit_count, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT 100;" 2>/dev/null > {{ output_path }}/edge/history.txt || true
+      fi
+
+  - name: Extract browser caches
+    command: |
+      mkdir -p {{ output_path }}/caches
+      find ~/Library/Caches -name "*chrome*" -o -name "*firefox*" -o -name "*safari*" 2>/dev/null | head -10 | xargs -I {} cp -r {} {{ output_path }}/caches/ 2>/dev/null || true
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Browser history output directory created"
+    expected_output: "Browser history output directory created"
+
+  - name: Check Chrome history
+    command: |
+      if [ -f {{ output_path }}/chrome/history.txt ]; then
+        lines=$(wc -l < {{ output_path }}/chrome/history.txt)
+        echo "Chrome history entries: $lines"
+      fi
+
+  - name: Verify Safari history
+    command: |
+      if [ -f {{ output_path }}/safari/history.txt ]; then
+        lines=$(wc -l < {{ output_path }}/safari/history.txt)
+        echo "Safari history entries: $lines"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Check browser installations
+        command: |
+          count=0
+          [ -d /Applications/Google\ Chrome.app ] && count=$((count+1))
+          [ -d /Applications/Firefox.app ] && count=$((count+1))
+          [ -d /Applications/Safari.app ] && count=$((count+1))
+          echo "Browsers found: $count"
+
+cleanup:
+  - name: Remove browser history
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Browser history cleanup completed"

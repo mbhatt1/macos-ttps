@@ -1,0 +1,53 @@
+api_version: 2.0
+id: 001-dns-resolution-testing
+name: DNS Resolution Testing
+description: Tests DNS resolution capabilities as a basic C2 connectivity check
+type: command_and_control
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: target_domain
+    type: string
+    description: Target domain to resolve
+    default: google.com
+  - name: dns_server
+    type: string
+    description: DNS server to query
+    default: 8.8.8.8
+
+steps:
+  - name: resolve_target_domain
+    description: Resolve target domain using dig
+    command: dig @{{ dns_server }} {{ target_domain }} +short
+    type: command
+  
+  - name: nslookup_verification
+    description: Verify resolution with nslookup
+    command: nslookup {{ target_domain }} {{ dns_server }}
+    type: command
+    cleanup: true
+
+checks:
+  - name: verify_dns_resolution
+    description: Verify DNS resolution was successful
+    condition: |
+      The output should contain an IP address or CNAME record
+    type: output_validation
+
+test_type: dry_run
+
+cleanup:
+  - name: clear_dns_cache
+    description: Clear DNS resolver cache
+    command: sudo dscacheutil -flushcache
+    type: command
+    optional: true
+
+metadata:
+  created: 2026-01-30
+  author: Claude Code
+  severity: low
+  category: network_communication

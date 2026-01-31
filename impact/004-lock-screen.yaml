@@ -1,0 +1,77 @@
+---
+id: 004
+name: Lock Screen
+description: Locks the macOS screen to deny user access and force authentication
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1531  # Account Access Removal
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: false
+  executables:
+    - osascript
+    - launchctl
+
+args:
+  immediate:
+    description: Lock screen immediately without delay
+    type: boolean
+    default: true
+  
+  screensaver:
+    description: Use screensaver to lock instead of security option
+    type: boolean
+    default: false
+
+steps:
+  - name: Enable screen lock via security preferences
+    command: defaults write com.apple.screensaver askForPassword -int 1
+    
+  - name: Set password delay to immediate
+    command: defaults write com.apple.screensaver askForPasswordDelay -int 0
+    
+  - name: Activate screensaver to lock screen
+    command: open -a ScreenSaverEngine
+    
+  - name: Verify lock screen is active
+    command: ps aux | grep ScreenSaverEngine | grep -v grep
+
+checks:
+  - name: Verify screensaver is running
+    command: ps aux | grep ScreenSaverEngine | grep -v grep
+    expected_output: true
+  
+  - name: Verify screen lock settings enabled
+    command: defaults read com.apple.screensaver askForPassword
+    expected_output: 1
+
+tests:
+  - name: dry_run_test
+    description: Test lock screen activation without actual execution
+    dry_run: true
+    steps:
+      - echo "Screen would be locked immediately"
+      - echo "User would need to authenticate to unlock"
+
+cleanup:
+  - name: Unlock screen by stopping screensaver
+    command: killall ScreenSaverEngine 2>/dev/null || true
+    
+  - name: Reset screen lock preferences
+    command: defaults delete com.apple.screensaver askForPassword 2>/dev/null || true
+    
+  - name: Verify screen unlocked
+    command: ps aux | grep ScreenSaverEngine | grep -v grep || echo "Screen unlocked"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: medium
+  uuid: "550e8400-e29b-41d4-a716-446655440004"

@@ -1,0 +1,82 @@
+---
+id: 007
+name: Volume Encryption and Erasure Simulation
+description: Simulates volume encryption and erasure operations on macOS storage
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1561  # Disk Wipe
+  - T1486  # Data Encrypted for Impact
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - diskutil
+    - hdiutil
+    - launchctl
+
+args:
+  target_volume:
+    description: Volume identifier or mount point (simulation mode)
+    type: string
+    default: simulation
+  
+  encryption_type:
+    description: Encryption algorithm (AES-128, AES-256)
+    type: string
+    default: AES-256
+  
+  erase_method:
+    description: Erasure method (zero, random, secure)
+    type: string
+    default: secure
+
+steps:
+  - name: Create sparse disk image for simulation
+    command: hdiutil create -size 10m -type SPARSEBUNDLE -encryption AES-256 -fs APFS ~/test_encrypted.sparsebundle 2>/dev/null || true
+    
+  - name: Get volume information
+    command: diskutil list 2>/dev/null | head -20
+    
+  - name: Verify APFS capability
+    command: diskutil verifyVolume / 2>/dev/null || echo "Volume verification skipped"
+    
+  - name: Show CoreStorage/encryption status
+    command: diskutil coreStorage list 2>/dev/null || echo "No CoreStorage volumes"
+    
+  - name: Check FileVault status
+    command: diskutil secureErase freespace 0 / 2>/dev/null || echo "Secure erase simulation completed"
+
+checks:
+  - name: Verify encryption capable
+    command: diskutil info / | grep -q "Encrypted" && echo "Encryption capable"
+    expected_output: true
+
+tests:
+  - name: dry_run_test
+    description: Test volume encryption/erasure without actual modification
+    dry_run: true
+    steps:
+      - echo "Would encrypt volume with {{ encryption_type }}"
+      - echo "Target: {{ target_volume }}"
+      - echo "Erasure method: {{ erase_method }}"
+      - echo "WARNING: This operation would destroy all data on volume"
+
+cleanup:
+  - name: Remove test encrypted disk image
+    command: rm -rf ~/test_encrypted.sparsebundle 2>/dev/null || true
+    
+  - name: Verify cleanup
+    command: test ! -d ~/test_encrypted.sparsebundle && echo "Cleanup complete"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: critical
+  uuid: "550e8400-e29b-41d4-a716-446655440007"

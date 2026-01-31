@@ -1,0 +1,56 @@
+api_version: "2.0"
+id: "007"
+name: "Windows Share Discovery via SMB"
+description: "Discover and enumerate Windows shares accessible via SMB protocol"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "a7b8c9da-ebf1-9de0-a6b7-c8d9eafb0c1d"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  target_host:
+    description: "Windows/SMB host IP address"
+    type: "string"
+    required: true
+    default: "192.168.1.200"
+  smb_port:
+    description: "SMB port"
+    type: "integer"
+    required: false
+    default: 445
+  smb_user:
+    description: "SMB username"
+    type: "string"
+    required: false
+    default: "guest"
+  smb_password:
+    description: "SMB password"
+    type: "string"
+    required: false
+    default: ""
+
+steps:
+  - name: "Enumerate SMB shares"
+    executor: "sh"
+    command: "smbclient -L {{ target_host }} -U {{ smb_user }} --no-pass 2>/dev/null | grep -E '^\\s+' || echo 'SMB enumeration initiated'"
+
+checks:
+  - name: "Verify SMB service accessibility"
+    executor: "sh"
+    command: "nc -w 2 {{ target_host }} {{ smb_port }} < /dev/null && echo 'SMB port open' || echo 'SMB port closed'"
+
+tests:
+  - name: "Dry run SMB share enumeration"
+    executor: "sh"
+    command: "echo '[DRY RUN] SMB share enumeration from {{ target_host }}:{{ smb_port }}' && echo '[DRY RUN] Shares discovered:' && echo '[DRY RUN] - IPC$' && echo '[DRY RUN] - Users' && echo '[DRY RUN] - Documents'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "network-share-discovery"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "medium"

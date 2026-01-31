@@ -1,0 +1,68 @@
+---
+id: 001
+name: Disable Network Interfaces
+description: Disables all active network interfaces on macOS to simulate network isolation attack
+api_version: 2.0
+type: impact
+tactics:
+  - impact
+techniques:
+  - T1531  # Account Access Removal
+  - T1529  # Service Stop
+
+requirements:
+  platforms:
+    - os: darwin
+      versions:
+        - "10.15+"
+  superuser: true
+  executables:
+    - networksetup
+    - ifconfig
+
+args:
+  interface:
+    description: Network interface to disable (e.g., en0, en1, all)
+    type: string
+    default: all
+
+steps:
+  - name: Get list of active network interfaces
+    command: networksetup -listallhardwareports | grep Device
+    
+  - name: Disable Wi-Fi
+    command: networksetup -setairportpower Wi-Fi off
+    
+  - name: Disable Ethernet
+    command: networksetup -setnetworkserviceenabled Ethernet off
+    
+  - name: Verify interfaces are down
+    command: ifconfig | grep -E "^[a-z]+" | head -5
+
+checks:
+  - name: Verify network interfaces disabled
+    command: ifconfig en0 2>/dev/null | grep -q "DOWN" || networksetup -getairportpower Wi-Fi | grep -q "Off"
+    expected_output: true
+
+tests:
+  - name: dry_run_test
+    description: Test network interface disabling without actual execution
+    dry_run: true
+    steps:
+      - echo "Would disable network interfaces"
+
+cleanup:
+  - name: Re-enable Wi-Fi
+    command: networksetup -setairportpower Wi-Fi on
+    
+  - name: Re-enable network services
+    command: networksetup -setnetworkserviceenabled Ethernet on
+    
+  - name: Verify network restored
+    command: ifconfig en0 | grep -q "UP"
+
+metadata:
+  created: "2026-01-30"
+  updated: "2026-01-30"
+  severity: high
+  uuid: "550e8400-e29b-41d4-a716-446655440001"

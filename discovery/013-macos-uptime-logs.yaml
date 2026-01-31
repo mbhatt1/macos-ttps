@@ -1,0 +1,49 @@
+api_version: 2.0
+id: fdcf0d13-4412-51bf-dbec-f3a4beaaccdf
+name: Gather macOS System Uptime and System Logs
+authors:
+  - security_team
+description: Retrieve system uptime, boot time, and recent system logs to understand system stability and activity
+requirements:
+  platforms:
+    - os: darwin
+tests:
+  - name: dry_run
+    dry_run: true
+steps:
+  - name: Get System Uptime
+    executor:
+      name: sh
+      command: uptime
+      timeout: 5
+  - name: Get Boot Time
+    executor:
+      name: sh
+      command: sysctl -n kern.boottime
+      timeout: 5
+  - name: Get Last Boot Records
+    executor:
+      name: sh
+      command: log show --predicate 'eventMessage contains[cd] "boot"' --last 7d 2>/dev/null | head -20 || last -1 reboot | head -5
+      timeout: 10
+  - name: Get System Log Entries
+    executor:
+      name: sh
+      command: log show --predicate 'level == "Error"' --last 1h 2>/dev/null | head -20 || cat /var/log/system.log | tail -20
+      timeout: 10
+  - name: Check Crash Reports
+    executor:
+      name: sh
+      command: ls -la ~/Library/Logs/DiagnosticMessages/ 2>/dev/null | head -10 || echo "No diagnostic messages"
+      timeout: 5
+checks:
+  - name: Uptime Check
+    executor:
+      name: sh
+      command: uptime | grep -o "up.*" | head -c 20
+      timeout: 5
+  - name: Boot Time Exists
+    executor:
+      name: sh
+      command: sysctl -n kern.boottime | wc -c
+      timeout: 5

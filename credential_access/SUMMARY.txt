@@ -1,0 +1,302 @@
+================================================================================
+                macOS Credential Access TTPs - Summary Report
+================================================================================
+Generated: 2025-01-30
+Total TTPs Created: 15
+Output Directory: /tmp/ttpforge-generated/credential_access/
+
+================================================================================
+                          KEYCHAIN-BASED TTPs (001-005)
+================================================================================
+
+001_keychain_dump_login.yaml
+  UUID: 12345678-1234-1234-1234-000000000001
+  Technique: T1555.001 (Credentials from Password Stores - Keychain)
+  Description: Extract credentials from macOS login keychain
+  Key Commands: security default-keychain, security dump-keychain
+  Test Type: default (read-only)
+  Checks: Verify keychain dump output contains class information
+
+002_extract_internet_passwords.yaml
+  UUID: 12345678-1234-1234-1234-000000000002
+  Technique: T1555.001
+  Description: Extract internet passwords from macOS keychain
+  Key Commands: security find-internet-password, security dump-keychain
+  Test Type: default (read-only)
+  Checks: Verify output contains account information
+
+003_export_certificates.yaml
+  UUID: 12345678-1234-1234-1234-000000000003
+  Technique: T1555.001
+  Description: Export certificates and keys from macOS keychain
+  Key Commands: security find-certificate, security find-identity
+  Test Type: default
+  Checks: Verify certificate output contains PEM format
+  Cleanup: Remove exported certificates directory
+
+004_enumerate_keychain_items.yaml
+  UUID: 12345678-1234-1234-1234-000000000004
+  Technique: T1555
+  Description: Enumerate all items stored in macOS keychain databases
+  Key Commands: security list-keychains, security dump-keychain
+  Test Type: default
+  Checks: Verify output contains keychain item classes
+
+005_keychain_database_access.yaml
+  UUID: 12345678-1234-1234-1234-000000000005
+  Technique: T1555.001
+  Description: Direct database access to macOS keychain SQLite database
+  Key Commands: sqlite3 queries on login.keychain-db
+  Database: ~/Library/Keychains/login.keychain-db (genp table)
+  Test Type: default
+  Checks: Verify SQLite query returns database schema
+
+================================================================================
+                         BROWSER-BASED TTPs (006-010)
+================================================================================
+
+006_safari_history_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000006
+  Technique: T1555.003 (Credentials from Password Stores - Web Browser)
+  Description: Extract browsing history from Safari application
+  Database: ~/Library/Safari/History.db (history_items table)
+  Key Commands: sqlite3 query on History.db
+  Test Type: default
+  Checks: File exists and contains URLs
+  Cleanup: Remove extracted history file
+
+007_safari_bookmarks_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000007
+  Technique: T1555.003
+  Description: Extract bookmarks from Safari application
+  File: ~/Library/Safari/Bookmarks.plist
+  Key Commands: plutil, file copy
+  Test Type: default
+  Checks: Verify bookmarks file was copied
+  Cleanup: Remove bookmarks copy
+
+008_chrome_cookie_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000008
+  Technique: T1555.003
+  Description: Extract cookies from Google Chrome browser
+  Database: ~/Library/Application Support/Google/Chrome/[profile]/Cookies
+  Key Commands: sqlite3 query on Cookies database
+  Test Type: default
+  Checks: Verify Cookies database was copied
+  Cleanup: Remove copied database and output
+
+009_firefox_password_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000009
+  Technique: T1555.003
+  Description: Extract stored passwords from Firefox browser
+  Database: ~/Library/Application Support/Firefox/Profiles/*/logins.sqlite
+  Key Commands: sqlite3 query on logins.sqlite
+  Test Type: default
+  Checks: Verify Firefox profile directory accessed
+  Cleanup: Remove extracted password data
+
+010_browser_cache_access.yaml
+  UUID: 12345678-1234-1234-1234-000000000010
+  Technique: T1555.003
+  Description: Access and extract data from browser cache files
+  Locations: Safari LocalStorage, Chrome Cache directories
+  Key Commands: File copy operations
+  Test Type: default
+  Checks: Verify cache output directory created
+  Cleanup: Remove extracted browser cache
+
+================================================================================
+                      FILE SYSTEM-BASED TTPs (011-015)
+================================================================================
+
+011_ssh_key_discovery.yaml
+  UUID: 12345678-1234-1234-1234-000000000011
+  Technique: T1555
+  Description: Discover and access SSH private keys on the system
+  Location: ~/.ssh directory
+  Key Commands: find, ls operations
+  Key Types: id_rsa, id_ed25519, id_ecdsa
+  Test Type: default
+  Checks: Verify SSH keys found in output
+  Cleanup: Remove SSH key discovery results
+
+012_git_credentials_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000012
+  Technique: T1555
+  Description: Extract stored git credentials and token configurations
+  Files: ~/.gitconfig, ~/.config/git/credentials
+  Key Commands: cat, git config
+  Test Type: default
+  Checks: Verify git configuration accessed
+  Cleanup: Remove extracted credentials
+
+013_aws_credentials_extraction.yaml
+  UUID: 12345678-1234-1234-1234-000000000013
+  Technique: T1555
+  Description: Extract AWS credentials from ~/.aws/ directory
+  Files: ~/.aws/credentials, ~/.aws/config
+  Key Commands: cat, grep operations
+  Test Type: default
+  Checks: Verify credentials file exists and AWS config accessed
+  Cleanup: Remove extracted AWS credentials
+
+014_api_keys_in_documents.yaml
+  UUID: 12345678-1234-1234-1234-000000000014
+  Technique: T1552.007 (Unsecured Credentials - Documents)
+  Description: Search for API keys and credentials in common document locations
+  Directories: ~/Documents, ~/Downloads, ~/.config
+  File Types: .json, .yaml, .env, .conf, .txt
+  Key Commands: grep, find operations
+  Test Type: default
+  Checks: Verify API key search was performed
+  Cleanup: Remove found API keys list
+
+015_kubernetes_config_access.yaml
+  UUID: 12345678-1234-1234-1234-000000000015
+  Technique: T1555
+  Description: Access and extract Kubernetes configuration files and credentials
+  Files: ~/.kube/config, /etc/kubernetes/admin.conf
+  Key Commands: cat, kubectl config operations
+  Test Type: default
+  Checks: Verify kubeconfig file exists and accessed
+  Cleanup: Remove extracted Kubernetes configuration
+
+================================================================================
+                            TACTICAL MAPPING
+================================================================================
+
+MITRE ATT&CK Tactic: Credential Access
+
+Technique Coverage:
+  - T1555: Credentials from Password Stores (TTPs 001-005, 011-013, 015)
+  - T1555.001: Keychain (TTPs 001-005)
+  - T1555.003: Web Browser (TTPs 006-010)
+  - T1552.007: Unsecured Credentials - Documents (TTP 014)
+
+================================================================================
+                          FEATURE SUMMARY
+================================================================================
+
+API Version: 2.0 (all TTPs)
+Platform: darwin (macOS) - all TTPs
+
+Key Features:
+  - Parametrized arguments with defaults for all customizable values
+  - Multiple execution steps per TTP
+  - Verification checks for output validation
+  - Pre-execution tests (default or dry_run modes)
+  - Automatic cleanup of extracted/temporary data
+  - Safe read-only operations where possible
+  - File existence and content verification
+
+Database Access Methods:
+  - SQLite3 queries (Keychains, Safari, Chrome, Firefox)
+  - macOS security command utilities
+  - File system operations
+  - grep and find utilities
+
+Cleanup Operations:
+  - All extracted data files removed after execution
+  - Temporary copies of databases deleted
+  - Discovery results cleaned up
+  - No permanent system modifications
+
+================================================================================
+                            FILE LOCATIONS
+================================================================================
+
+Output Directory: /tmp/ttpforge-generated/credential_access/
+
+Files Created:
+  001_keychain_dump_login.yaml (1.2K)
+  002_extract_internet_passwords.yaml (1.1K)
+  003_export_certificates.yaml (1.3K)
+  004_enumerate_keychain_items.yaml (1.2K)
+  005_keychain_database_access.yaml (1.4K)
+  006_safari_history_extraction.yaml (1.6K)
+  007_safari_bookmarks_extraction.yaml (1.3K)
+  008_chrome_cookie_extraction.yaml (1.5K)
+  009_firefox_password_extraction.yaml (1.5K)
+  010_browser_cache_access.yaml (1.5K)
+  011_ssh_key_discovery.yaml (1.5K)
+  012_git_credentials_extraction.yaml (1.6K)
+  013_aws_credentials_extraction.yaml (1.7K)
+  014_api_keys_in_documents.yaml (1.5K)
+  015_kubernetes_config_access.yaml (1.7K)
+  README.md (comprehensive documentation)
+  SUMMARY.txt (this file)
+
+Total Size: Approximately 120KB
+
+================================================================================
+                          USAGE INSTRUCTIONS
+================================================================================
+
+Each TTP file contains:
+
+1. YAML Header:
+   - api_version: 2.0
+   - uuid: Unique identifier
+   - name: Human-readable name
+   - description: Detailed description
+   - author: TTPForge
+   - created: 2025-01-30
+
+2. Configuration:
+   - tactics: [Credential Access]
+   - techniques: MITRE ATT&CK technique IDs
+   - requirements: platforms with os: darwin
+
+3. Parametrized Arguments:
+   - name: Argument name
+   - description: Argument description
+   - default: Default value
+
+4. Execution Steps:
+   - Sequential commands to execute
+   - Template variable substitution with {{ }}
+   - Command output capture
+
+5. Verification Checks:
+   - stdout_contains: Verify output content
+   - file_exists: Verify file creation
+   - file_contains: Verify file content
+
+6. Testing:
+   - test_type: default or dry_run
+   - Pre-execution validation
+
+7. Cleanup:
+   - Remove extracted data
+   - Clean temporary files
+   - Restore system state
+
+================================================================================
+                        SECURITY CONSIDERATIONS
+================================================================================
+
+All TTPs are designed with security best practices:
+
+1. Read-Only Operations:
+   - Most TTPs use read-only commands
+   - No system modifications unless necessary
+   - File access verified before operations
+
+2. Cleanup & Restoration:
+   - All extracted data removed after test
+   - Temporary files deleted
+   - Original system state preserved
+
+3. Safe Defaults:
+   - Temporary output locations
+   - Limited scope queries
+   - No credential storage
+
+4. Error Handling:
+   - Graceful fallbacks when tools unavailable
+   - Permission checks before access
+   - Controlled error output
+
+================================================================================
+                             END OF SUMMARY
+================================================================================

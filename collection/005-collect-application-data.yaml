@@ -1,0 +1,103 @@
+id: 4e0b6a5d-5e7g-8i0j-1k2l-3m4n5o6p7q8r
+api_version: 2.0
+metadata:
+  name: Collect Application Data
+  description: Collect data from user applications including caches, preferences, and databases
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - application-data
+    - databases
+    - preferences
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for application data
+    type: string
+    default: "/tmp/app_data"
+  
+  target_apps:
+    description: Comma-separated list of apps to collect from
+    type: string
+    default: "Chrome,Firefox,Safari,Slack"
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Collect Chrome data
+    command: |
+      chrome_path="~/Library/Application Support/Google/Chrome"
+      if [ -d "$chrome_path" ]; then
+        mkdir -p {{ output_path }}/chrome
+        cp -r "$chrome_path"/Default/History "{{ output_path }}/chrome/" 2>/dev/null || true
+        cp -r "$chrome_path"/Default/Cookies "{{ output_path }}/chrome/" 2>/dev/null || true
+        cp -r "$chrome_path"/Default/Cache "{{ output_path }}/chrome/" 2>/dev/null || true
+      fi
+
+  - name: Collect Firefox data
+    command: |
+      firefox_path="~/Library/Application Support/Firefox"
+      if [ -d "$firefox_path" ]; then
+        mkdir -p {{ output_path }}/firefox
+        find "$firefox_path" -name "places.sqlite" -exec cp {} "{{ output_path }}/firefox/" \; 2>/dev/null || true
+        find "$firefox_path" -name "cookies.sqlite" -exec cp {} "{{ output_path }}/firefox/" \; 2>/dev/null || true
+      fi
+
+  - name: Collect Safari data
+    command: |
+      safari_path="~/Library/Safari"
+      if [ -d "$safari_path" ]; then
+        mkdir -p {{ output_path }}/safari
+        cp -r "$safari_path/History.db" "{{ output_path }}/safari/" 2>/dev/null || true
+        cp -r "$safari_path/Bookmarks.plist" "{{ output_path }}/safari/" 2>/dev/null || true
+      fi
+
+  - name: Collect application support data
+    command: |
+      mkdir -p {{ output_path }}/app_support
+      find ~/Library/Application\ Support -maxdepth 2 -name "*.db" -o -name "*.sqlite" 2>/dev/null | head -30 | xargs -I {} cp {} {{ output_path }}/app_support/ 2>/dev/null || true
+
+  - name: Collect preferences
+    command: |
+      mkdir -p {{ output_path }}/preferences
+      find ~/Library/Preferences -name "*.plist" 2>/dev/null | head -20 | xargs -I {} cp {} {{ output_path }}/preferences/ 2>/dev/null || true
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Output directory verified"
+    expected_output: "Output directory verified"
+
+  - name: Check collected databases
+    command: |
+      db_count=$(find {{ output_path }} -name "*.db" -o -name "*.sqlite" 2>/dev/null | wc -l)
+      echo "Collected $db_count database files"
+
+  - name: Validate directory structure
+    command: |
+      if [ -d "{{ output_path }}" ]; then
+        total_size=$(du -sh {{ output_path }} 2>/dev/null | cut -f1)
+        echo "Total collected data size: $total_size"
+      fi
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify application paths
+        command: |
+          test -d ~/Library/Application\ Support && echo "Application Support directory exists"
+
+cleanup:
+  - name: Remove application data
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Application data cleanup completed"

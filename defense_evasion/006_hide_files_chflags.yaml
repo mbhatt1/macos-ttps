@@ -1,0 +1,70 @@
+id: 006-hide-files-chflags
+name: Hide Files with chflags
+description: Hide files using chflags hidden flag to avoid filesystem visibility
+author: TTPForge
+created_date: 2026-01-30
+last_modified_date: 2026-01-30
+api_version: 2.0
+platforms:
+  - darwin
+tactics:
+  - defense_evasion
+techniques:
+  - hide_artifacts
+
+requirements:
+  platforms:
+    - os: darwin
+  superuser: false
+
+args:
+  file_path:
+    description: Full path to file or directory to hide
+    type: string
+    required: true
+  unhide:
+    description: Unhide the file
+    type: bool
+    default: false
+
+steps:
+  validate_path:
+    inline: test -e "{{ args.file_path }}"
+    description: Verify file/directory exists
+    expected_exit_code: 0
+
+  hide_file:
+    inline: chflags hidden "{{ args.file_path }}"
+    description: Mark file as hidden using chflags
+    condition: "{{ not args.unhide }}"
+
+  unhide_file:
+    inline: chflags nohidden "{{ args.file_path }}"
+    description: Remove hidden flag from file
+    condition: "{{ args.unhide }}"
+
+checks:
+  verify_hidden:
+    inline: ls -lO "{{ args.file_path }}" | grep -q hidden
+    expected_exit_code: 0
+    description: Verify file is marked as hidden
+
+tests:
+  default:
+    args:
+      file_path: /tmp/test_hidden_file
+    steps:
+      - validate_path
+    expected_exit_code: 1
+
+  dry_run:
+    args:
+      file_path: /tmp/test_hidden_file
+    steps:
+      - validate_path
+    expected_exit_code: 1
+
+cleanup:
+  unhide_file:
+    inline: chflags nohidden "{{ args.file_path }}"
+    description: Remove hidden flag during cleanup

