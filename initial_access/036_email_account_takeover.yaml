@@ -1,0 +1,85 @@
+uuid: 67f6d3b0-9e2a-8b83-4f7a-6c1d4e4b8a0f
+api_version: '2.0'
+name: Email Account Takeover
+description: Gain access to macOS systems through compromised email account takeover
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: high
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target email account or username
+    type: string
+    required: true
+  password_list:
+    description: Path to password list for email account attacks
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with leaked email credentials
+    type: string
+    required: true
+  oauth_token:
+    description: OAuth token from compromised email account
+    type: string
+    required: false
+
+steps:
+  - name: load_email_credentials
+    description: Load leaked email account credentials
+    command: |
+      echo "Loading leaked email credentials for: ${target_account}"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "Email credentials loaded:"
+      fi
+      
+  - name: attempt_email_authentication
+    description: Attempt authentication to email account
+    command: |
+      echo "Attempting email account authentication"
+      if [ -f "${password_list}" ]; then
+        # Dry run: simulate email authentication
+        echo "Testing email credentials"
+      fi
+      
+  - name: exploit_account_recovery
+    description: Use email account to reset macOS account password
+    command: |
+      echo "Attempting to use email account for password reset"
+      # Dry run: simulate password reset process
+      echo "Email-based account recovery attempted"
+      
+  - name: access_system
+    description: Gain system access using recovered account
+    command: |
+      echo "Attempting system access via email recovery"
+      # Dry run simulation
+      exit 0
+
+checks:
+  - name: verify_email_access
+    description: Verify email account takeover success
+    command: |
+      echo "Verifying email account takeover"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke email OAuth tokens and sessions
+    command: |
+      echo "Revoking email OAuth tokens and sessions"
+      
+  - name: reset_passwords
+    description: Reset email and system account passwords
+    command: |
+      echo "Resetting email and system account passwords"

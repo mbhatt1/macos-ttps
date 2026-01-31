@@ -1,0 +1,86 @@
+id: ttp-041
+name: USB Device Injection
+uuid: 550e8400-e29b-41d4-a716-446655440041
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate USB device injection attack to establish initial access via physical device insertion
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: target_device
+    description: Target macOS device identifier
+    type: string
+    default: '/Volumes'
+  - name: injection_type
+    description: Type of USB injection (storage, hid, network)
+    type: string
+    default: storage
+  - name: malware_payload
+    description: Path to malware payload to inject via USB
+    type: string
+    default: '/tmp/malware.bin'
+  - name: usb_label
+    description: Label for emulated USB device
+    type: string
+    default: 'UNTRUSTED_USB'
+
+steps:
+  - name: Check for USB devices
+    description: Enumerate currently connected USB devices
+    executor: sh
+    command: 'system_profiler SPUSBDataType 2>/dev/null | head -20 || echo "USB enumeration completed"'
+  
+  - name: Simulate USB device appearance
+    description: Create mock USB device indicator in logs
+    executor: sh
+    command: 'echo "USB Device Mounted: ${usb_label} at $(date)" >> /tmp/usb_injection_log.txt'
+  
+  - name: Prepare injection payload
+    description: Stage malware payload for injection
+    executor: sh
+    command: 'test -f "${malware_payload}" && echo "Payload ready" || touch "${malware_payload}" && echo "Payload staged"'
+  
+  - name: Execute injection simulation
+    description: Simulate USB device injection attack
+    executor: sh
+    command: 'echo "Injecting payload from USB device ${usb_label}" >> /tmp/usb_injection_log.txt'
+  
+  - name: Monitor system response
+    description: Check system integration of injected device
+    executor: sh
+    command: 'ls -la /Volumes/ 2>/dev/null || echo "Volume check completed"'
+
+checks:
+  - name: USB device enumeration
+    description: Verify USB device enumeration occurred
+    executor: sh
+    command: 'test -f /tmp/usb_injection_log.txt && echo "PASS: USB injection log created" || echo "FAIL: Log not found"'
+  
+  - name: Payload staging verification
+    description: Verify malware payload was staged
+    executor: sh
+    command: 'test -f "${malware_payload}" && echo "PASS: Payload staged" || echo "FAIL: Payload not staged"'
+  
+  - name: System integration check
+    description: Verify system accepted device
+    executor: sh
+    command: 'grep -q "USB Device" /tmp/usb_injection_log.txt 2>/dev/null && echo "PASS: Device integration logged" || echo "FAIL: No integration detected"'
+
+tests:
+  - name: USB injection test
+    description: Test USB device injection simulation
+    dry_run: true
+    command: 'echo "DRY RUN: Would inject ${injection_type} USB device with label ${usb_label}"'
+
+cleanup:
+  - name: Remove injection logs
+    description: Clean up USB injection simulation artifacts
+    executor: sh
+    command: 'rm -f /tmp/usb_injection_log.txt'
+  
+  - name: Remove payload staging
+    description: Clean up staged malware payload
+    executor: sh
+    command: 'rm -f "${malware_payload}"'

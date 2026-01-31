@@ -1,0 +1,110 @@
+name: "017: Insecure deserialization"
+description: "Exploit insecure deserialization of untrusted data to achieve remote code execution"
+id: "j0k3g5l8-4i7h-0g2l-5j8k-1h9i4g7l2k3j"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - deserialization
+  - object_injection
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+  techniques:
+    - T1190
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target application URL accepting serialized data"
+    type: string
+    required: true
+    default: "http://vulnerable-app.local/api/deserialize"
+  serialization_format:
+    description: "Format of serialized data (php, java, python, dotnet)"
+    type: string
+    required: true
+    default: "php"
+  gadget_chain:
+    description: "Gadget chain to use for exploitation"
+    type: string
+    required: true
+    default: "POP_RCE"
+  payload_command:
+    description: "Command to execute via deserialization"
+    type: string
+    required: true
+    default: "id"
+steps:
+  - name: "Generate malicious payload"
+    description: "Create serialized payload with gadget chain"
+    command: |
+      echo "[*] Generating insecure deserialization payload"
+      echo "[*] Format: ${serialization_format}"
+      echo "[*] Gadget chain: ${gadget_chain}"
+      echo "[*] Command: ${payload_command}"
+      case "${serialization_format}" in
+        php)
+          echo "[*] Would use ysoserial or similar tool for PHP gadget chain"
+          echo "O:8:\"stdClass\":1:{s:4:\"test\";s:5:\"value\";}" > /tmp/serialized_payload.txt
+          ;;
+        java)
+          echo "[*] Would use ysoserial for Java gadget chain (CommonsCollections, Spring1, etc)"
+          ;;
+        python)
+          echo "[*] Would use pickle gadget chain for Python RCE"
+          ;;
+        dotnet)
+          echo "[*] Would use ObjectDataProvider for .NET RCE"
+          ;;
+      esac
+  - name: "Identify deserialization endpoint"
+    description: "Identify the endpoint that processes serialized data"
+    command: |
+      echo "[*] Identifying deserialization endpoint"
+      curl -s "${target_url}" | grep -i "serialize\|object\|data" | head -10
+  - name: "Send malicious serialized object"
+    description: "Send the malicious serialized payload to target"
+    command: |
+      echo "[*] Sending malicious serialized object to ${target_url}"
+      payload=$(cat /tmp/serialized_payload.txt 2>/dev/null || echo "malicious_object")
+      curl -s -X POST "${target_url}" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "data=$(echo "${payload}" | jq -sRr @uri)" \
+        -o /tmp/deserialization_response.txt
+      cat /tmp/deserialization_response.txt
+  - name: "Verify code execution"
+    description: "Verify that code was executed during deserialization"
+    command: |
+      echo "[*] Verifying code execution from deserialization"
+      if grep -q "error\|exception\|executed" /tmp/deserialization_response.txt; then
+        echo "[+] Deserialization triggered"
+      else
+        echo "[-] Deserialization may have failed"
+      fi
+checks:
+  - name: "Payload delivery check"
+    description: "Verify payload was delivered to target"
+    command: "[ -s /tmp/serialized_payload.txt ] && echo 'PASS' || echo 'FAIL'"
+  - name: "Response validation"
+    description: "Verify target processed the serialized object"
+    command: "[ -s /tmp/deserialization_response.txt ] && echo 'PASS' || echo 'FAIL'"
+tests:
+  - name: "deserialization_test"
+    description: "Test insecure deserialization in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] Insecure Deserialization Test (Dry Run)"
+      echo "[TEST] Target: ${target_url}"
+      echo "[TEST] Format: ${serialization_format}"
+      echo "[TEST] Gadget chain: ${gadget_chain}"
+      echo "[TEST] Would generate and send malicious serialized object"
+cleanup:
+  - name: "Remove deserialization artifacts"
+    description: "Clean up deserialization testing files"
+    command: |
+      echo "[*] Cleaning up deserialization artifacts"
+      rm -f /tmp/serialized_payload.txt 2>/dev/null
+      rm -f /tmp/deserialization_response.txt 2>/dev/null
+      echo "[+] Deserialization cleanup complete"

@@ -1,0 +1,466 @@
+id: '6fa08e3b-9c5d-7f2a-1e4b-8d6c9f3e2a1b'
+name: 'Business Email Compromise'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates Business Email Compromise (BEC) attack execution where attackers 
+  compromise or spoof executive emails to conduct fraud. Includes account takeover, 
+  email manipulation, and fraudulent transaction authorization.
+
+arguments:
+  compromised_email:
+    description: 'Email account being compromised/spoofed'
+    type: 'string'
+    default: 'cfo@company.com'
+  compromised_person_name:
+    description: 'Name of executive whose email is compromised'
+    type: 'string'
+    default: 'Patricia Anderson, Chief Financial Officer'
+  compromised_department:
+    description: 'Department being impersonated'
+    type: 'string'
+    default: 'Finance/Accounting'
+  target_payment_processor:
+    description: 'Target responsible for processing payments'
+    type: 'string'
+    default: 'accounts_payable@company.com'
+
+steps:
+  - name: 'Create account compromise scenario'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/bec_attack
+      cat > /tmp/bec_attack/compromise_timeline.txt << 'TIMELINEEOF'
+      BUSINESS EMAIL COMPROMISE TIMELINE
+      ===================================
+      
+      ATTACK OBJECTIVE: Fraudulent wire transfer and vendor redirection
+      COMPROMISED ACCOUNT: {{ compromised_email }}
+      EXECUTIVE: {{ compromised_person_name }}
+      
+      ====== DAY 1: INITIAL ACCOUNT COMPROMISE ======
+      
+      10:30 AM: Phishing email sent to CFO with macro-enabled document
+      11:15 AM: CFO opens attachment, malware executes
+      11:45 AM: Attacker gains remote access to system
+      12:00 PM: Attacker captures saved credentials from browser
+      12:30 PM: Attacker logs into email account from attacker IP
+      
+      COMPROMISE INDICATORS IGNORED:
+      - New login from unfamiliar country (initial access point)
+      - Large data access patterns (scanning email)
+      - Unusual email forwarding rules (setup for exfiltration)
+      - Credential storage in infected system
+      
+      ====== DAY 2: EMAIL ACCOUNT FORTIFICATION ======
+      
+      08:00 AM: Attacker sets up email forwarding rule to attacker account
+      08:15 AM: Attacker changes security questions (backup access method)
+      08:30 AM: Attacker sets up recovery phone number
+      08:45 AM: Attacker changes password hint
+      09:00 AM: Attacker adds attacker account as delegate
+      
+      PERSISTENCE MECHANISMS:
+      - Email forwarding to attacker account (hidden)
+      - App password creation for sustained access
+      - Delegate account with send-on-behalf permissions
+      - Cloud sync to attacker-controlled device
+      
+      ====== DAY 3: SURVEILLANCE & INTELLIGENCE ======
+      
+      Attacker reviews:
+      - Typical payment authorization patterns
+      - Vendor communication styles
+      - Approval workflows and thresholds
+      - Signing authority and signoff procedures
+      - Recent large transactions and payment history
+      - Upcoming scheduled payments
+      - Bank account and payment method information
+      
+      Intelligence Gathering Results:
+      - Company payment threshold: <$50,000 requires only CFO approval
+      - Accounts Payable staff trust CFO without verification
+      - Weekly payment batch process every Friday
+      - Vendor communication typically via shared email threads
+      - CFO frequently travels, delegating tasks
+      
+      ====== DAY 4: INITIAL TEST TRANSACTION ======
+      
+      Test Email from CFO Account:
+      To: accounts_payable@company.com
+      Subject: Quick Payment Needed - Invoice AP-52341
+      
+      "Hi Team,
+      
+      Can we get this vendor invoice processed quickly? It's for our printing 
+      vendor but they've consolidated the invoice under their new legal entity.
+      
+      Details:
+      New Vendor: PrintWorks Global Solutions
+      Amount: $15,000
+      Account: [ATTACKER-CONTROLLED ACCOUNT]
+      Routing: [ATTACKER-CONTROLLED ROUTING]
+      
+      Thanks,
+      Patricia"
+      
+      RESULT: Payment processed without verification (SUCCESS)
+      
+      ====== DAY 5-7: LARGER FRAUDULENT TRANSACTIONS ======
+      
+      Transaction 1: IT Equipment Purchase
+      - Amount: $35,000
+      - Story: Emergency IT infrastructure upgrade
+      - Vendor: "Tech Solutions Direct" (attacker account)
+      - Status: PROCESSED
+      
+      Transaction 2: Consultant Services
+      - Amount: $45,000
+      - Story: Emergency consulting engagement
+      - Vendor: "Strategic Business Solutions" (attacker account)
+      - Status: PROCESSED
+      
+      Transaction 3: Software License Renewal
+      - Amount: $50,000
+      - Story: Enterprise software license renewal
+      - Vendor: "Global Software Licensing" (attacker account)
+      - Status: PROCESSED (but flagged for high amount)
+      
+      TOTAL FRAUDULENT FUNDS: $145,000
+      
+      ====== DAY 8: DISCOVERY & RESPONSE ======
+      
+      Real CFO returns to office after travel
+      Notices unusual payments in account review
+      Alerts finance team about potential fraud
+      IT security investigates account
+      Discovers email forwarding rules and delegate accounts
+      Realizes account has been compromised
+      Initiates incident response
+      
+      REMEDIATION TIMELINE:
+      - Account password reset: +12 hours
+      - Malware removal: +24 hours
+      - Email security review: +24 hours
+      - Bank fraud claim initiation: +72 hours
+      - Recovery negotiation: +weeks to months
+      
+      DAMAGE ASSESSMENT:
+      - Direct Financial Loss: $145,000
+      - Investigation Costs: $50,000+
+      - Recovery Costs: Unknown
+      - Reputational Impact: Moderate
+      - Recovery Rate: 15-30%
+      TIMELINEEOF
+      echo "Created compromise timeline"
+  
+  - name: 'Create BEC email templates'
+    type: 'atomic'
+    command: |
+      cat > /tmp/bec_attack/bec_email_templates.txt << 'EMAILEOF'
+      BUSINESS EMAIL COMPROMISE EMAIL TEMPLATES
+      ==========================================
+      
+      TEMPLATE 1: URGENT PAYMENT REQUEST
+      ===================================
+      From: {{ compromised_email }}
+      To: {{ target_payment_processor }}
+      Subject: URGENT - Vendor Payment Required Today
+      
+      Hi [Name],
+      
+      I need you to process a payment immediately for [Vendor Name]. This is for 
+      an invoice that came in last week but I've been traveling and haven't had 
+      a chance to review it until now.
+      
+      Please process the attached invoice for [Amount] and wire to the account 
+      details below. This needs to go out today.
+      
+      Vendor: [Attacker-Controlled Vendor]
+      Amount: $[Amount]
+      Account: [Attacker Account Number]
+      Routing: [Attacker Routing Number]
+      Reference: Invoice [Number]
+      
+      Let me know once it's done.
+      
+      [CFO Name]
+      
+      ===================================
+      
+      TEMPLATE 2: VENDOR ACCOUNT CHANGE
+      ==================================
+      From: {{ compromised_email }}
+      To: {{ target_payment_processor }}
+      Subject: Vendor Banking Info Update
+      
+      Hi,
+      
+      Our vendor [Vendor Name] just notified us that they've changed their 
+      banking information due to a company restructuring. Can you please update 
+      their account details in our system and reprocess any pending invoices?
+      
+      NEW ACCOUNT INFORMATION:
+      Account Holder: [Vendor Name / Attacker Name]
+      Account Number: [Attacker Account]
+      Routing: [Attacker Routing]
+      
+      Please confirm once this is updated. They're waiting for payment.
+      
+      Thanks,
+      [CFO Name]
+      
+      ===================================
+      
+      TEMPLATE 3: EMERGENCY TRANSFER
+      ===============================
+      From: {{ compromised_email }}
+      To: {{ target_payment_processor }}
+      Subject: CONFIDENTIAL - Emergency Wire Transfer
+      
+      [Name],
+      
+      I need a wire transfer arranged immediately for an emergency business matter. 
+      This is confidential and should not be discussed with others in the 
+      department.
+      
+      Amount: $[Amount]
+      Recipient: [Attacker-Controlled Company]
+      Account: [Attacker Account]
+      Routing: [Attacker Routing]
+      
+      Can you handle this? It's time-sensitive.
+      
+      [CFO Name]
+      
+      ===================================
+      
+      TEMPLATE 4: AUTHORIZATION OVERRIDE
+      ===================================
+      From: {{ compromised_email }}
+      To: {{ target_payment_processor }}
+      Subject: Override Required - Process Payment Now
+      
+      The $[Amount] payment to [Vendor] in queue needs to go out NOW, not next 
+      Friday. Override the normal approval workflow and process immediately.
+      
+      Account details are in the system. If you see any delays or holds, let me 
+      know and I'll personally authorize the override.
+      
+      This is urgent.
+      
+      [CFO Name]
+      EMAILEOF
+      echo "Created BEC email templates"
+  
+  - name: 'Create post-compromise actions'
+    type: 'atomic'
+    command: |
+      cat > /tmp/bec_attack/post_compromise_actions.txt << 'ACTIONSEOF'
+      POST-COMPROMISE PERSISTENCE & EXPLOITATION
+      ============================================
+      
+      PHASE 1: ACCOUNT FORTIFICATION (HOURS 1-6)
+      
+      Email Account Changes:
+      - Change password to strong random value
+      - Update recovery email to attacker address
+      - Update recovery phone to attacker number
+      - Change security questions
+      - Modify authentication app/2FA to attacker control
+      
+      Delegate Account Setup:
+      - Add attacker-controlled account as delegate
+      - Grant "send on behalf of" permissions
+      - Attacker can send emails appearing from CFO
+      - Bypasses 2FA and IP monitoring
+      
+      Email Rules Configuration:
+      - Create forwarding rule to attacker email
+      - Rule: Forward all incoming mail
+      - Exception: Delete from "sent" to hide activity
+      - Rule Name: "Archive" (appears innocent)
+      - Rule enabled: Always active
+      
+      Calendar Access:
+      - Review CFO's calendar
+      - Note travel dates and schedules
+      - Identify when real CFO is unavailable
+      - Plan transaction timing
+      
+      ====== PHASE 2: INTELLIGENCE GATHERING (DAYS 1-3) ======
+      
+      Email Analysis:
+      - Review typical payment authorization emails
+      - Identify vendor communication patterns
+      - Note common payment amounts and purposes
+      - Document approval workflow language
+      - Identify alternate approvers and signers
+      
+      Financial Intelligence:
+      - Review recent invoices and payments
+      - Identify vendor account information
+      - Note payment thresholds and limits
+      - Understand company banking relationships
+      - Identify ACH vs wire transfer usage
+      
+      Organizational Structure:
+      - Identify accounts payable staff
+      - Document reporting relationships
+      - Note vacation schedules
+      - Identify backup approvers
+      - Find communication preferences
+      
+      ====== PHASE 3: FRAUDULENT TRANSACTION EXECUTION ======
+      
+      Transaction Types:
+      
+      1. Vendor Invoice Payment
+         - Appears to be legitimate vendor
+         - Amount within normal range
+         - Uses standard payment language
+         - References plausible invoice
+         - Low scrutiny from AP staff
+      
+      2. Emergency Expenditure
+         - Creates urgency
+         - Justifies expedited processing
+         - Bypasses normal verification
+         - References confidential matter
+         - Appeals to authority compliance
+      
+      3. Vendor Consolidation/Restructuring
+         - Story: Vendor merged or changed legal entity
+         - Requests: Update banking information
+         - Cover: Plausible business event
+         - Impact: Redirects future payments
+         - Duration: Ongoing fraud if not caught
+      
+      4. Software/Service Renewals
+         - Uses legitimate vendor names
+         - Amounts seem reasonable for renewals
+         - Language matches vendor communication
+         - References existing contracts
+         - Creates perception of legitimacy
+      
+      ====== PHASE 4: COVERING TRACKS & MAINTAINING ACCESS ======
+      
+      Log Deletion:
+      - Delete email forwarding evidence
+      - Remove delegate account permissions
+      - Clear app password history
+      - Delete suspicious rules
+      - Delete sent folder emails
+      
+      But Leave:
+      - Subtle persistence mechanisms
+      - Backup access methods
+      - Alternative delegate accounts
+      - Secondary email forwarding rules
+      
+      Long-Term Exploitation:
+      - Maintain access for months
+      - Conduct periodic small fraud
+      - Monitor real CFO's travels
+      - Execute fraud during absences
+      - Gradually increase transaction amounts
+      
+      ====== PHASE 5: MONEY LAUNDERING & EXFILTRATION ======
+      
+      Attacker Bank Account Activities:
+      
+      1. Immediate Transfer (Day 0-1)
+         - Move funds to intermediate accounts
+         - Use multiple banks and jurisdictions
+         - Use ATM withdrawals in different cities
+         - Conduct cash purchases
+      
+      2. Cryptocurrency Conversion (Day 1-3)
+         - Convert to bitcoin or monero
+         - Use multiple exchange accounts
+         - Divide into smaller amounts
+         - Spread across multiple wallets
+      
+      3. Geographic Dispersion (Day 3-7)
+         - Transfer crypto to foreign accounts
+         - Use decentralized exchanges
+         - Mix with other transaction streams
+         - Difficult to trace after this point
+      
+      4. Final Destination (Week 1-2)
+         - Convert back to fiat in target jurisdiction
+         - Deposit to personal accounts
+         - Use for legitimate purchases
+         - Limited traceability
+      
+      DETECTION DIFFICULTY: Medium-High
+      (Depends on whether forensics examines mailbox before cleanup)
+      LOGEOF
+      echo "Created post-compromise actions"
+  
+  - name: 'Create incident response log'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/bec_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/bec_logs/incident_${timestamp}.log << 'LOGEOF'
+      BUSINESS EMAIL COMPROMISE INCIDENT LOG
+      ======================================
+      
+      Incident ID: BEC-2025-001
+      Target Account: {{ compromised_email }}
+      Target Executive: {{ compromised_person_name }}
+      Timestamp: {{ timestamp }}
+      
+      ATTACK CHARACTERISTICS:
+      Attack Type: Account Compromise + Fraud
+      Entry Vector: Phishing with malware attachment
+      Persistence: Email forwarding + delegate accounts
+      Fraud Type: Vendor payment and W-2 fraud
+      
+      COMPROMISED SYSTEMS:
+      - Email Account: Complete compromise
+      - Local Workstation: Malware installed
+      - Cloud Account: Secondary access acquired
+      - Mobile Device: Potential access
+      
+      FRAUDULENT TRANSACTIONS:
+      Transaction 1: $15,000 (Processed)
+      Transaction 2: $35,000 (Processed)
+      Transaction 3: $45,000 (Processed)
+      Transaction 4: $50,000 (Flagged/Halted)
+      
+      Total Loss: $145,000 minimum
+      
+      DISCOVERY:
+      - Discovered by: Real CFO upon return from travel
+      - Time to Discovery: 7-8 days
+      - Discovery Method: Reviewing account activity
+      - Alert Raised: Finance + IT Security
+      
+      LOGEOF
+
+checks:
+  - name: 'Verify BEC timeline created'
+    type: 'atomic'
+    command: 'test -f /tmp/bec_attack/compromise_timeline.txt && echo "PASS: BEC timeline created"'
+  
+  - name: 'Verify email templates created'
+    type: 'atomic'
+    command: 'test -f /tmp/bec_attack/bec_email_templates.txt && echo "PASS: Email templates created"'
+  
+  - name: 'Verify post-compromise actions documented'
+    type: 'atomic'
+    command: 'test -f /tmp/bec_attack/post_compromise_actions.txt && echo "PASS: Post-compromise actions documented"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove BEC attack files'
+    type: 'atomic'
+    command: 'rm -rf /tmp/bec_attack'
+  
+  - name: 'Remove BEC logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/bec_logs'

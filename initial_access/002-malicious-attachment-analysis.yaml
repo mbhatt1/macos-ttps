@@ -1,0 +1,94 @@
+id: '7a2b9e1f-4c6d-4e3a-8b5c-1f9d2e4a7c3b'
+name: 'Malicious Attachment Analysis'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates malicious attachment analysis by creating and analyzing suspicious 
+  file attachments commonly used in phishing campaigns. Simulates detection of 
+  dangerous file types and embedded macros.
+
+arguments:
+  attachment_name:
+    description: 'Name of malicious attachment'
+    type: 'string'
+    default: 'Invoice_2025.docm'
+  attachment_type:
+    description: 'File extension indicating macro-enabled document'
+    type: 'string'
+    default: 'docm'
+  sender_email:
+    description: 'Email address sending attachment'
+    type: 'string'
+    default: 'accounting@trustedcompany.com'
+  target_user:
+    description: 'Target recipient'
+    type: 'string'
+    default: 'finance@company.com'
+
+steps:
+  - name: 'Create suspicious attachment'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/suspicious_attachments
+      cat > /tmp/suspicious_attachments/{{ attachment_name }} << 'DOCEOF'
+      [Content_Types].xml
+      <?xml version="1.0"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>
+      DOCEOF
+      echo "Created suspicious attachment: {{ attachment_name }}"
+  
+  - name: 'Analyze attachment metadata'
+    type: 'atomic'
+    command: |
+      file /tmp/suspicious_attachments/{{ attachment_name }}
+      ls -lah /tmp/suspicious_attachments/{{ attachment_name }}
+      echo ""
+      echo "Attachment Risk Analysis:"
+      echo "  - File Type: {{ attachment_type }}"
+      echo "  - Risk Level: HIGH"
+      echo "  - Contains Macros: Likely"
+      echo "  - Sender: {{ sender_email }}"
+  
+  - name: 'Log attachment analysis'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/attachment_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/attachment_logs/analysis_${timestamp}.log << 'LOGEOF'
+      Attachment Analysis Report
+      ==========================
+      Filename: {{ attachment_name }}
+      Sender: {{ sender_email }}
+      Recipient: {{ target_user }}
+      File Type: {{ attachment_type }}
+      Status: SUSPICIOUS - Macro-enabled document
+      Action: Quarantine
+      LOGEOF
+      echo "Analysis logged"
+
+checks:
+  - name: 'Verify attachment created'
+    type: 'atomic'
+    command: 'test -f /tmp/suspicious_attachments/{{ attachment_name }} && echo "PASS: Attachment file exists"'
+  
+  - name: 'Verify file type detection'
+    type: 'atomic'
+    command: 'file /tmp/suspicious_attachments/{{ attachment_name }} | grep -q "." && echo "PASS: File type analyzed"'
+  
+  - name: 'Verify analysis logs created'
+    type: 'atomic'
+    command: 'test -d /tmp/attachment_logs && [ $(ls -1 /tmp/attachment_logs | wc -l) -gt 0 ] && echo "PASS: Analysis logs created"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove suspicious attachments'
+    type: 'atomic'
+    command: 'rm -rf /tmp/suspicious_attachments'
+  
+  - name: 'Remove attachment logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/attachment_logs'

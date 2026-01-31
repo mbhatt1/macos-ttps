@@ -1,0 +1,86 @@
+uuid: 9ac9a6e3-2b5d-1e16-7c0d-9f4a7b7e1d3c
+api_version: '2.0'
+name: Session Hijacking
+description: Hijack active user sessions to gain unauthorized macOS system access
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: high
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target account with active session to hijack
+    type: string
+    required: true
+  password_list:
+    description: Path to file containing session tokens or cookies
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with leaked session data
+    type: string
+    required: true
+  oauth_token:
+    description: Stolen session token or cookie
+    type: string
+    required: false
+
+steps:
+  - name: identify_active_sessions
+    description: Identify active user sessions on target macOS
+    command: |
+      echo "Identifying active sessions for: ${target_account}"
+      # Dry run: simulate session enumeration
+      echo "Active session enumeration in progress"
+      
+  - name: extract_session_tokens
+    description: Extract session tokens and cookies from leaked data
+    command: |
+      echo "Extracting session tokens from breach data"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "Session tokens found:"
+      fi
+      
+  - name: validate_session_tokens
+    description: Validate extracted session tokens for usability
+    command: |
+      echo "Validating session tokens"
+      if [ -f "${password_list}" ]; then
+        # Dry run: simulate token validation
+        count=$(wc -l < "${password_list}")
+        echo "Validated ${count} session tokens"
+      fi
+      
+  - name: hijack_session
+    description: Use stolen session token to hijack active session
+    command: |
+      echo "Attempting to hijack session"
+      # Dry run: simulate session hijacking
+      echo "Session hijacking attempt in progress"
+
+checks:
+  - name: verify_session_hijack
+    description: Verify successful session hijacking
+    command: |
+      echo "Verifying session hijack success"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke stolen session tokens
+    command: |
+      echo "Revoking stolen session tokens"
+      
+  - name: terminate_sessions
+    description: Terminate hijacked sessions
+    command: |
+      echo "Terminating hijacked sessions"

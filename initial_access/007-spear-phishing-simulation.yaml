@@ -1,0 +1,251 @@
+id: '3c7d5b0e-6f2a-4e9b-8a1d-2c5e7f1a3d8b'
+name: 'Spear Phishing Simulation'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates spear phishing simulation with highly targeted attacks using 
+  specific victim information. Includes personalized content, contextual details, 
+  and advanced social engineering to increase success rate.
+
+arguments:
+  victim_name:
+    description: 'Name of targeted individual'
+    type: 'string'
+    default: 'Sarah Johnson'
+  victim_title:
+    description: 'Job title of target'
+    type: 'string'
+    default: 'Finance Director'
+  victim_company:
+    description: 'Company where victim works'
+    type: 'string'
+    default: 'TechCorp Industries'
+  sender_name:
+    description: 'Spoofed sender identity'
+    type: 'string'
+    default: 'David Chen, CEO'
+  specific_project:
+    description: 'Real project victim is working on'
+    type: 'string'
+    default: 'Q1 2025 Budget Allocation'
+
+steps:
+  - name: 'Gather intelligence on target'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/spear_phishing
+      cat > /tmp/spear_phishing/target_profile.txt << 'PROFILEEOF'
+      TARGET INTELLIGENCE PROFILE
+      ===========================
+      
+      Primary Target: {{ victim_name }}
+      Title: {{ victim_title }}
+      Company: {{ victim_company }}
+      Department: Finance
+      Experience Level: Senior Management
+      
+      INTELLIGENCE GATHERED:
+      
+      Personal Information:
+      - LinkedIn Profile: public, shows career history
+      - Recent Promotions: Promoted to Finance Director (6 months ago)
+      - Reports To: {{ sender_name }}
+      - Direct Reports: 12 team members
+      
+      Professional Context:
+      - Current Major Project: {{ specific_project }}
+      - Budget Authority: $2M+ procurement authority
+      - Recent Activity: Attending quarterly board meetings
+      - Email Pattern: Checks email 8:00 AM, 12:00 PM, 4:00 PM, 6:00 PM
+      
+      Technology Use:
+      - Primary Device: MacBook Pro (recent model)
+      - Email Client: Outlook for Mac
+      - VPN Usage: Daily, connects from home office 3 days/week
+      - Secondary Device: iPad for meeting notes
+      
+      Vulnerability Assessment:
+      - Recent major responsibility increase
+      - Time-sensitive project deadlines
+      - Frequent communication with CEO
+      - Access to sensitive financial data
+      - Higher susceptibility to authority-based requests
+      PROFILEEOF
+      echo "Created target profile"
+  
+  - name: 'Create spear phishing email'
+    type: 'atomic'
+    command: |
+      cat > /tmp/spear_phishing/spear_phishing_email.txt << 'EMAILEOF'
+      From: {{ sender_name }} <david.chen@techcorp-industries.com>
+      To: {{ victim_name }} <sarah.johnson@techcorp.com>
+      Date: $(date)
+      Subject: URGENT: {{ specific_project }} - Budget Revision Required
+      
+      Hi {{ victim_name }},
+      
+      I need your immediate assistance with a confidential matter regarding the 
+      {{ specific_project }} budget allocation. There have been last-minute changes 
+      from the board that require immediate document review and approval.
+      
+      Given the sensitive nature of this revision, I've uploaded the documents to a 
+      secure external portal. However, you'll need to verify your credentials to 
+      access them due to new security requirements.
+      
+      Please click the link below and sign in with your TechCorp credentials to 
+      access the preliminary budget documents:
+      
+      https://secure-techcorp-document-portal.com/verify-credentials
+      
+      Time is critical - the board is expecting feedback by end of business today.
+      Please don't share this link with others on your team.
+      
+      Thank you for your prompt attention to this matter.
+      
+      David Chen
+      Chief Executive Officer
+      TechCorp Industries
+      direct: (555) 123-4567
+      EMAILEOF
+      echo "Created spear phishing email"
+  
+  - name: 'Create context-specific landing page'
+    type: 'atomic'
+    command: |
+      cat > /tmp/spear_phishing/landing_page.html << 'HTMLEOF'
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>TechCorp Secure Document Portal</title>
+        <style>
+          body { font-family: Arial; background: #f0f0f0; }
+          .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
+          .container { max-width: 600px; margin: 30px auto; background: white; padding: 30px; border-radius: 10px; }
+          .notice { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+          .form-group { margin-bottom: 15px; }
+          input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+          button { width: 100%; padding: 10px; background: #0066cc; color: white; border: none; border-radius: 5px; cursor: pointer; }
+          .project-info { background: #f9f9f9; padding: 15px; margin-bottom: 20px; border-left: 4px solid #0066cc; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>TechCorp Secure Document Portal</h1>
+        </div>
+        <div class="container">
+          <div class="notice">
+            <strong>Security Notice:</strong> This secure portal requires authentication 
+            to access confidential budget documents.
+          </div>
+          
+          <div class="project-info">
+            <h3>Document Access Request</h3>
+            <p><strong>Project:</strong> {{ specific_project }}</p>
+            <p><strong>Requested By:</strong> {{ sender_name }}, CEO</p>
+            <p><strong>Urgency:</strong> HIGH - Response needed by EOD</p>
+          </div>
+          
+          <form action="/portal/authenticate" method="POST">
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" name="email" placeholder="your.email@techcorp.com" required>
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" name="password" placeholder="Your TechCorp password" required>
+            </div>
+            <div class="form-group">
+              <label>MFA Code (if enabled)</label>
+              <input type="text" name="mfa_code" placeholder="6-digit code from your authenticator">
+            </div>
+            <button type="submit">Access Confidential Documents</button>
+          </form>
+          
+          <p style="text-align: center; color: #666; margin-top: 20px; font-size: 12px;">
+            Secured by TechCorp IT Security | Portal Version 2.4
+          </p>
+        </div>
+      </body>
+      </html>
+      HTMLEOF
+      echo "Created spear phishing landing page"
+  
+  - name: 'Create execution plan'
+    type: 'atomic'
+    command: |
+      cat > /tmp/spear_phishing/execution_plan.txt << 'PLANEOF'
+      SPEAR PHISHING EXECUTION PLAN
+      =============================
+      
+      PHASE 1: TIMING
+      - Send email at 4:55 PM (before end of business)
+      - Target: Time when {{ victim_name }} is checking email
+      - Strategy: Create time pressure for quick action
+      
+      PHASE 2: DELIVERY
+      - Method: Spoofed email from CEO account (or compromised account)
+      - Subject: Contains real project name for credibility
+      - Content: References specific recent activities
+      - Link: Points to lookalike domain (secure-techcorp-document-portal.com)
+      
+      PHASE 3: EXPLOITATION
+      - Landing Page: Mimics TechCorp branding exactly
+      - Fields: Email, Password, MFA code (if applicable)
+      - Credential Capture: All fields logged to attacker infrastructure
+      - Redirect: After submission, redirect to legitimate portal to maintain cover
+      
+      PHASE 4: POST-COMPROMISE
+      - Account Compromise: Use captured credentials immediately
+      - Lateral Movement: Access to financial systems
+      - Data Exfiltration: Budget documents, approval processes
+      - Persistence: Install backdoor or maintain access
+      
+      SUCCESS INDICATORS:
+      - Email opened within 5 minutes of receipt
+      - Credentials entered within 10 minutes
+      - Victim accesses account after compromise (normalcy)
+      - No security alert raised
+      PLANEOF
+      echo "Created execution plan"
+  
+  - name: 'Log spear phishing setup'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/spear_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/spear_logs/campaign_${timestamp}.log << 'LOGEOF'
+      Spear Phishing Campaign Initiated
+      ==================================
+      Timestamp: {{ timestamp }}
+      Target: {{ victim_name }} ({{ victim_title }})
+      Company: {{ victim_company }}
+      Sender Spoofed: {{ sender_name }}
+      Campaign Theme: {{ specific_project }}
+      Estimated Success Rate: 70-85% (highly targeted)
+      Sophistication Level: ADVANCED
+      LOGEOF
+
+checks:
+  - name: 'Verify target profile created'
+    type: 'atomic'
+    command: 'test -f /tmp/spear_phishing/target_profile.txt && echo "PASS: Target profile created"'
+  
+  - name: 'Verify spear phishing email created'
+    type: 'atomic'
+    command: 'test -f /tmp/spear_phishing/spear_phishing_email.txt && echo "PASS: Spear phishing email created"'
+  
+  - name: 'Verify landing page created'
+    type: 'atomic'
+    command: 'test -f /tmp/spear_phishing/landing_page.html && echo "PASS: Landing page created"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove spear phishing files'
+    type: 'atomic'
+    command: 'rm -rf /tmp/spear_phishing'
+  
+  - name: 'Remove spear phishing logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/spear_logs'

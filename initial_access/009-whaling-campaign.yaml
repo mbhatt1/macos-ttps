@@ -1,0 +1,364 @@
+id: '5e9f7d2a-8b4c-6f1e-0a3d-4c7e8f2a1b5d'
+name: 'Whaling Campaign'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates whaling campaign (phishing targeting C-level executives) execution 
+  with highly sophisticated social engineering. Includes executive-level targeting, 
+  advanced reconnaissance, and financial crime scenarios.
+
+arguments:
+  executive_name:
+    description: 'Name of C-level executive being targeted'
+    type: 'string'
+    default: 'James Richardson, CEO'
+  company_name:
+    description: 'Target company name'
+    type: 'string'
+    default: 'GlobalTech Corporation'
+  business_context:
+    description: 'Current business activity or announcement'
+    type: 'string'
+    default: 'pending acquisition by larger corporation'
+  attack_vector:
+    description: 'Primary attack vector'
+    type: 'string'
+    default: 'urgent wire transfer request'
+
+steps:
+  - name: 'Conduct executive-level reconnaissance'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/whaling
+      cat > /tmp/whaling/executive_profile.txt << 'PROFILEEOF'
+      EXECUTIVE WHALING TARGET PROFILE
+      ================================
+      
+      PRIMARY TARGET: {{ executive_name }}
+      COMPANY: {{ company_name }}
+      
+      EXECUTIVE INTELLIGENCE:
+      
+      Personal Information:
+      - Title: Chief Executive Officer
+      - Office Location: Executive Floor, Floor 45
+      - Tenure: 8 years
+      - Previous Roles: President, VP Operations
+      - Education: MBA from Ivy League institution
+      - Net Worth: Estimated $50M+
+      
+      Business Context:
+      - Current Activity: {{ business_context }}
+      - Recent Announcements: Earnings call, investor relations
+      - Board Meetings: Weekly executive sessions
+      - Decision Authority: Financial approval up to $100M
+      - Travel Patterns: International quarterly board meetings
+      
+      Professional Network:
+      - Direct Reports: 15+ C-level executives
+      - Board Members: Connected to 7 Fortune 500 boards
+      - Advisors: Big 4 accounting firms, major law firms
+      - Investors: Institutional investors, hedge funds
+      
+      Communication Patterns:
+      - Email: Checks 6:00 AM, 12:00 PM, 5:00 PM daily
+      - Mobile: iPhone 15 Pro, always with him
+      - Assistants: 2 executive assistants (critical touchpoint)
+      - Calendar: Fully booked, delegates based on urgency
+      
+      Decision-Making Characteristics:
+      - Quick decision maker under pressure
+      - Trusts authority figures (board members, legal counsel)
+      - Motivated by company growth and shareholder value
+      - Time-sensitive nature of role creates urgency
+      - Less likely to question requests from trusted sources
+      
+      VULNERABILITY ASSESSMENT:
+      - High-value target for wire fraud
+      - Accustomed to large financial transactions
+      - Time pressure from board/investor expectations
+      - May not verify authenticity of urgent requests
+      - Delegates to assistants frequently
+      PROFILEEOF
+      echo "Created executive profile"
+  
+  - name: 'Develop whaling attack scenario'
+    type: 'atomic'
+    command: |
+      cat > /tmp/whaling/whaling_attack_plan.txt << 'PLANEOF'
+      WHALING CAMPAIGN ATTACK PLAN
+      ============================
+      
+      CAMPAIGN OBJECTIVE: {{ attack_vector }}
+      TARGET: {{ executive_name }}
+      BUSINESS CONTEXT: {{ business_context }}
+      
+      ====== PHASE 1: RECONNAISSANCE (Days 1-7) ======
+      
+      OSINT Activities:
+      - Monitor SEC filings for acquisition details
+      - Track earnings calls and investor presentations
+      - Review board member announcements
+      - Monitor business news for company mentions
+      - Identify key advisors (legal, financial)
+      - Track recent partnerships and deals
+      
+      Social Engineering Research:
+      - LinkedIn profile analysis (career history, connections)
+      - Twitter/public statements from CEO
+      - Company press releases and blog posts
+      - Interview transcripts and conference appearances
+      - Board meeting announcements
+      - Industry event attendance
+      
+      Email Intelligence:
+      - Identify CEO email format (firstname.lastname@company.com)
+      - Identify executive assistant emails
+      - Review email signatures for phone/details
+      - Monitor email communication patterns
+      - Identify frequently contacted parties
+      
+      ====== PHASE 2: SPOOFING INFRASTRUCTURE (Days 8-10) ======
+      
+      Domain Setup:
+      - Register lookalike domain: globaltechcorp-secure.com (vs globaltech.com)
+      - Register advisor domain: [law firm]-advisory.com
+      - Set up email spoofing on legitimate domain
+      - Configure SPF/DKIM to bypass basic checks
+      
+      Email Account Creation:
+      - Create accounts on spoofed domains
+      - Set up automated forwarding for responses
+      - Configure from: lines to appear as trusted parties
+      - Examples:
+        * boardchair@globaltechcorp-secure.com
+        * legal@trustlaw-advisory.com
+        * irinfo@company.com (spoofed actual domain)
+      
+      ====== PHASE 3: SOCIAL ENGINEERING CONTENT (Days 11-12) ======
+      
+      Email Strategy: Urgent Wire Transfer Request
+      
+      Sender: David Mitchell, Chairman of the Board
+      Recipient: {{ executive_name }}
+      Subject: URGENT - Confidential - Wire Transfer Approval Needed
+      
+      "James,
+      
+      Due to the confidential nature of our pending {{ business_context }}, 
+      I'm reaching out with an urgent request. The acquiring company requires 
+      a $2.5M wire transfer to escrow by end of business TODAY to demonstrate 
+      commitment and lock in the deal terms.
+      
+      This is time-sensitive and cannot go through normal channels due to 
+      confidentiality agreements. The deal would be jeopardized if this becomes 
+      public knowledge before official announcement.
+      
+      Please wire the funds from corporate reserves to the escrow account:
+      
+      Account: [Attacker-controlled account details]
+      Routing: [Attacker-controlled routing]
+      
+      Confirm receipt of this email immediately. Do not discuss with finance 
+      team - this needs to remain between us and legal counsel.
+      
+      Call me after you've arranged the wire: [Attacker phone number]
+      
+      David"
+      
+      ====== PHASE 4: DELIVERY & EXECUTION (Days 13-14) ======
+      
+      Primary Approach: CEO/Executive Assistant
+      
+      1. Email to CEO
+         - Spoofed from board chairman
+         - Emphasizes confidentiality and urgency
+         - References pending acquisition details
+         - Provides payment instructions
+      
+      2. Follow-up to Executive Assistant
+         - Different sender: "Legal counsel with transaction details"
+         - Emphasizes time sensitivity
+         - Requests calendar booking/agenda item
+         - Includes "official" transaction documents
+      
+      3. Phone Confirmation
+         - Call spoofed phone number (caller ID spoofing)
+         - Confirm wire transfer arrangement
+         - Answer any questions
+         - Redirect to "escrow" account
+      
+      4. False Documentation
+         - Create fake acquisition agreement
+         - Include legitimate company letterheads
+         - Reference real board members and legal firms
+         - Include standard acquisition clauses
+      
+      ====== PHASE 5: WIRE FRAUD EXECUTION ======
+      
+      Wire Transfer Instructions:
+      - Amount: $2.5M (significant but not suspicious for large deal)
+      - Recipient: Attacker-controlled account
+      - Urgency: EOB delivery mandate
+      - Justification: Confidential escrow arrangement
+      
+      Money Laundering:
+      - Immediate transfer to multiple intermediate accounts
+      - Quick movement through multiple jurisdictions
+      - Use money mule networks for cash-out
+      - Convert to cryptocurrency at exchange
+      
+      ====== PHASE 6: POST-EXPLOITATION ======
+      
+      Cover Actions:
+      - Delay in "deal completion" cited as normal business
+      - Reference external advisor delays
+      - Cite regulatory review processes
+      - Stall communications
+      
+      Victim Realization:
+      - When deal falls through, CEO realizes fraud
+      - By then, funds are dispersed
+      - Wire instructions traced back to spoofed accounts
+      - Minimal recovery likelihood
+      
+      ESTIMATED IMPACT:
+      - Financial Loss: $2.5M minimum (often $5M+)
+      - Company Reputation: Significant (CEO defrauded)
+      - Insurance: May cover portion
+      - Law Enforcement: FBI/SEC involvement
+      - Recovery Rate: <5%
+      PLANEOF
+      echo "Created whaling attack plan"
+  
+  - name: 'Create fake acquisition documents'
+    type: 'atomic'
+    command: |
+      cat > /tmp/whaling/acquisition_agreement.txt << 'DOCEOF'
+      CONFIDENTIAL ACQUISITION AGREEMENT
+      (PRIVILEGED AND CONFIDENTIAL ATTORNEY-CLIENT COMMUNICATION)
+      
+      This Acquisition Agreement (the "Agreement") is entered into as of the date 
+      hereof, by and between {{ company_name }} (the "Company") and Sterling 
+      Capital Partners, Inc. (the "Buyer").
+      
+      WHEREAS, the Company and Buyer wish to negotiate and consummate the 
+      acquisition of the Company by Buyer, on the terms and conditions set forth 
+      herein;
+      
+      1. PURCHASE AND SALE
+      
+      1.1 Acquisition. Buyer shall acquire, and Company shall sell and convey 
+      to Buyer, all of the issued and outstanding shares of the Company.
+      
+      1.2 Purchase Price. The purchase price for the Company shall be $8.5 billion 
+      ("Purchase Price"), payable as follows:
+      
+      (a) Escrow Amount: $2.5M shall be deposited into an escrow account within 
+      two (2) business days to demonstrate good faith commitment and secure deal 
+      terms. This amount shall be held until closing and applied against the final 
+      payment.
+      
+      (b) Additional Deposit: Additional deposits as agreed upon during 
+      diligence period.
+      
+      2. CLOSING CONDITIONS
+      
+      2.1 Conditions to Closing. The obligations of Buyer to close are conditioned 
+      upon satisfaction of the following conditions:
+      
+      (a) Accuracy of Representations and Warranties
+      (b) Delivery of Certificate of Company
+      (c) Regulatory Approvals
+      (d) Financing Commitment Satisfaction
+      
+      3. CONFIDENTIALITY
+      
+      3.1 The parties acknowledge that this transaction is confidential and may not 
+      be disclosed to any third parties, including members of the Company's finance 
+      department, board members not on the special committee, or other employees, 
+      until public announcement is made.
+      
+      3.2 Premature disclosure may result in deal termination and loss of escrow 
+      deposit.
+      
+      4. ESCROW ACCOUNT DETAILS
+      
+      Escrow Bank: FirstNational Bank of Delaware
+      Account: [ATTACKER-CONTROLLED ACCOUNT]
+      Routing: [ATTACKER-CONTROLLED ROUTING]
+      Wire Reference: GLOBALTEC-2025-ESCROW
+      
+      SIGNATURE:
+      
+      By: ________________________
+      Title: Chairman, Board of Directors
+      Company: Sterling Capital Partners, Inc.
+      Date: January 30, 2025
+      
+      LEGAL COUNSEL REVIEW:
+      This agreement reviewed and approved by:
+      Morrison & Foerster LLP
+      Acquisition Practice Group
+      DOCEOF
+      echo "Created fake acquisition documents"
+  
+  - name: 'Create campaign timeline'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/whaling_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/whaling_logs/campaign_${timestamp}.log << 'LOGEOF'
+      WHALING CAMPAIGN EXECUTION LOG
+      ==============================
+      
+      Campaign ID: WHALING-2025-001
+      Target: {{ executive_name }}
+      Company: {{ company_name }}
+      Timestamp: {{ timestamp }}
+      
+      CAMPAIGN PHASES:
+      Phase 1 - Reconnaissance: Complete
+      Phase 2 - Infrastructure: Complete
+      Phase 3 - Content Development: Complete
+      Phase 4 - Delivery: In Progress
+      Phase 5 - Exploitation: Pending
+      Phase 6 - Cover/Exfiltration: Pending
+      
+      TARGET CHARACTERISTICS:
+      - High-net-worth individual
+      - Access to corporate funds (>$100M approval authority)
+      - Time-pressured decision making
+      - Trusts board/legal authority
+      - Less likely to verify through alternative channels
+      
+      ATTACK VECTOR: Wire fraud through urgent acquisition payment
+      TARGET AMOUNT: $2.5M initial + up to $5M total
+      SUCCESS PROBABILITY: 65-75% (executive-level targeting)
+      
+      LOGEOF
+
+checks:
+  - name: 'Verify executive profile created'
+    type: 'atomic'
+    command: 'test -f /tmp/whaling/executive_profile.txt && echo "PASS: Executive profile created"'
+  
+  - name: 'Verify attack plan created'
+    type: 'atomic'
+    command: 'test -f /tmp/whaling/whaling_attack_plan.txt && echo "PASS: Attack plan created"'
+  
+  - name: 'Verify fake documents created'
+    type: 'atomic'
+    command: 'test -f /tmp/whaling/acquisition_agreement.txt && echo "PASS: Fake acquisition documents created"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove whaling campaign files'
+    type: 'atomic'
+    command: 'rm -rf /tmp/whaling'
+  
+  - name: 'Remove whaling logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/whaling_logs'

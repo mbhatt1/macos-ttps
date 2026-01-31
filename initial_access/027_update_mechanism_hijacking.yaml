@@ -1,0 +1,113 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440027
+platform: darwin
+name: Update mechanism hijacking
+category: Initial Access
+description: Simulate hijacking of software update mechanism. Attacker intercepts or spoofs legitimate application updates to distribute malware to existing users.
+tactics:
+  - T1195.003
+techniques:
+  - T1195.003
+args:
+  - name: package_name
+    description: Name of application with hijacked updates
+    type: string
+    default: productivity_app
+  - name: version
+    description: Current legitimate version
+    type: string
+    default: "4.1.0"
+  - name: source_repo
+    description: Official update server URL
+    type: string
+    default: "https://updates.example.com"
+  - name: backdoor_payload
+    description: Malware to inject in fake update
+    type: string
+    default: "launchctl load /Library/LaunchDaemons/.hidden_update.plist"
+steps:
+  - name: Create fake update server directory
+    command: mkdir -p /tmp/ttpforge_updates/{{ package_name }}/v{{ version }}/macos
+    
+  - name: Create legitimate application structure
+    command: |
+      mkdir -p /tmp/ttpforge_updates/{{ package_name }}/current/Contents/MacOS
+      cat > /tmp/ttpforge_updates/{{ package_name }}/current/Contents/Info.plist << 'PLIST'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleName</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleVersion</key>
+        <string>{{ version }}</string>
+      </dict>
+      </plist>
+      PLIST
+    
+  - name: Create fake update manifest
+    command: |
+      cat > /tmp/ttpforge_updates/{{ package_name }}/updates.json << 'MANIFEST'
+      {
+        "version": "{{ version }}",
+        "build": "4.1.0-release",
+        "url": "https://updates.example.com/{{ package_name }}/v{{ version }}/macos/{{ package_name }}-{{ version }}.dmg",
+        "checksum": "abcdef1234567890",
+        "size": 524288000,
+        "releaseNotes": "Performance improvements and bug fixes",
+        "minOSVersion": "10.14"
+      }
+      MANIFEST
+    
+  - name: Create malicious update installer
+    command: |
+      cat > /tmp/ttpforge_updates/{{ package_name }}/v{{ version }}/macos/install_update.sh << 'INSTALLER'
+      #!/bin/bash
+      # Legitimate update installation simulation
+      echo "Installing {{ package_name }} {{ version }} update..."
+      
+      # Hidden malware injection
+      mkdir -p ~/.{{ package_name }}_updates
+      echo "{{ backdoor_payload }}" > ~/.{{ package_name }}_updates/bootstrap.sh
+      chmod +x ~/.{{ package_name }}_updates/bootstrap.sh
+      
+      # Mark system as compromised
+      touch /tmp/.update_hijacked
+      
+      echo "Update installation complete"
+      INSTALLER
+      chmod +x /tmp/ttpforge_updates/{{ package_name }}/v{{ version }}/macos/install_update.sh
+    
+  - name: Simulate update installation
+    command: bash /tmp/ttpforge_updates/{{ package_name }}/v{{ version }}/macos/install_update.sh
+    dry_run: true
+
+checks:
+  - name: Verify fake update server directory
+    command: test -d /tmp/ttpforge_updates/{{ package_name }}/v{{ version }}
+    expected_output: ""
+    
+  - name: Verify malicious update manifest
+    command: test -f /tmp/ttpforge_updates/{{ package_name }}/updates.json
+    expected_output: ""
+    
+  - name: Verify hijacked update marker
+    command: test -f /tmp/.update_hijacked
+    expected_output: ""
+    
+  - name: Verify malicious update directory
+    command: test -d ~/.{{ package_name }}_updates
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove fake update server
+    command: rm -rf /tmp/ttpforge_updates/{{ package_name }}
+    
+  - name: Remove malicious update artifacts
+    command: rm -rf ~/.{{ package_name }}_updates
+    
+  - name: Remove hijack marker
+    command: rm -f /tmp/.update_hijacked

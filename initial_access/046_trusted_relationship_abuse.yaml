@@ -1,0 +1,86 @@
+id: ttp-046
+name: Trusted Relationship Abuse
+uuid: 550e8400-e29b-41d4-a716-446655440046
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate abuse of trusted relationship (vendor, partner, supplier) to deliver malware
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: trusted_entity
+    description: Name of trusted entity (vendor, partner, supplier)
+    type: string
+    default: 'SoftwareVendor Inc'
+  - name: target_organization
+    description: Target organization being attacked
+    type: string
+    default: 'TargetCorp'
+  - name: delivery_vector
+    description: How malware is delivered (software_update, plugin, extension)
+    type: string
+    default: software_update
+  - name: malware_url
+    description: URL hosting malware payload
+    type: string
+    default: 'http://attacker.com/update.pkg'
+
+steps:
+  - name: Compromise trusted entity
+    description: Simulate compromising the trusted relationship
+    executor: sh
+    command: 'echo "Compromised trusted entity: ${trusted_entity}" > /tmp/trusted_abuse.log'
+  
+  - name: Create trojanized update
+    description: Create malware-infested update or plugin
+    executor: sh
+    command: 'touch /tmp/trojanized_update.pkg && echo "Trojanized ${delivery_vector} created" >> /tmp/trusted_abuse.log'
+  
+  - name: Sign with legitimate certificate
+    description: Simulate signing with legitimate vendor certificate
+    executor: sh
+    command: 'echo "Signed with ${trusted_entity} certificate" >> /tmp/trusted_abuse.log'
+  
+  - name: Distribute through trusted channel
+    description: Simulate distributing through trusted distribution channel
+    executor: sh
+    command: 'echo "Distributed to ${target_organization} via ${delivery_vector}" >> /tmp/trusted_abuse.log'
+  
+  - name: Monitor target installation
+    description: Monitor target organization installing malware
+    executor: sh
+    command: 'echo "Target ${target_organization} installed at $(date)" >> /tmp/trusted_abuse.log'
+
+checks:
+  - name: Trusted entity compromise
+    description: Verify trusted entity was compromised
+    executor: sh
+    command: 'grep -q "Compromised" /tmp/trusted_abuse.log && echo "PASS: Compromise logged" || echo "FAIL: No compromise logged"'
+  
+  - name: Trojanized update creation
+    description: Verify trojanized update was created
+    executor: sh
+    command: 'test -f /tmp/trojanized_update.pkg && echo "PASS: Update created" || echo "FAIL: Update not found"'
+  
+  - name: Installation verification
+    description: Verify target installed malware
+    executor: sh
+    command: 'grep -q "${target_organization}" /tmp/trusted_abuse.log && echo "PASS: Installation logged" || echo "FAIL: No installation logged"'
+
+tests:
+  - name: Trusted relationship abuse test
+    description: Test trusted relationship abuse scenario
+    dry_run: true
+    command: 'echo "DRY RUN: Would compromise ${trusted_entity} and deliver malware via ${delivery_vector} to ${target_organization}"'
+
+cleanup:
+  - name: Remove trojanized update
+    description: Clean up trojanized update artifacts
+    executor: sh
+    command: 'rm -f /tmp/trojanized_update.pkg'
+  
+  - name: Remove abuse logs
+    description: Clean up trusted relationship abuse logs
+    executor: sh
+    command: 'rm -f /tmp/trusted_abuse.log'

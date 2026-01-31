@@ -1,0 +1,168 @@
+id: '1a5f3b8c-9e2d-4f7a-6c1b-3e5d8a2f4c9b'
+name: 'Social Engineering Scenario'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates social engineering scenario execution by simulating multi-stage 
+  manipulation tactics including pretexting, authority impersonation, and 
+  creating false urgency to manipulate targets into revealing sensitive information.
+
+arguments:
+  attacker_persona:
+    description: 'Fictional persona used for impersonation'
+    type: 'string'
+    default: 'John Smith, IT Support Manager'
+  target_department:
+    description: 'Department being targeted'
+    type: 'string'
+    default: 'Finance'
+  urgency_reason:
+    description: 'Reason for urgent action'
+    type: 'string'
+    default: 'Security audit'
+  pretext_story:
+    description: 'Cover story for the request'
+    type: 'string'
+    default: 'We are updating security protocols and need to verify accounts'
+
+steps:
+  - name: 'Create social engineering script'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/se_scenarios
+      cat > /tmp/se_scenarios/engagement_script.txt << 'SCRIPTEOF'
+      SOCIAL ENGINEERING SCENARIO
+      ============================
+      
+      ATTACKER PERSONA: {{ attacker_persona }}
+      TARGET: {{ target_department }} Department
+      OBJECTIVE: Credential harvesting and information disclosure
+      
+      PHASE 1: INITIAL CONTACT
+      - Call target and identify as IT Support
+      - Reference recent "security audit" or "system update"
+      - Establish false sense of authority
+      - Ask for callback to verify identity (use spoofed number)
+      
+      PHASE 2: PRETEXT ESTABLISHMENT
+      - Story: {{ pretext_story }}
+      - Create urgency: {{ urgency_reason }}
+      - Emphasize confidentiality and discretion
+      - Ask questions to build rapport
+      
+      PHASE 3: INFORMATION EXTRACTION
+      - Request username for "verification"
+      - Ask for password under guise of account validation
+      - Request MFA codes
+      - Inquire about recent access/systems used
+      
+      PHASE 4: CREDENTIAL HARVESTING
+      - Collect extracted information
+      - Document timeline and interaction details
+      - Plan follow-up contact if needed
+      - Transfer data to attacker infrastructure
+      
+      SUCCESS INDICATORS:
+      - Victim provides credentials
+      - Victim grants access or permissions
+      - Victim reveals sensitive company information
+      - Victim installs software/malware
+      SCRIPTEOF
+      echo "Created social engineering script"
+  
+  - name: 'Create engagement timeline'
+    type: 'atomic'
+    command: |
+      cat > /tmp/se_scenarios/engagement_timeline.txt << 'TIMELINEEOF'
+      ENGAGEMENT TIMELINE
+      ===================
+      
+      T+0:00    - Initial contact established
+      T+0:02    - Authority established through technical jargon
+      T+0:05    - Pretext story introduced: {{ pretext_story }}
+      T+0:08    - Urgency emphasized: {{ urgency_reason }}
+      T+0:12    - Initial information gathering
+      T+0:15    - Request for username
+      T+0:18    - Request for password verification
+      T+0:22    - Request for MFA codes
+      T+0:25    - Credential confirmation and data exfiltration
+      T+0:30    - Conversation termination
+      
+      TOTAL TIME: 30 minutes for complete credential compromise
+      TIMELINEEOF
+      echo "Created engagement timeline"
+  
+  - name: 'Document attacker techniques'
+    type: 'atomic'
+    command: |
+      cat > /tmp/se_scenarios/techniques_used.txt << 'TECHEOF'
+      SOCIAL ENGINEERING TECHNIQUES EMPLOYED
+      ======================================
+      
+      1. AUTHORITY IMPERSONATION
+         - Posing as IT Support Manager
+         - Using technical language
+         - Referencing official processes
+      
+      2. URGENCY CREATION
+         - Framing as security-critical
+         - Threatening account suspension
+         - Emphasizing time sensitivity
+      
+      3. TRUST BUILDING (RAPPORT)
+         - Using target's name and context
+         - Showing detailed knowledge of company
+         - Creating sense of internal legitimacy
+      
+      4. INFORMATION EXTRACTION
+         - Progressive request escalation
+         - Each request seems reasonable in isolation
+         - Building on previous responses
+      
+      5. PRETEXTING
+         - Creating fictional but plausible scenario
+         - Using real terminology and processes
+         - Exploiting legitimate business procedures
+      TECHEOF
+      echo "Documented techniques"
+  
+  - name: 'Log scenario execution'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/se_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/se_logs/scenario_${timestamp}.log << 'LOGEOF'
+      Social Engineering Scenario Executed
+      ====================================
+      Timestamp: {{ timestamp }}
+      Attacker Persona: {{ attacker_persona }}
+      Target Department: {{ target_department }}
+      Pretext: {{ pretext_story }}
+      Urgency Factor: {{ urgency_reason }}
+      Estimated Success Rate: 45-60% (typical phishing/SE success)
+      LOGEOF
+
+checks:
+  - name: 'Verify scenario script created'
+    type: 'atomic'
+    command: 'test -f /tmp/se_scenarios/engagement_script.txt && echo "PASS: Engagement script created"'
+  
+  - name: 'Verify timeline created'
+    type: 'atomic'
+    command: 'test -f /tmp/se_scenarios/engagement_timeline.txt && echo "PASS: Engagement timeline created"'
+  
+  - name: 'Verify techniques documented'
+    type: 'atomic'
+    command: 'test -f /tmp/se_scenarios/techniques_used.txt && echo "PASS: Techniques documented"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove SE scenarios'
+    type: 'atomic'
+    command: 'rm -rf /tmp/se_scenarios'
+  
+  - name: 'Remove SE logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/se_logs'

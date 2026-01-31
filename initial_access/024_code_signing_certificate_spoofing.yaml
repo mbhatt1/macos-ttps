@@ -1,0 +1,105 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440024
+platform: darwin
+name: Code signing certificate spoofing
+category: Initial Access
+description: Simulate code signing certificate spoofing attack where attacker creates false code signing certificates to sign malware, bypassing macOS Gatekeeper protections.
+tactics:
+  - T1195.003
+techniques:
+  - T1195.003
+args:
+  - name: package_name
+    description: Name of the application being signed
+    type: string
+    default: secure_app
+  - name: version
+    description: Version of the malicious application
+    type: string
+    default: "1.5.0"
+  - name: source_repo
+    description: Legitimate-looking repository URL
+    type: string
+    default: "https://official-downloads.com"
+  - name: backdoor_payload
+    description: Malware payload to embed in signed binary
+    type: string
+    default: "plutil -insert LaunchAgent -string /tmp/.hidden_daemon.plist ~/Library/LaunchAgents/"
+steps:
+  - name: Create certificate directory
+    command: mkdir -p /tmp/ttpforge_certs/fake_certificates
+    
+  - name: Generate fake certificate
+    command: |
+      openssl req -x509 -newkey rsa:2048 -keyout /tmp/ttpforge_certs/fake_certificates/private.key \
+        -out /tmp/ttpforge_certs/fake_certificates/certificate.crt -days 365 -nodes \
+        -subj "/CN=Apple Distribution/O=Legitimate Company/C=US" 2>/dev/null || true
+    
+  - name: Create application bundle structure
+    command: mkdir -p /tmp/ttpforge_certs/{{ package_name }}.app/Contents/{MacOS,Resources}
+    
+  - name: Create legitimate-looking binary
+    command: |
+      cat > /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} << 'BINARY'
+      #!/bin/bash
+      echo "{{ package_name }} {{ version }} is running"
+      BINARY
+      chmod +x /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }}
+    
+  - name: Create Info.plist for bundle
+    command: |
+      cat > /tmp/ttpforge_certs/{{ package_name }}.app/Contents/Info.plist << 'PLIST'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleName</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleVersion</key>
+        <string>{{ version }}</string>
+        <key>CFBundleExecutable</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleIdentifier</key>
+        <string>com.company.{{ package_name }}</string>
+      </dict>
+      </plist>
+      PLIST
+    
+  - name: Create signature marker file
+    command: touch /tmp/ttpforge_certs/{{ package_name }}.app/.signed
+    
+  - name: Simulate code signing with fake certificate
+    command: |
+      echo "Signing {{ package_name }}.app with spoofed certificate..." > /tmp/.codesign_log
+      touch /tmp/.malware_signed
+    dry_run: true
+
+checks:
+  - name: Verify fake certificate exists
+    command: test -f /tmp/ttpforge_certs/fake_certificates/certificate.crt
+    expected_output: ""
+    
+  - name: Verify application bundle created
+    command: test -d /tmp/ttpforge_certs/{{ package_name }}.app/Contents
+    expected_output: ""
+    
+  - name: Verify binary signed marker
+    command: test -f /tmp/ttpforge_certs/{{ package_name }}.app/.signed
+    expected_output: ""
+    
+  - name: Verify signing simulation
+    command: test -f /tmp/.malware_signed
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove fake certificate directory
+    command: rm -rf /tmp/ttpforge_certs/fake_certificates
+    
+  - name: Remove signed application bundle
+    command: rm -rf /tmp/ttpforge_certs/{{ package_name }}.app
+    
+  - name: Remove signing markers
+    command: rm -f /tmp/.malware_signed /tmp/.codesign_log

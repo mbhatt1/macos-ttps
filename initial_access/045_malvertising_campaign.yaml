@@ -1,0 +1,90 @@
+id: ttp-045
+name: Malvertising Campaign
+uuid: 550e8400-e29b-41d4-a716-446655440045
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate malvertising campaign using malicious advertisements to distribute malware
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: advertising_network
+    description: Ad network being abused for malvertising
+    type: string
+    default: 'google-ads'
+  - name: malware_url
+    description: URL hosting malware payload
+    type: string
+    default: 'http://attacker.com/trojan.dmg'
+  - name: target_website
+    description: Legitimate website displaying malicious ads
+    type: string
+    default: 'news.example.com'
+  - name: ad_type
+    description: Type of malicious advertisement (banner, popup, video)
+    type: string
+    default: banner
+  - name: payload_type
+    description: Type of malware payload (trojan, backdoor, ransomware)
+    type: string
+    default: trojan
+
+steps:
+  - name: Identify ad network
+    description: Identify the advertising network being compromised
+    executor: sh
+    command: 'echo "Compromised ad network: ${advertising_network}" > /tmp/malvertising.log'
+  
+  - name: Create malicious advertisement
+    description: Create malicious advertisement content
+    executor: sh
+    command: 'echo "<ad type=\"${ad_type}\" src=\"${malware_url}\">Malicious Ad</ad>" > /tmp/malicious_ad.html && echo "Malicious ad created" >> /tmp/malvertising.log'
+  
+  - name: Inject ad into network
+    description: Simulate injecting malicious ad into advertising network
+    executor: sh
+    command: 'echo "Injected ${ad_type} ad into ${advertising_network}" >> /tmp/malvertising.log'
+  
+  - name: Deploy to target websites
+    description: Simulate deploying ad to target websites
+    executor: sh
+    command: 'echo "Deployed to ${target_website} at $(date)" >> /tmp/malvertising.log'
+  
+  - name: Monitor ad impressions
+    description: Monitor users clicking on malicious ad
+    executor: sh
+    command: 'echo "Ad impressions: $(shuf -i 1000-5000 -n 1) | Clicks: $(shuf -i 100-500 -n 1)" >> /tmp/malvertising.log'
+
+checks:
+  - name: Malicious ad creation
+    description: Verify malicious ad was created
+    executor: sh
+    command: 'test -f /tmp/malicious_ad.html && echo "PASS: Malicious ad created" || echo "FAIL: Ad not found"'
+  
+  - name: Ad network injection verification
+    description: Verify ad was injected into network
+    executor: sh
+    command: 'grep -q "Injected" /tmp/malvertising.log && echo "PASS: Ad injected" || echo "FAIL: No injection logged"'
+  
+  - name: Deployment confirmation
+    description: Verify ad was deployed to target
+    executor: sh
+    command: 'grep -q "${target_website}" /tmp/malvertising.log && echo "PASS: Deployment confirmed" || echo "FAIL: No deployment logged"'
+
+tests:
+  - name: Malvertising campaign test
+    description: Test malvertising campaign simulation
+    dry_run: true
+    command: 'echo "DRY RUN: Would inject ${ad_type} ${payload_type} ad into ${advertising_network} for ${target_website}"'
+
+cleanup:
+  - name: Remove malicious ad
+    description: Clean up malicious advertisement artifacts
+    executor: sh
+    command: 'rm -f /tmp/malicious_ad.html'
+  
+  - name: Remove malvertising logs
+    description: Clean up malvertising campaign logs
+    executor: sh
+    command: 'rm -f /tmp/malvertising.log'

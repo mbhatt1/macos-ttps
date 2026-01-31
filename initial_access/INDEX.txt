@@ -1,0 +1,290 @@
+================================================================================
+MACOS INITIAL ACCESS TTPS - INDEX & QUICK REFERENCE
+================================================================================
+
+LOCATION: /tmp/ttpforge-generated/initial_access/
+
+FILES IN THIS DIRECTORY
+================================================================================
+
+TTP FILES (10 Total - YAML Format)
+-----------------------------------
+
+001-phishing-email-detection.yaml (2.9 KB)
+    UUID: 69c4df6c-8e3b-4f2a-9b1c-7e5d2f4a8c3b
+    Demonstrates phishing email detection with spoofed senders and urgency
+    Arguments: attacker_email, target_user, phishing_link, urgency_message
+    Checks: 3 (file existence, spoofing detection, log verification)
+    
+002-malicious-attachment-analysis.yaml (3.1 KB)
+    UUID: 7a2b9e1f-4c6d-4e3a-8b5c-1f9d2e4a7c3b
+    Simulates malicious attachments with dangerous file types
+    Arguments: attachment_name, attachment_type, sender_email, target_user
+    Checks: 3 (file creation, type detection, log verification)
+
+003-credential-harvesting-form.yaml (3.9 KB)
+    UUID: 8c3d1e5f-2b9a-4c7d-6f8e-3a1b5c9d2e4f
+    Creates fake login forms for credential capture
+    Arguments: target_service, form_domain, harvest_endpoint
+    Checks: 3 (form creation, impersonation, endpoint configuration)
+
+004-fake-login-page-creation.yaml (6.4 KB)
+    UUID: 9d4e2f6a-3c1b-4d7e-8a5c-2f9b1e3d6c7a
+    Generates convincing portal replicas with branding
+    Arguments: target_company, fake_domain, logo_url
+    Checks: 3 (page creation, form presence, branding)
+
+005-social-engineering-scenario.yaml (5.7 KB)
+    UUID: 1a5f3b8c-9e2d-4f7a-6c1b-3e5d8a2f4c9b
+    Multi-stage manipulation tactics and authority impersonation
+    Arguments: attacker_persona, target_department, urgency_reason, pretext_story
+    Checks: 3 (script creation, timeline, technique documentation)
+
+006-phishing-link-detection.yaml (5.4 KB)
+    UUID: 2b6c4a9d-5e1f-4b8a-7d3c-1f4a8e2b5d6c
+    Identifies suspicious URLs with domain similarity analysis
+    Arguments: legitimate_domain, phishing_url, obfuscation_method
+    Checks: 3 (URL database, analysis report, detection rules)
+
+007-spear-phishing-simulation.yaml (9.4 KB)
+    UUID: 3c7d5b0e-6f2a-4e9b-8a1d-2c5e7f1a3d8b
+    Highly targeted personalized phishing with reconnaissance
+    Arguments: victim_name, victim_title, victim_company, sender_name, specific_project
+    Checks: 3 (profile creation, email creation, landing page)
+
+008-pretexting-phone-calls.yaml (8.7 KB)
+    UUID: 4d8e6c1f-7a3b-5e0c-9f2d-3a6b7c1e4f2a
+    Phone-based social engineering with caller ID spoofing
+    Arguments: attacker_role, company_name, target_person, spoofed_number
+    Checks: 3 (script, tactics, spoofing documentation)
+
+009-whaling-campaign.yaml (13 KB)
+    UUID: 5e9f7d2a-8b4c-6f1e-0a3d-4c7e8f2a1b5d
+    C-level executive targeting with advanced techniques
+    Arguments: executive_name, company_name, business_context, attack_vector
+    Checks: 3 (profile, attack plan, fake documents)
+
+010-business-email-compromise.yaml (16 KB)
+    UUID: 6fa08e3b-9c5d-7f2a-1e4b-8d6c9f3e2a1b
+    Email account takeover with fraudulent transactions
+    Arguments: compromised_email, compromised_person_name, compromised_department, target_payment_processor
+    Checks: 3 (timeline, email templates, post-compromise actions)
+
+DOCUMENTATION FILES
+-------------------
+
+README.md (4.2 KB)
+    - Overview of all 10 TTPs
+    - Quick start guide
+    - Usage examples
+    - Security considerations
+    - Deployment guidelines
+
+PHISHING_SE_VALIDATION_REPORT.md (14 KB)
+    - Detailed validation results
+    - TTP specifications
+    - Technical features
+    - Usage recommendations
+    - Security best practices
+
+FINAL_SUMMARY.txt (12 KB)
+    - Executive summary
+    - Attack categories
+    - Customizable parameters
+    - Usage instructions
+    - Incident response guidance
+
+INDEX.txt (this file)
+    - Quick reference guide
+    - File organization
+    - Command examples
+    - Parameter reference
+
+================================================================================
+QUICK COMMAND REFERENCE
+================================================================================
+
+VALIDATE SINGLE TTP:
+    ttpforge validate 001-phishing-email-detection.yaml
+
+VALIDATE ALL TTPS:
+    for file in {001..010}-*.yaml; do ttpforge validate "$file"; done
+
+EXECUTE TTP (default parameters):
+    ttpforge run 001-phishing-email-detection.yaml
+
+EXECUTE TTP (custom parameters):
+    ttpforge run 007-spear-phishing-simulation.yaml \
+      --var victim_name="John Doe" \
+      --var victim_company="Acme Corp"
+
+LIST ALL TTPS:
+    ls -lh {001..010}-*.yaml
+
+COUNT LINES:
+    wc -l {001..010}-*.yaml
+
+GREP CONTENT:
+    grep -r "description:" {001..010}-*.yaml
+
+================================================================================
+TTP PARAMETER QUICK REFERENCE
+================================================================================
+
+001-phishing-email-detection.yaml
+    --var attacker_email="security-alert@paypa1.com"
+    --var target_user="user@company.com"
+    --var phishing_link="https://secure-verify-account.malicious-domain.com/login"
+    --var urgency_message="Your account will be suspended in 24 hours"
+
+002-malicious-attachment-analysis.yaml
+    --var attachment_name="Invoice_2025.docm"
+    --var attachment_type="docm"
+    --var sender_email="accounting@trustedcompany.com"
+    --var target_user="finance@company.com"
+
+003-credential-harvesting-form.yaml
+    --var target_service="Office365"
+    --var form_domain="secure-verify-office365.com"
+    --var harvest_endpoint="https://secure-verify-office365.com/auth/verify"
+
+004-fake-login-page-creation.yaml
+    --var target_company="Apple"
+    --var fake_domain="secure-apple-id-verify.com"
+    --var logo_url="https://www.apple.com/ac/structured-data/images/open_graph_logo.160.png"
+
+005-social-engineering-scenario.yaml
+    --var attacker_persona="John Smith, IT Support Manager"
+    --var target_department="Finance"
+    --var urgency_reason="Security audit"
+    --var pretext_story="We are updating security protocols and need to verify accounts"
+
+006-phishing-link-detection.yaml
+    --var legitimate_domain="microsoft.com"
+    --var phishing_url="https://micro-soft-verify.malicious-hosting.com/account/login"
+    --var obfuscation_method="lookalike domain with hyphen substitution"
+
+007-spear-phishing-simulation.yaml
+    --var victim_name="Sarah Johnson"
+    --var victim_title="Finance Director"
+    --var victim_company="TechCorp Industries"
+    --var sender_name="David Chen, CEO"
+    --var specific_project="Q1 2025 Budget Allocation"
+
+008-pretexting-phone-calls.yaml
+    --var attacker_role="IT Support Technician"
+    --var company_name="ABC Technology Solutions"
+    --var target_person="Robert Martinez, Systems Administrator"
+    --var spoofed_number="+1-555-XXX-HELP"
+
+009-whaling-campaign.yaml
+    --var executive_name="James Richardson, CEO"
+    --var company_name="GlobalTech Corporation"
+    --var business_context="pending acquisition by larger corporation"
+    --var attack_vector="urgent wire transfer request"
+
+010-business-email-compromise.yaml
+    --var compromised_email="cfo@company.com"
+    --var compromised_person_name="Patricia Anderson, Chief Financial Officer"
+    --var compromised_department="Finance/Accounting"
+    --var target_payment_processor="accounts_payable@company.com"
+
+================================================================================
+TTP CATEGORIES
+================================================================================
+
+EMAIL-BASED ATTACKS (001-006):
+    001: Phishing Email Detection
+    002: Malicious Attachment Analysis
+    003: Credential Harvesting Form Setup
+    004: Fake Login Page Creation
+    005: Social Engineering Scenario
+    006: Phishing Link Detection
+
+ADVANCED PHISHING (007-010):
+    007: Spear Phishing Simulation
+    008: Pretexting Phone Calls
+    009: Whaling Campaign
+    010: Business Email Compromise
+
+================================================================================
+VALIDATION RESULTS
+================================================================================
+
+All TTPs Validated Successfully:
+
+✓ 001-phishing-email-detection.yaml
+✓ 002-malicious-attachment-analysis.yaml
+✓ 003-credential-harvesting-form.yaml
+✓ 004-fake-login-page-creation.yaml
+✓ 005-social-engineering-scenario.yaml
+✓ 006-phishing-link-detection.yaml
+✓ 007-spear-phishing-simulation.yaml
+✓ 008-pretexting-phone-calls.yaml
+✓ 009-whaling-campaign.yaml
+✓ 010-business-email-compromise.yaml
+
+Overall Status: 10/10 PASSED (100%)
+Validation Method: ttpforge validate
+API Version: 2.0
+Platform: darwin (macOS)
+
+================================================================================
+USAGE SCENARIOS
+================================================================================
+
+SECURITY AWARENESS TRAINING:
+    ttpforge run 001-phishing-email-detection.yaml
+    ttpforge run 002-malicious-attachment-analysis.yaml
+    ttpforge run 007-spear-phishing-simulation.yaml
+    ttpforge run 009-whaling-campaign.yaml
+
+RED TEAM EXERCISES:
+    ttpforge run 007-spear-phishing-simulation.yaml --var victim_name="Executive Name"
+    ttpforge run 005-social-engineering-scenario.yaml
+    ttpforge run 008-pretexting-phone-calls.yaml
+    ttpforge run 010-business-email-compromise.yaml
+
+VULNERABILITY ASSESSMENT:
+    for file in {001..010}-*.yaml; do ttpforge run "$file"; done
+
+INCIDENT RESPONSE TESTING:
+    ttpforge run 010-business-email-compromise.yaml
+    # Review BEC detection and response procedures
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+For detailed documentation, see:
+    - README.md (Quick start and overview)
+    - PHISHING_SE_VALIDATION_REPORT.md (Technical details)
+    - FINAL_SUMMARY.txt (Executive summary)
+
+For ttpforge tool documentation:
+    GitHub: https://github.com/atomics/atomics
+    Format: YAML 1.2 API Version 2.0
+    Tool: ttpforge
+
+For updates and modifications:
+    Edit the YAML files directly
+    Parameters use {{ variable_name }} syntax
+    Run validation after making changes
+
+================================================================================
+GENERATION INFO
+================================================================================
+
+Generated: 2025-01-30
+Generator: Claude Code
+Total Files: 10 TTPs + 4 Documentation files
+Total Size: ~99 KB
+Validation Status: Production Ready
+
+All TTPs are safe to execute with:
+    - Dry-run mode enabled
+    - No destructive actions
+    - Isolated /tmp/ environment
+    - Automatic cleanup
+
+================================================================================

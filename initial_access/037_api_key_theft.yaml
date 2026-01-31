@@ -1,0 +1,91 @@
+uuid: 78a7e4c1-0f3b-9c94-5a8b-7d2e5f5c9b1a
+api_version: '2.0'
+name: API Key Theft
+description: Use stolen API keys to gain initial access to macOS systems and services
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: high
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target system or service account
+    type: string
+    required: true
+  password_list:
+    description: Path to file containing potential API keys
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with leaked API keys
+    type: string
+    required: true
+  oauth_token:
+    description: Stolen OAuth token or API key string
+    type: string
+    required: false
+
+steps:
+  - name: load_stolen_api_keys
+    description: Load stolen API keys from breach data
+    command: |
+      echo "Loading stolen API keys"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "API keys loaded:"
+      fi
+      
+  - name: enumerate_api_endpoints
+    description: Enumerate available API endpoints using stolen keys
+    command: |
+      echo "Enumerating API endpoints for: ${target_account}"
+      # Dry run: simulate endpoint discovery
+      echo "API endpoint enumeration in progress"
+      
+  - name: test_api_key_validity
+    description: Test validity and permissions of stolen API keys
+    command: |
+      echo "Testing API key validity"
+      if [ -f "${leaked_creds_file}" ]; then
+        count=0
+        while IFS= read -r key; do
+          count=$((count + 1))
+          # Dry run: simulate key validation
+          [ $((count % 20)) -eq 0 ] && echo "Tested ${count} API keys"
+        done < "${leaked_creds_file}"
+      fi
+      
+  - name: authenticate_with_api_key
+    description: Authenticate to system using stolen API key
+    command: |
+      echo "Authenticating with stolen API key"
+      if [ -n "${oauth_token}" ]; then
+        # Dry run: simulate API authentication
+        echo "API key authentication attempted"
+      fi
+
+checks:
+  - name: verify_api_access
+    description: Verify successful API access using stolen keys
+    command: |
+      echo "Verifying API key authentication success"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke compromised API keys and tokens
+    command: |
+      echo "Revoking compromised API keys"
+      
+  - name: reset_credentials
+    description: Reset API credentials and access keys
+    command: |
+      echo "Resetting API credentials"

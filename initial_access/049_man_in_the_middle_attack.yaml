@@ -1,0 +1,81 @@
+id: ttp-049
+name: Man-in-the-Middle Attack
+uuid: 550e8400-e29b-41d4-a716-446655440049
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate man-in-the-middle attack to intercept and modify network traffic
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: target_ip
+    description: IP address of target device
+    type: string
+    default: '192.168.1.100'
+  - name: gateway_ip
+    description: IP address of network gateway
+    type: string
+    default: '192.168.1.1'
+  - name: attack_type
+    description: Type of MITM attack (arp_spoofing, dns_hijacking, ssl_strip)
+    type: string
+    default: arp_spoofing
+  - name: malicious_ip
+    description: Attacker's IP address
+    type: string
+    default: '192.168.1.50'
+
+steps:
+  - name: Identify network topology
+    description: Identify network topology and target devices
+    executor: sh
+    command: 'echo "Network topology discovered" > /tmp/mitm_attack.log'
+  
+  - name: Enable IP forwarding
+    description: Enable IP forwarding on attacker machine
+    executor: sh
+    command: 'echo "IP forwarding enabled" >> /tmp/mitm_attack.log'
+  
+  - name: Execute MITM technique
+    description: Execute selected MITM attack technique
+    executor: sh
+    command: 'echo "Executing ${attack_type} attack" >> /tmp/mitm_attack.log'
+  
+  - name: Intercept traffic
+    description: Intercept network traffic between target and gateway
+    executor: sh
+    command: 'echo "Traffic interception initiated: ${target_ip} <-> ${gateway_ip}" >> /tmp/mitm_attack.log'
+  
+  - name: Modify traffic
+    description: Modify intercepted traffic with malicious content
+    executor: sh
+    command: 'echo "Traffic modification in progress at $(date)" >> /tmp/mitm_attack.log'
+
+checks:
+  - name: MITM attack initiation
+    description: Verify MITM attack was initiated
+    executor: sh
+    command: 'grep -q "Executing" /tmp/mitm_attack.log && echo "PASS: Attack initiated" || echo "FAIL: Attack not initiated"'
+  
+  - name: Traffic interception verification
+    description: Verify traffic was intercepted
+    executor: sh
+    command: 'grep -q "interception" /tmp/mitm_attack.log && echo "PASS: Interception active" || echo "FAIL: No interception"'
+  
+  - name: Traffic modification confirmation
+    description: Verify traffic modification
+    executor: sh
+    command: 'grep -q "modification" /tmp/mitm_attack.log && echo "PASS: Modification active" || echo "FAIL: No modification"'
+
+tests:
+  - name: MITM attack test
+    description: Test man-in-the-middle attack
+    dry_run: true
+    command: 'echo "DRY RUN: Would execute ${attack_type} between ${target_ip} and ${gateway_ip}"'
+
+cleanup:
+  - name: Remove MITM logs
+    description: Clean up MITM attack simulation logs
+    executor: sh
+    command: 'rm -f /tmp/mitm_attack.log'

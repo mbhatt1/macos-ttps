@@ -1,0 +1,86 @@
+id: ttp-044
+name: Drive-by Download
+uuid: 550e8400-e29b-41d4-a716-446655440044
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate drive-by download attack where malware is automatically downloaded upon website visit
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: malicious_url
+    description: URL hosting malicious file for download
+    type: string
+    default: 'http://attacker.com/update.dmg'
+  - name: download_destination
+    description: Local directory for downloaded malware
+    type: string
+    default: '/tmp/downloads'
+  - name: file_type
+    description: Type of file being downloaded (dmg, zip, app, pkg)
+    type: string
+    default: dmg
+  - name: browser_user_agent
+    description: User agent string of victim browser
+    type: string
+    default: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+
+steps:
+  - name: Create download directory
+    description: Create destination directory for drive-by downloads
+    executor: sh
+    command: 'mkdir -p "${download_destination}" && echo "Download directory created" > /tmp/drive_by.log'
+  
+  - name: Simulate website visit
+    description: Simulate user visiting malicious website
+    executor: sh
+    command: 'echo "User visited malicious website: ${malicious_url} at $(date)" >> /tmp/drive_by.log'
+  
+  - name: Trigger automatic download
+    description: Simulate automatic malware download without user consent
+    executor: sh
+    command: 'echo "Automatic download triggered for ${file_type} file" >> /tmp/drive_by.log'
+  
+  - name: Download malware file
+    description: Simulate downloading malware payload
+    executor: sh
+    command: 'touch "${download_destination}/malware.${file_type}" && echo "Malware downloaded to ${download_destination}/malware.${file_type}" >> /tmp/drive_by.log'
+  
+  - name: Execute downloaded file
+    description: Simulate automatic or user-initiated execution
+    executor: sh
+    command: 'echo "Attempting execution of downloaded ${file_type} file" >> /tmp/drive_by.log'
+
+checks:
+  - name: Download directory verification
+    description: Verify download destination was created
+    executor: sh
+    command: 'test -d "${download_destination}" && echo "PASS: Download directory exists" || echo "FAIL: Directory not found"'
+  
+  - name: Malware download confirmation
+    description: Verify malware file was downloaded
+    executor: sh
+    command: 'test -f "${download_destination}/malware.${file_type}" && echo "PASS: Malware downloaded" || echo "FAIL: Download not found"'
+  
+  - name: Drive-by logging verification
+    description: Verify drive-by download was logged
+    executor: sh
+    command: 'grep -q "download" /tmp/drive_by.log && echo "PASS: Download logged" || echo "FAIL: No download log"'
+
+tests:
+  - name: Drive-by download test
+    description: Test drive-by download attack
+    dry_run: true
+    command: 'echo "DRY RUN: Would download ${file_type} from ${malicious_url} to ${download_destination}"'
+
+cleanup:
+  - name: Remove downloaded malware
+    description: Clean up downloaded malware files
+    executor: sh
+    command: 'rm -rf "${download_destination}"'
+  
+  - name: Remove drive-by logs
+    description: Clean up drive-by download simulation logs
+    executor: sh
+    command: 'rm -f /tmp/drive_by.log'

@@ -1,0 +1,81 @@
+id: ttp-048
+name: Insecure Wireless Network
+uuid: 550e8400-e29b-41d4-a716-446655440048
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate exploitation of insecure wireless network to establish initial access
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: network_ssid
+    description: SSID of insecure wireless network
+    type: string
+    default: 'PublicWiFi'
+  - name: network_security
+    description: Security type of network (open, wep, weak_wpa2)
+    type: string
+    default: open
+  - name: target_device
+    description: Target device connecting to insecure network
+    type: string
+    default: 'MacBook Pro'
+  - name: malware_url
+    description: URL hosting malware payload
+    type: string
+    default: 'http://attacker.com/backdoor.dmg'
+
+steps:
+  - name: Scan for wireless networks
+    description: Scan for available wireless networks
+    executor: sh
+    command: 'echo "Scanning for wireless networks..." > /tmp/wireless_attack.log'
+  
+  - name: Identify insecure network
+    description: Identify insecure wireless network
+    executor: sh
+    command: 'echo "Found insecure network: ${network_ssid} (${network_security})" >> /tmp/wireless_attack.log'
+  
+  - name: Connect to network
+    description: Simulate connecting to insecure network
+    executor: sh
+    command: 'echo "Connected to ${network_ssid} at $(date)" >> /tmp/wireless_attack.log'
+  
+  - name: Position for MITM attack
+    description: Simulate positioning for man-in-the-middle attack
+    executor: sh
+    command: 'echo "Positioned for network interception" >> /tmp/wireless_attack.log'
+  
+  - name: Deliver malware payload
+    description: Deliver malware through insecure network
+    executor: sh
+    command: 'echo "Malware payload delivered via ${network_ssid}" >> /tmp/wireless_attack.log'
+
+checks:
+  - name: Network discovery
+    description: Verify insecure network was discovered
+    executor: sh
+    command: 'grep -q "${network_ssid}" /tmp/wireless_attack.log && echo "PASS: Network found" || echo "FAIL: Network not discovered"'
+  
+  - name: Network connection
+    description: Verify connection to network
+    executor: sh
+    command: 'grep -q "Connected" /tmp/wireless_attack.log && echo "PASS: Connection established" || echo "FAIL: No connection"'
+  
+  - name: Malware delivery verification
+    description: Verify malware was delivered
+    executor: sh
+    command: 'grep -q "delivered" /tmp/wireless_attack.log && echo "PASS: Malware delivered" || echo "FAIL: No delivery logged"'
+
+tests:
+  - name: Wireless network exploitation test
+    description: Test wireless network exploitation
+    dry_run: true
+    command: 'echo "DRY RUN: Would exploit ${network_security} wireless network ${network_ssid} on ${target_device}"'
+
+cleanup:
+  - name: Remove wireless attack logs
+    description: Clean up wireless attack simulation logs
+    executor: sh
+    command: 'rm -f /tmp/wireless_attack.log'

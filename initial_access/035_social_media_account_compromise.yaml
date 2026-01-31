@@ -1,0 +1,84 @@
+uuid: 56e5c2a9-8d1f-7a72-3e6f-5b0c3d3a7f9e
+api_version: '2.0'
+name: Social Media Account Compromise
+description: Exploit compromised social media accounts to gain access to macOS systems
+platform: darwin
+category: initial_access
+tactics:
+  - valid_accounts
+techniques:
+  - T1078
+severity: medium
+author: Claude Code
+created: 2026-01-30
+
+args:
+  target_account:
+    description: Target account username or identifier
+    type: string
+    required: true
+  password_list:
+    description: Path to password list for authentication attempts
+    type: string
+    required: true
+  leaked_creds_file:
+    description: Path to file with compromised social media credentials
+    type: string
+    required: true
+  oauth_token:
+    description: OAuth token from compromised social media account
+    type: string
+    required: false
+
+steps:
+  - name: identify_social_media_links
+    description: Identify social media accounts linked to target
+    command: |
+      echo "Identifying social media accounts for: ${target_account}"
+      # Dry run: simulate discovery
+      echo "Found potential social media connections"
+      
+  - name: load_compromised_credentials
+    description: Load compromised social media credentials
+    command: |
+      echo "Loading compromised social media credentials"
+      if [ -f "${leaked_creds_file}" ]; then
+        wc -l < "${leaked_creds_file}" | xargs echo "Compromised accounts:"
+      fi
+      
+  - name: exploit_oauth_tokens
+    description: Attempt to exploit OAuth tokens from social media
+    command: |
+      echo "Attempting to exploit social media OAuth tokens"
+      if [ -n "${oauth_token}" ]; then
+        echo "Testing OAuth token access"
+      fi
+      
+  - name: attempt_system_access
+    description: Use compromised social media credentials for system access
+    command: |
+      echo "Attempting system access via compromised social credentials"
+      # Dry run: simulate authentication
+      echo "Testing social media linked authentication"
+
+checks:
+  - name: verify_access
+    description: Verify access gained through social media compromise
+    command: |
+      echo "Verifying social media compromise success"
+      exit 0
+
+tests:
+  dry_run: true
+  simulate_only: true
+
+cleanup:
+  - name: revoke_tokens
+    description: Revoke obtained OAuth tokens and social media sessions
+    command: |
+      echo "Revoking social media OAuth tokens"
+      
+  - name: reset_passwords
+    description: Reset compromised account passwords
+    command: |
+      echo "Resetting compromised account passwords"

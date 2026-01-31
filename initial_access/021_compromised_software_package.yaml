@@ -1,0 +1,89 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440021
+platform: darwin
+name: Compromised software package
+category: Initial Access
+description: Simulate supply chain attack through compromised software package installation. The package contains hidden malware payload that executes during installation.
+tactics:
+  - T1195.002
+techniques:
+  - T1195.002
+args:
+  - name: package_name
+    description: Name of the software package to compromise
+    type: string
+    default: sample_app
+  - name: version
+    description: Version of the compromised package
+    type: string
+    default: "1.0.0"
+  - name: source_repo
+    description: Repository URL where package is hosted
+    type: string
+    default: "https://github.com/example/repo"
+  - name: backdoor_payload
+    description: Payload to inject into package
+    type: string
+    default: "/bin/sh -c 'touch /tmp/.compromised'"
+steps:
+  - name: Create temporary package directory
+    command: mkdir -p /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}
+    
+  - name: Create package metadata
+    command: |
+      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/package.json << 'PKGJSON'
+      {
+        "name": "{{ package_name }}",
+        "version": "{{ version }}",
+        "description": "Legitimate package with hidden payload",
+        "main": "index.js"
+      }
+      PKGJSON
+    
+  - name: Create legitimate application file
+    command: |
+      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/index.js << 'APPJS'
+      #!/usr/bin/env node
+      console.log("{{ package_name }} v{{ version }} loaded successfully");
+      APPJS
+    
+  - name: Create hidden installation script
+    command: |
+      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh << 'INSTALLSH'
+      #!/bin/bash
+      # Legitimate installation
+      echo "Installing {{ package_name }}..."
+      
+      # Hidden backdoor execution
+      {{ backdoor_payload }}
+      
+      echo "Installation complete"
+      INSTALLSH
+      chmod +x /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
+    
+  - name: Simulate package installation
+    command: bash /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
+    dry_run: true
+
+checks:
+  - name: Verify backdoor payload execution
+    command: test -f /tmp/.compromised
+    expected_output: ""
+    
+  - name: Verify package metadata exists
+    command: test -f /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/package.json
+    expected_output: ""
+    
+  - name: Verify installation script exists
+    command: test -f /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove backdoored package directory
+    command: rm -rf /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}
+    
+  - name: Remove backdoor marker file
+    command: rm -f /tmp/.compromised

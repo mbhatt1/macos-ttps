@@ -1,0 +1,122 @@
+api_version: 2.0
+id: 550e8400-e29b-41d4-a716-446655440030
+platform: darwin
+name: Hardware supply chain
+category: Initial Access
+description: Simulate hardware supply chain compromise where attacker intercepts hardware during shipment or manufacturing to preload malware or tracking devices before delivery to customer.
+tactics:
+  - T1195
+techniques:
+  - T1195
+args:
+  - name: package_name
+    description: Name of hardware device
+    type: string
+    default: macbook_pro
+  - name: version
+    description: Hardware model/generation
+    type: string
+    default: "2023_m3"
+  - name: source_repo
+    description: Hardware supplier information
+    type: string
+    default: "https://supplier.example.com"
+  - name: backdoor_payload
+    description: Hardware-level backdoor payload
+    type: string
+    default: "nvram boot-args=amfi_get_out_of_my_way=1"
+steps:
+  - name: Create hardware device simulation directory
+    command: mkdir -p /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/{bios,firmware,drivers}
+    
+  - name: Create device serial number file
+    command: |
+      cat > /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/device_info.txt << 'DEVICEINFO'
+      Product: {{ package_name }}
+      Model: {{ version }}
+      SerialNumber: C02XXXXXXXXXX
+      ManufacturingDate: 2023-06-15
+      Destination: Compromised
+      DEVICEINFO
+    
+  - name: Create malicious firmware pre-load
+    command: |
+      mkdir -p /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/firmware/efi
+      cat > /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/firmware/efi/malware.efi << 'EFICODE'
+      EFI_APPLICATION malware.efi
+      Version: 1.0
+      Entry Point: 0x400000
+      BootLoader Size: 262144
+      EFICODE
+    
+  - name: Create malicious bootkit
+    command: |
+      cat > /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/firmware/bootkit.bin << 'BOOTKIT'
+      BOOTKIT_SIGNATURE: 0xDEADC0DE
+      Target: {{ package_name }} {{ version }}
+      Payload: hardware_monitor
+      Persistence: Immediate
+      BOOTKIT
+    
+  - name: Create supply chain compromise metadata
+    command: |
+      cat > /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/supply_chain_log.txt << 'SCLOG'
+      Supply Chain Compromise Log
+      Date: 2023-06-10
+      Location: Distributor Facility
+      Action: Device Intercepted
+      Status: Ready for delivery
+      SCLOG
+    
+  - name: Create driver with backdoor
+    command: |
+      mkdir -p /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/drivers
+      cat > /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/drivers/system_monitor.kext << 'DRIVER'
+      CFBundleName: HardwareMonitor
+      CFBundleVersion: {{ version }}
+      Executable: system_monitor
+      DRIVER
+    
+  - name: Create installation verification log
+    command: |
+      touch /tmp/.hardware_compromised
+      echo "Hardware supply chain compromise initiated" > /tmp/hardware_compromise.log
+    dry_run: true
+
+checks:
+  - name: Verify hardware simulation directory
+    command: test -d /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}
+    expected_output: ""
+    
+  - name: Verify device info file
+    command: test -f /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/device_info.txt
+    expected_output: ""
+    
+  - name: Verify malicious firmware
+    command: test -f /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/firmware/efi/malware.efi
+    expected_output: ""
+    
+  - name: Verify bootkit installed
+    command: test -f /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/firmware/bootkit.bin
+    expected_output: ""
+    
+  - name: Verify hardware compromise marker
+    command: test -f /tmp/.hardware_compromised
+    expected_output: ""
+    
+  - name: Verify supply chain log
+    command: test -f /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}/supply_chain_log.txt
+    expected_output: ""
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: Remove hardware simulation directory
+    command: rm -rf /tmp/ttpforge_hardware/{{ package_name }}_{{ version }}
+    
+  - name: Remove hardware compromise markers
+    command: rm -f /tmp/.hardware_compromised /tmp/hardware_compromise.log
+    
+  - name: Remove driver files
+    command: rm -rf /tmp/ttpforge_hardware

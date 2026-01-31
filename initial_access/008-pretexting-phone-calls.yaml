@@ -1,0 +1,238 @@
+id: '4d8e6c1f-7a3b-5e0c-9f2d-3a6b7c1e4f2a'
+name: 'Pretexting Phone Calls'
+api_version: '2.0'
+platform: darwin
+description: |
+  Demonstrates pretexting phone call execution where attackers use false pretenses 
+  to manipulate victims into divulging sensitive information. Includes caller ID 
+  spoofing, script development, and social engineering tactics.
+
+arguments:
+  attacker_role:
+    description: 'False role assumed by attacker'
+    type: 'string'
+    default: 'IT Support Technician'
+  company_name:
+    description: 'Company being impersonated'
+    type: 'string'
+    default: 'ABC Technology Solutions'
+  target_person:
+    description: 'Target of the call'
+    type: 'string'
+    default: 'Robert Martinez, Systems Administrator'
+  spoofed_number:
+    description: 'Caller ID number being spoofed'
+    type: 'string'
+    default: '+1-555-XXX-HELP (spoofed legitimate company number)'
+
+steps:
+  - name: 'Develop pretexting script'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/pretexting
+      cat > /tmp/pretexting/call_script.txt << 'SCRIPTEOF'
+      PRETEXTING PHONE CALL SCRIPT
+      =============================
+      
+      ATTACKER ROLE: {{ attacker_role }}
+      IMPERSONATED COMPANY: {{ company_name }}
+      TARGET: {{ target_person }}
+      CALLER ID: {{ spoofed_number }}
+      OBJECTIVE: Credential harvesting and system access information
+      
+      ====== OPENING ======
+      "Hi Robert, this is John from {{ company_name }} IT Support. We're conducting 
+      a mandatory security audit this week and we need to verify some account 
+      information. This should only take a few minutes. Is this a good time?"
+      
+      [If yes: Continue. If no: "When would be better? This is time-sensitive."]
+      
+      ====== INFORMATION GATHERING ======
+      1. Establish Authority:
+         - Reference recent security incidents or compliance requirements
+         - Mention company IT policies
+         - Use technical jargon (VPN, MFA, asset management)
+      
+      2. Build Rapport:
+         - Use target's name frequently
+         - Show knowledge of their role
+         - Acknowledge they're busy
+         - Provide specific details about their department
+      
+      3. Create Urgency:
+         - "We need to complete this by Friday"
+         - "If we don't verify, your account will be locked"
+         - "This audit affects salary processing"
+      
+      ====== CREDENTIAL EXTRACTION ======
+      Question: "Can I get your username or network ID for verification?"
+      [Capture: Username]
+      
+      Question: "For security verification, could you confirm your current password? 
+      This is just for our records."
+      [Capture: Password]
+      
+      Question: "Do you use two-factor authentication? What authenticator app?"
+      [Capture: MFA method]
+      
+      Question: "Can you walk me through your normal login process? Any special 
+      requirements from your location?"
+      [Capture: Network/VPN usage, system access patterns]
+      
+      ====== SYSTEM ACCESS INFORMATION ======
+      Question: "What systems do you access daily for your role?"
+      [Capture: Critical systems, databases, applications]
+      
+      Question: "Do you work remotely? VPN or direct connection?"
+      [Capture: Network architecture, access methods]
+      
+      Question: "Any special permissions or elevated access for your role?"
+      [Capture: Admin access, privileged systems]
+      
+      ====== CLOSING ======
+      "Great, that's all we need. We'll be contacting others on your team this week. 
+      Thanks for your cooperation. Is there anything else I should check while I have you?"
+      
+      [Listen for additional information]
+      
+      "Perfect. You should see confirmation emails about this in the next hour. 
+      Thanks for your time, Robert."
+      SCRIPTEOF
+      echo "Created pretexting call script"
+  
+  - name: 'Develop recovery tactics'
+    type: 'atomic'
+    command: |
+      cat > /tmp/pretexting/recovery_tactics.txt << 'TACTICEOF'
+      PRETEXTING RECOVERY TACTICS
+      ===========================
+      
+      OBJECTIVE HANDLING:
+      
+      If Target Questions Authority:
+      - "Let me give you the main number you can call back: [spoofed corporate number]"
+      - "I can email you the audit details for verification"
+      - "This is part of [company] SOC 2 compliance requirement"
+      
+      If Target Refuses to Give Password:
+      - "I understand - we can reset it instead. Let me send a reset link"
+      - "We could do this differently - what's your preferred method?"
+      - "Okay, we'll mark you as verified pending email confirmation"
+      
+      If Target Becomes Suspicious:
+      - "I understand your concern. That's actually good security practice"
+      - "Let me check if you're in a restricted department that needs different verification"
+      - "No problem, I'll escalate this to your manager instead"
+      
+      If Target Requests Callback:
+      - Provide spoofed number that appears on caller ID
+      - Have another attacker answer as company representative
+      - Or: "Calls back go to main switchboard, try extension 4521 for IT Support"
+      
+      If Call is Being Recorded:
+      - "As a security notice, this call may be recorded for quality purposes"
+      - Continue naturally to avoid suspicion
+      - Record the call on attacker's end as well
+      
+      INFORMATION DOCUMENTATION:
+      - Log all information captured in real-time
+      - Note timing, tone, and victim's confidence level
+      - Record any suspicious elements or security measures mentioned
+      - Update attacker infrastructure immediately with harvested data
+      TACTICEOF
+      echo "Created recovery tactics"
+  
+  - name: 'Create caller ID spoofing setup'
+    type: 'atomic'
+    command: |
+      cat > /tmp/pretexting/caller_id_setup.txt << 'SPOOFEOF'
+      CALLER ID SPOOFING CONFIGURATION
+      ================================
+      
+      SPOOFED IDENTITY: {{ company_name }} IT Support
+      SPOOFED NUMBER: {{ spoofed_number }}
+      
+      SETUP METHODS:
+      
+      1. VoIP Service Abuse
+         - Use VoIP provider allowing custom caller ID
+         - Set outbound caller ID to legitimate company number
+         - Route through internet-based phone service
+         - Cost: $5-50 per call
+      
+      2. Number Spoofing Service
+         - Use online caller ID spoofing service
+         - Input target number and desired outbound number
+         - Make call through their system
+         - Example: SpoofCard, Bluff My Call (for demonstration)
+      
+      3. Local Phone Service Exploitation
+         - Some local carriers allow customizable caller ID
+         - Requires account setup and verification
+         - More difficult but harder to trace
+      
+      SOCIAL ENGINEERING ENHANCEMENT:
+      - Coordinate call timing with suspicious phishing emails
+      - Reference emails in call to increase credibility
+      - Have attacker answer callback verification calls
+      - Create sense of official/legitimate interaction
+      
+      LEGAL NOTE: Caller ID spoofing is illegal in many jurisdictions
+      This is for AUTHORIZED security testing and training only.
+      SPOOFEOF
+      echo "Created spoofing setup documentation"
+  
+  - name: 'Create call tracking log'
+    type: 'atomic'
+    command: |
+      mkdir -p /tmp/pretexting_logs
+      timestamp=$(date +%Y%m%d_%H%M%S)
+      cat > /tmp/pretexting_logs/call_log_${timestamp}.txt << 'LOGEOF'
+      PRETEXTING CALL LOG
+      ===================
+      
+      Date: $(date '+%Y-%m-%d %H:%M:%S')
+      Target: {{ target_person }}
+      Attacker Role: {{ attacker_role }}
+      Spoofed Company: {{ company_name }}
+      Caller ID Used: {{ spoofed_number }}
+      Call Duration: Estimated 12-15 minutes
+      
+      INFORMATION HARVESTED:
+      [ ] Username/Network ID
+      [ ] Password Confirmation
+      [ ] MFA Method
+      [ ] System Access Details
+      [ ] VPN/Remote Access Information
+      [ ] Privileged Access Confirmation
+      [ ] Department Structure Information
+      [ ] Other Staff Names
+      
+      OUTCOME: Success/Failure
+      FOLLOW-UP: Immediate system compromise and data exfiltration
+      LOGEOF
+
+checks:
+  - name: 'Verify call script created'
+    type: 'atomic'
+    command: 'test -f /tmp/pretexting/call_script.txt && echo "PASS: Call script created"'
+  
+  - name: 'Verify recovery tactics documented'
+    type: 'atomic'
+    command: 'test -f /tmp/pretexting/recovery_tactics.txt && echo "PASS: Recovery tactics documented"'
+  
+  - name: 'Verify spoofing setup documented'
+    type: 'atomic'
+    command: 'test -f /tmp/pretexting/caller_id_setup.txt && echo "PASS: Spoofing setup documented"'
+
+tests:
+  dry_run: true
+
+cleanup:
+  - name: 'Remove pretexting files'
+    type: 'atomic'
+    command: 'rm -rf /tmp/pretexting'
+  
+  - name: 'Remove pretexting logs'
+    type: 'atomic'
+    command: 'rm -rf /tmp/pretexting_logs'
