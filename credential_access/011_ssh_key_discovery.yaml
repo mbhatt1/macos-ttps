@@ -12,28 +12,28 @@ requirements:
   platforms:
     - os: darwin
 args:
-  - name: ssh_dir
+  ssh_dir:
     description: Directory containing SSH keys
     default: "~/.ssh"
-  - name: output_file
+  output_file:
     description: File to store discovered SSH keys
     default: "/tmp/ssh_keys_found.txt"
 steps:
   - name: Check SSH Directory
     type: command
-    command: "test -d {{ ssh_dir }} && echo 'SSH directory found' || echo 'SSH directory not found'"
-    
+    command: "test -d '{{ ssh_dir }}' && echo 'SSH directory found' || echo 'SSH directory not found'"
+
   - name: List SSH Keys
     type: command
-    command: "ls -la {{ ssh_dir }} 2>/dev/null | grep -E 'id_rsa|id_ed25519|id_ecdsa' || echo 'No keys found'"
-    
+    command: "ls -la '{{ ssh_dir }}' 2>/dev/null | grep -E 'id_rsa|id_ed25519|id_ecdsa' || echo 'No keys found'"
+
   - name: Discover All SSH Keys
     type: command
-    command: "find {{ ssh_dir }} -type f -name 'id_*' 2>/dev/null"
-    
+    command: "find '{{ ssh_dir }}' -type f -name 'id_*' 2>/dev/null"
+
   - name: Check Key Permissions
     type: command
-    command: "find {{ ssh_dir }} -type f -name 'id_*' -exec ls -l {} \; 2>/dev/null"
+    command: "find '{{ ssh_dir }}' -type f -name 'id_*' -exec ls -l {} \\; 2>/dev/null"
 
 checks:
   - type: stdout_contains
@@ -49,5 +49,5 @@ tests:
 
 cleanup:
   - type: command
-    command: "rm -f {{ output_file }}"
+    command: "rm -f '{{ output_file }}'"
     description: Remove SSH key discovery results

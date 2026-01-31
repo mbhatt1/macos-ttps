@@ -39,23 +39,23 @@ args:
 
 steps:
   - name: Create sparse disk image for simulation
-    command: hdiutil create -size 10m -type SPARSEBUNDLE -encryption AES-256 -fs APFS ~/test_encrypted.sparsebundle 2>/dev/null || true
-    
+    command: "hdiutil create -size 10m -type SPARSEBUNDLE -encryption AES-256 -fs APFS ~/test_encrypted.sparsebundle 2>/dev/null || true"
+
   - name: Get volume information
-    command: diskutil list 2>/dev/null | head -20
-    
+    command: "diskutil list 2>/dev/null | head -20"
+
   - name: Verify APFS capability
-    command: diskutil verifyVolume / 2>/dev/null || echo "Volume verification skipped"
-    
+    command: "diskutil verifyVolume / 2>/dev/null || echo 'Volume verification skipped'"
+
   - name: Show CoreStorage/encryption status
-    command: diskutil coreStorage list 2>/dev/null || echo "No CoreStorage volumes"
-    
+    command: "diskutil coreStorage list 2>/dev/null || echo 'No CoreStorage volumes'"
+
   - name: Check FileVault status
-    command: diskutil secureErase freespace 0 / 2>/dev/null || echo "Secure erase simulation completed"
+    command: "diskutil secureErase freespace 0 / 2>/dev/null || echo 'Secure erase simulation completed'"
 
 checks:
   - name: Verify encryption capable
-    command: diskutil info / | grep -q "Encrypted" && echo "Encryption capable"
+    command: "diskutil info / | grep -q 'Encrypted' && echo 'Encryption capable'"
     expected_output: true
 
 tests:
@@ -63,17 +63,17 @@ tests:
     description: Test volume encryption/erasure without actual modification
     dry_run: true
     steps:
-      - echo "Would encrypt volume with {{ encryption_type }}"
-      - echo "Target: {{ target_volume }}"
-      - echo "Erasure method: {{ erase_method }}"
-      - echo "WARNING: This operation would destroy all data on volume"
+      - "echo \"Would encrypt volume with {{ encryption_type }}\""
+      - "echo \"Target: {{ target_volume }}\""
+      - "echo \"Erasure method: {{ erase_method }}\""
+      - "echo \"WARNING: This operation would destroy all data on volume\""
 
 cleanup:
   - name: Remove test encrypted disk image
-    command: rm -rf ~/test_encrypted.sparsebundle 2>/dev/null || true
+    command: "rm -rf ~/test_encrypted.sparsebundle 2>/dev/null || true"
     
   - name: Verify cleanup
-    command: test ! -d ~/test_encrypted.sparsebundle && echo "Cleanup complete"
+    command: "test ! -d ~/test_encrypted.sparsebundle && echo \"Cleanup complete\""
 
 metadata:
   created: "2026-01-30"

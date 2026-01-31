@@ -34,28 +34,28 @@ args:
 
 steps:
   - name: Create output directory
-    command: mkdir -p $(dirname {{ image_path }})
+    command: mkdir -p $(dirname "{{ image_path }}")
 
   - name: Create initial disk image
     command: |
       hdiutil create \
         -volname "Forensic_Data_$(date +%Y%m%d_%H%M%S)" \
-        -srcfolder {{ source_path }} \
-        -format {{ compression }} \
+        -srcfolder "{{ source_path }}" \
+        -format "{{ compression }}" \
         -size auto \
-        {{ image_path }} 2>/dev/null || echo "Image creation initiated"
+        "{{ image_path }}" 2>/dev/null || echo "Image creation initiated"
 
   - name: Verify image creation
     command: |
-      if [ -f {{ image_path }} ]; then
-        size=$(du -h {{ image_path }} | cut -f1)
+      if [ -f "{{ image_path }}" ]; then
+        size=$(du -h "{{ image_path }}" | cut -f1)
         echo "Forensic image created: $size"
       fi
 
   - name: Mount and verify image
     command: |
-      if [ -f {{ image_path }} ]; then
-        mount_output=$(hdiutil attach -verify -noautoopen {{ image_path }} 2>&1)
+      if [ -f "{{ image_path }}" ]; then
+        mount_output=$(hdiutil attach -verify -noautoopen "{{ image_path }}" 2>&1)
         if [ $? -eq 0 ]; then
           echo "Image mounted successfully for verification"
           hdiutil detach "$(echo "$mount_output" | grep "/dev/" | awk '{print $NF}')" 2>/dev/null || true
@@ -64,56 +64,55 @@ steps:
 
   - name: Generate image metadata
     command: |
-      mkdir -p $(dirname {{ image_path }})/metadata
-      if [ -f {{ image_path }} ]; then
-        hdiutil imageinfo {{ image_path }} > $(dirname {{ image_path }})/metadata/image_info.txt 2>/dev/null || true
-        ls -lah {{ image_path }} > $(dirname {{ image_path }})/metadata/file_info.txt 2>/dev/null || true
+      mkdir -p "$(dirname "{{ image_path }}")/metadata"
+      if [ -f "{{ image_path }}" ]; then
+        hdiutil imageinfo "{{ image_path }}" > "$(dirname "{{ image_path }}")/metadata/image_info.txt" 2>/dev/null || true
+        ls -lah "{{ image_path }}" > "$(dirname "{{ image_path }}")/metadata/file_info.txt" 2>/dev/null || true
       fi
 
   - name: Create image hash
     command: |
-      if [ -f {{ image_path }} ]; then
-        md5sum {{ image_path }} > {{ image_path }}.md5 2>/dev/null || shasum -a 256 {{ image_path }} > {{ image_path }}.sha256 2>/dev/null || true
+      if [ -f "{{ image_path }}" ]; then
+        md5sum "{{ image_path }}" > "{{ image_path }}.md5" 2>/dev/null || shasum -a 256 "{{ image_path }}" > "{{ image_path }}.sha256" 2>/dev/null || true
       fi
 
   - name: Create forensic documentation
     command: |
-      cat > $(dirname {{ image_path }})/FORENSIC_IMAGE_README.txt << 'DOC'
-Forensic Image Documentation
-=============================
-Created: $(date)
-Source: {{ source_path }}
-Image Location: {{ image_path }}
-Compression Format: {{ compression }}
-
-Contents:
-- Complete data snapshot from collection TTPs
-- Preserves file timestamps and metadata
-- Hash verification included for integrity
-
-Usage:
-1. Verify integrity: shasum -a 256 -c {{ image_path }}.sha256
-2. Mount image: hdiutil attach {{ image_path }}
-3. Access data from mounted volume
-
-Security:
-- Image is read-only after creation
-- All data preserved as-is
-- No modifications during imaging
-DOC
-      cat $(dirname {{ image_path }})/FORENSIC_IMAGE_README.txt 2>/dev/null || true
+      {
+        echo "Forensic Image Documentation"
+        echo "============================="
+        echo "Created: $(date)"
+        echo "Source: {{ source_path }}"
+        echo "Image Location: {{ image_path }}"
+        echo "Compression Format: {{ compression }}"
+        echo ""
+        echo "Contents:"
+        echo "- Complete data snapshot from collection TTPs"
+        echo "- Preserves file timestamps and metadata"
+        echo "- Hash verification included for integrity"
+        echo ""
+        echo "Usage:"
+        echo "1. Verify integrity: shasum -a 256 -c {{ image_path }}.sha256"
+        echo "2. Mount image: hdiutil attach {{ image_path }}"
+        echo "3. Access data from mounted volume"
+        echo ""
+        echo "Security:"
+        echo "- Image is read-only after creation"
+        echo "- All data preserved as-is"
+        echo "- No modifications during imaging"
+      } > "$(dirname "{{ image_path }}")/FORENSIC_IMAGE_README.txt" 2>/dev/null || true
 
 checks:
   - name: Verify image file exists
-    command: test -f {{ image_path }} && echo "Forensic image file verified"
+    command: test -f "{{ image_path }}" && echo "Forensic image file verified"
     expected_output: "Forensic image file verified"
 
   - name: Check image file size
     command: |
-      if [ -f {{ image_path }} ]; then
-        size=$(stat -f%z {{ image_path }} 2>/dev/null)
+      if [ -f "{{ image_path }}" ]; then
+        size=$(stat -f%z "{{ image_path }}" 2>/dev/null)
         if [ "$size" -gt 1000000 ]; then
-          echo "Image size valid: $(du -h {{ image_path }} | cut -f1)"
+          echo "Image size valid: $(du -h "{{ image_path }}" | cut -f1)"
         else
           echo "Image created but may be small"
         fi
@@ -121,16 +120,16 @@ checks:
 
   - name: Verify image integrity
     command: |
-      if [ -f {{ image_path }}.sha256 ]; then
+      if [ -f "{{ image_path }}.sha256" ]; then
         echo "Hash file available for verification"
-      elif [ -f {{ image_path }}.md5 ]; then
+      elif [ -f "{{ image_path }}.md5" ]; then
         echo "MD5 checksum available for verification"
       fi
 
   - name: Check metadata directory
     command: |
-      if [ -d "$(dirname {{ image_path }})/metadata" ]; then
-        count=$(find $(dirname {{ image_path }})/metadata -type f | wc -l)
+      if [ -d "$(dirname "{{ image_path }}")/metadata" ]; then
+        count=$(find "$(dirname "{{ image_path }}")/metadata" -type f | wc -l)
         echo "Metadata files created: $count"
       fi
 
@@ -144,16 +143,16 @@ tests:
 
 cleanup:
   - name: Remove forensic image
-    command: rm -f {{ image_path }}
+    command: rm -f "{{ image_path }}"
 
   - name: Remove hash files
-    command: rm -f {{ image_path }}.md5 {{ image_path }}.sha256
+    command: rm -f "{{ image_path }}.md5" "{{ image_path }}.sha256"
 
   - name: Remove metadata directory
-    command: rm -rf $(dirname {{ image_path }})/metadata
+    command: rm -rf "$(dirname "{{ image_path }}")/metadata"
 
   - name: Remove documentation
-    command: rm -f $(dirname {{ image_path }})/FORENSIC_IMAGE_README.txt
+    command: rm -f "$(dirname "{{ image_path }}")/FORENSIC_IMAGE_README.txt"
 
   - name: Verify cleanup
-    command: test ! -f {{ image_path }} && echo "Forensic image cleanup completed"
+    command: test ! -f "{{ image_path }}" && echo "Forensic image cleanup completed"

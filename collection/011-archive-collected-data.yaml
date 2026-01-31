@@ -34,12 +34,12 @@ args:
 
 steps:
   - name: Create archive directory
-    command: mkdir -p $(dirname {{ archive_path }})
+    command: mkdir -p $(dirname "{{ archive_path }}")
 
   - name: Archive using tar and gzip
     command: |
-      cd {{ source_directory }} && \
-      tar -czf {{ archive_path }} \
+      cd "{{ source_directory }}" && \
+      tar -czf "{{ archive_path }}" \
         screen_captures/ \
         clipboard_data/ \
         camera_mic_access/ \
@@ -53,41 +53,41 @@ steps:
         2>/dev/null || echo "Archive created with available data"
 
   - name: Verify archive integrity
-    command: tar -tzf {{ archive_path }} > /dev/null 2>&1 && echo "Archive integrity verified"
+    command: tar -tzf "{{ archive_path }}" > /dev/null 2>&1 && echo "Archive integrity verified"
 
   - name: Get archive statistics
     command: |
-      if [ -f {{ archive_path }} ]; then
-        size=$(du -h {{ archive_path }} | cut -f1)
-        count=$(tar -tzf {{ archive_path }} 2>/dev/null | wc -l)
+      if [ -f "{{ archive_path }}" ]; then
+        size=$(du -h "{{ archive_path }}" | cut -f1)
+        count=$(tar -tzf "{{ archive_path }}" 2>/dev/null | wc -l)
         echo "Archive size: $size, Files: $count"
       fi
 
   - name: Create archive manifest
     command: |
-      tar -tzf {{ archive_path }} > $(dirname {{ archive_path }})/archive_manifest.txt 2>/dev/null || echo "Manifest creation attempted"
+      tar -tzf "{{ archive_path }}" > "$(dirname "{{ archive_path }}")/archive_manifest.txt" 2>/dev/null || echo "Manifest creation attempted"
 
   - name: Calculate archive checksum
     command: |
-      if [ -f {{ archive_path }} ]; then
-        md5sum {{ archive_path }} > $(dirname {{ archive_path }})/archive.md5 2>/dev/null || shasum -a 256 {{ archive_path }} > $(dirname {{ archive_path }})/archive.sha256 2>/dev/null || true
+      if [ -f "{{ archive_path }}" ]; then
+        md5sum "{{ archive_path }}" > "$(dirname "{{ archive_path }}")/archive.md5" 2>/dev/null || shasum -a 256 "{{ archive_path }}" > "$(dirname "{{ archive_path }}")/archive.sha256" 2>/dev/null || true
       fi
 
-  - name: Optional: Create backup archive
+  - name: Optional Create backup archive
     command: |
-      if [ -f {{ archive_path }} ]; then
-        cp {{ archive_path }} {{ archive_path }}.backup 2>/dev/null || echo "Backup skipped"
+      if [ -f "{{ archive_path }}" ]; then
+        cp "{{ archive_path }}" "{{ archive_path }}.backup" 2>/dev/null || echo "Backup skipped"
       fi
 
 checks:
   - name: Verify archive file exists
-    command: test -f {{ archive_path }} && echo "Archive file created successfully"
+    command: test -f "{{ archive_path }}" && echo "Archive file created successfully"
     expected_output: "Archive file created successfully"
 
   - name: Check archive size
     command: |
-      if [ -f {{ archive_path }} ]; then
-        size=$(stat -f%z {{ archive_path }} 2>/dev/null)
+      if [ -f "{{ archive_path }}" ]; then
+        size=$(stat -f%z "{{ archive_path }}" 2>/dev/null)
         if [ "$size" -gt 0 ]; then
           echo "Archive size valid: $size bytes"
         fi
@@ -95,8 +95,8 @@ checks:
 
   - name: Validate archive contents
     command: |
-      if [ -f {{ archive_path }} ]; then
-        tar -tzf {{ archive_path }} 2>/dev/null | head -5 | wc -l
+      if [ -f "{{ archive_path }}" ]; then
+        tar -tzf "{{ archive_path }}" 2>/dev/null | head -5 | wc -l
       fi
 
 tests:
@@ -109,10 +109,14 @@ tests:
 
 cleanup:
   - name: Remove archive file
-    command: rm -f {{ archive_path }}
+    command: rm -f "{{ archive_path }}"
 
   - name: Remove manifest and checksums
-    command: rm -f $(dirname {{ archive_path }})/archive_manifest.txt $(dirname {{ archive_path }})/archive.md5 $(dirname {{ archive_path }})/archive.sha256 $(dirname {{ archive_path }})/archive.md5.backup
+    command: |
+      rm -f "$(dirname "{{ archive_path }}")/archive_manifest.txt"
+      rm -f "$(dirname "{{ archive_path }}")/archive.md5"
+      rm -f "$(dirname "{{ archive_path }}")/archive.sha256"
+      rm -f "$(dirname "{{ archive_path }}")/archive.md5.backup"
 
   - name: Verify cleanup
-    command: test ! -f {{ archive_path }} && echo "Archive cleanup completed"
+    command: test ! -f "{{ archive_path }}" && echo "Archive cleanup completed"

@@ -39,28 +39,23 @@ args:
 
 steps:
   - name: Create ransom note script
-    command: cat > ~/.ransom_note.sh << 'SCRIPT'
-#!/bin/bash
-osascript << 'AS'
-display alert "ALERT" message "Your files have been encrypted. Contact attackers@example.com. Payment required." buttons {"OK"} default button 1 with icon caution giving up after 600
-AS
-SCRIPT
-    
+    command: "cat > ~/.ransom_note.sh << 'SCRIPT'\n#!/bin/bash\nosascript << 'AS'\ndisplay alert \"ALERT\" message \"Your files have been encrypted. Contact attackers@example.com. Payment required.\" buttons {\"OK\"} default button 1 with icon caution giving up after 600\nAS\nSCRIPT"
+
   - name: Make script executable
-    command: chmod +x ~/.ransom_note.sh
-    
+    command: "chmod +x ~/.ransom_note.sh"
+
   - name: Display alert dialog to current user
-    command: osascript -e 'display alert "ALERT" message "Your files have been encrypted" buttons {"OK"} default button 1 with icon caution' 2>/dev/null || true
-    
+    command: "osascript -e 'display alert \"ALERT\" message \"Your files have been encrypted\" buttons {\"OK\"} default button 1 with icon caution' 2>/dev/null || true"
+
   - name: Log ransom event
-    command: logger "TTP: Ransom note displayed to user"
-    
+    command: "logger 'TTP: Ransom note displayed to user'"
+
   - name: Optionally set desktop background
-    command: defaults write com.apple.desktop Background "{default = {ImageFilePath = /Library/Desktop\\ Pictures/Solid\\ Colors/Black.png;}}" 2>/dev/null || true
+    command: "defaults write com.apple.desktop Background '{default = {ImageFilePath = /Library/Desktop\\ Pictures/Solid\\ Colors/Black.png;}}' 2>/dev/null || true"
 
 checks:
   - name: Verify ransom note script exists
-    command: test -f ~/.ransom_note.sh && echo "Ransom note created"
+    command: "test -f ~/.ransom_note.sh && echo 'Ransom note created'"
     expected_output: "Ransom note created"
 
 tests:
@@ -68,23 +63,23 @@ tests:
     description: Test ransom note display without actual execution
     dry_run: true
     steps:
-      - echo "Would display ransom note with message: {{ message }}"
-      - echo "Title: {{ title }}"
-      - echo "Persistent mode: {{ persistent }}"
-      - echo "Dialog would appear to user immediately"
+      - "echo \"Would display ransom note with message: {{ message }}\""
+      - "echo \"Title: {{ title }}\""
+      - "echo \"Persistent mode: {{ persistent }}\""
+      - "echo \"Dialog would appear to user immediately\""
 
 cleanup:
   - name: Remove ransom note script
-    command: rm -f ~/.ransom_note.sh
-    
+    command: "rm -f ~/.ransom_note.sh"
+
   - name: Close any open alert dialogs
-    command: killall osascript 2>/dev/null || true
-    
+    command: "killall osascript 2>/dev/null || true"
+
   - name: Reset desktop background
-    command: defaults delete com.apple.desktop Background 2>/dev/null || true
-    
+    command: "defaults delete com.apple.desktop Background 2>/dev/null || true"
+
   - name: Verify cleanup
-    command: test ! -f ~/.ransom_note.sh && echo "Ransom note cleaned up"
+    command: "test ! -f ~/.ransom_note.sh && echo 'Ransom note cleaned up'"
 
 metadata:
   created: "2026-01-30"

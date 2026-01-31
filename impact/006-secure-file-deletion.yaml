@@ -40,27 +40,27 @@ args:
 
 steps:
   - name: Create test file for deletion
-    command: echo "sensitive data to be destroyed" > ~/.temp_delete
-    
+    command: "echo 'sensitive data to be destroyed' > ~/.temp_delete"
+
   - name: Verify file exists before deletion
-    command: test -f ~/.temp_delete && echo "File exists"
-    
+    command: "test -f ~/.temp_delete && echo 'File exists'"
+
   - name: Secure delete with srm (Gutmann method)
-    command: srm -f -z ~/.temp_delete 2>/dev/null || rm -P ~/.temp_delete 2>/dev/null || true
-    
+    command: "srm -f -z ~/.temp_delete 2>/dev/null || rm -P ~/.temp_delete 2>/dev/null || true"
+
   - name: Verify file is deleted
-    command: test ! -f ~/.temp_delete && echo "File securely deleted"
-    
+    command: "test ! -f ~/.temp_delete && echo 'File securely deleted'"
+
   - name: Check filesystem for recovery
-    command: find ~ -name "temp_delete*" 2>/dev/null || echo "No recovery possible"
+    command: "find ~ -name 'temp_delete*' 2>/dev/null || echo 'No recovery possible'"
 
 checks:
   - name: Verify secure deletion
-    command: test ! -f ~/.temp_delete && echo "Deletion successful"
+    command: "test ! -f ~/.temp_delete && echo 'Deletion successful'"
     expected_output: "Deletion successful"
-  
+
   - name: Check for file fragments
-    command: find ~ -name "*temp_delete*" 2>/dev/null | wc -l
+    command: "find ~ -name '*temp_delete*' 2>/dev/null | wc -l"
     expected_output: 0
 
 tests:
@@ -68,16 +68,16 @@ tests:
     description: Test secure deletion on test file without actual destruction
     dry_run: true
     steps:
-      - echo "Would securely overwrite and delete target file"
-      - echo "Method: {{ method }} with {{ passes }} passes"
-      - echo "Target: {{ target_path }}"
+      - "echo \"Would securely overwrite and delete target file\""
+      - "echo \"Method: {{ method }} with {{ passes }} passes\""
+      - "echo \"Target: {{ target_path }}\""
 
 cleanup:
   - name: Remove any residual files
-    command: rm -f ~/.temp_delete* 2>/dev/null || true
+    command: "rm -f ~/.temp_delete* 2>/dev/null || true"
     
   - name: Verify cleanup
-    command: test ! -f ~/.temp_delete && echo "Cleanup verified"
+    command: "test ! -f ~/.temp_delete && echo \"Cleanup verified\""
 
 metadata:
   created: "2026-01-30"

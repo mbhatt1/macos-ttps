@@ -42,9 +42,9 @@ steps:
   - name: Verify file exists
     type: command
     executor: bash
-    command: test -f '{{ args.file_path }}' || (echo "File not found"; exit 1)
+    command: "test -f '{{ args.file_path }}' || (echo 'File not found'; exit 1)"
     cleanup: false
-  
+
   - name: Check SSH key exists
     type: command
     executor: bash
@@ -57,7 +57,7 @@ steps:
         echo "WARNING: SSH key not found at $keypath"
       fi
     cleanup: false
-  
+
   - name: Prepare SFTP connection
     type: command
     executor: bash
@@ -70,35 +70,36 @@ steps:
       echo "  Remote path: {{ args.remote_path }}"
       echo "  File: $(basename '{{ args.file_path }}')"
     cleanup: false
-  
+
   - name: Execute SFTP upload
     type: command
     executor: bash
-    command: |
-      if [ '{{ args.dry_run }}' = 'true' ]; then
-        keypath=$(eval echo '{{ args.private_key }}')
-        echo "DRY RUN: Would execute SFTP transfer with command:"
-        echo "sftp -P {{ args.sftp_port }} -i $keypath {{ args.sftp_user }}@{{ args.sftp_host }}:{{ args.remote_path }}"
-        echo "  > put '{{ args.file_path }}' '{{ args.remote_path }}/$(basename '{{ args.file_path }}')')"
+    command: >-
+      if [ "{{ args.dry_run }}" = "true" ]; then
+        keypath=$(eval echo '{{ args.private_key }}');
+        echo "DRY RUN: Would execute SFTP transfer with command:";
+        echo "sftp -P {{ args.sftp_port }} -i \$keypath {{ args.sftp_user }}@{{ args.sftp_host }}:{{ args.remote_path }}";
+        echo "  > put '{{ args.file_path }}' '{{ args.remote_path }}/$(basename '{{ args.file_path }}')')";
       else
-        keypath=$(eval echo '{{ args.private_key }}')
-        sftp -P {{ args.sftp_port }} -i "$keypath" {{ args.sftp_user }}@{{ args.sftp_host }} << SFTP_EOF
-put '{{ args.file_path }}' '{{ args.remote_path }}/$(basename '{{ args.file_path }}')'
-bye
-SFTP_EOF
+        keypath=$(eval echo '{{ args.private_key }}');
+        sftp -P "{{ args.sftp_port }}" -i "$keypath" "{{ args.sftp_user }}@{{ args.sftp_host }}" <<'HEREDOC_END'
+      put /tmp/.staging/data.tar.gz /uploads/data.tar.gz
+      bye
+      HEREDOC_END
       fi
     cleanup: false
+
 checks:
   - name: SFTP server reachable
     description: Verify SFTP server connection parameters
     type: command
-    command: |
-      echo "{{ args.sftp_host }}" | grep -qE '^[a-zA-Z0-9.-]+$' && echo "Valid hostname"
-  
+    command: "echo '{{ args.sftp_host }}' | grep -qE '^[a-zA-Z0-9.-]+$' && echo 'Valid hostname'"
+
   - name: File readable
     description: Verify file is accessible
     type: command
-    command: test -r '{{ args.file_path }}'
+    command: "test -r '{{ args.file_path }}'"
+
 tests:
   dry_run:
     - name: Test SFTP upload (dry-run)
@@ -109,7 +110,7 @@ tests:
           type: command
           executor: bash
           command: echo "Data for SFTP" > /tmp/test_sftp.dat
-        
+
         - name: Prepare SFTP command
           type: command
           executor: bash
@@ -117,11 +118,12 @@ tests:
             echo "SFTP Upload Command (dry-run):"
             echo "sftp -P 22 -i ~/.ssh/id_rsa user@host:/uploads"
             echo "  > put /tmp/test_sftp.dat /uploads/test_sftp.dat"
-        
+
         - name: Verify file
           type: command
           executor: bash
           command: ls -lh /tmp/test_sftp.dat
+
 cleanup:
   - name: Remove test file
     type: command

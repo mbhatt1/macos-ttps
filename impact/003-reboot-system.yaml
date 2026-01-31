@@ -33,17 +33,17 @@ args:
 
 steps:
   - name: Log reboot event
-    command: logger -s "TTP: Initiating system reboot"
-    
+    command: "logger -s 'TTP: Initiating system reboot'"
+
   - name: Schedule system reboot
-    command: reboot
-    
+    command: "reboot"
+
   - name: Verify reboot queued
-    command: sleep 1 && uptime
+    command: "sleep 1 && uptime"
 
 checks:
   - name: Verify reboot is scheduled
-    command: ps aux | grep -i reboot | grep -v grep || echo "Reboot initiated"
+    command: "ps aux | grep -i reboot | grep -v grep || echo 'Reboot initiated'"
     expected_output: true
 
 tests:

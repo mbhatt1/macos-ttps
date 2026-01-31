@@ -32,17 +32,17 @@ args:
 
 steps:
   - name: Log shutdown event
-    command: logger -s "TTP: Initiating system shutdown"
-    
+    command: "logger -s 'TTP: Initiating system shutdown'"
+
   - name: Schedule system shutdown
-    command: shutdown -h +{{ delay_minutes }}
-    
+    command: "shutdown -h +{{ delay }}"
+
   - name: Verify shutdown is scheduled
-    command: sleep 2 && ps aux | grep -i shutdown | grep -v grep
+    command: "sleep 2 && ps aux | grep -i shutdown | grep -v grep"
 
 checks:
   - name: Verify shutdown process scheduled
-    command: ps aux | grep -i shutdown | grep -v grep
+    command: "ps aux | grep -i shutdown | grep -v grep"
     expected_output: true
 
 tests:

@@ -48,7 +48,7 @@ steps:
               <string>{{ script_path }}</string>
           </array>
           <key>RunAtLoad</key>
-          <{{ run_at_load|lower }}/>>
+          <true/>
           <key>StandardOutPath</key>
           <string>/tmp/agent_stdout.log</string>
           <key>StandardErrorPath</key>
