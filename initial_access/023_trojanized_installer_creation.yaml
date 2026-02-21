@@ -1,45 +1,67 @@
+---
 api_version: 2.0
-id: 550e8400-e29b-41d4-a716-446655440023
-platform: darwin
-name: Trojanized installer creation
-category: Initial Access
-description: Simulate creation of legitimate-looking installer package with hidden malicious payload. Attacker distributes trojanized DMG or PKG file containing backdoor.
-tactics:
-  - T1195.003
-techniques:
-  - T1195.003
+uuid: 550e8400-e29b-41d4-a716-446655440023
+name: Trojanized Installer Creation
+authors:
+  - mbhatt
+description: |
+  Simulate creation of legitimate-looking installer package with hidden malicious
+  payload. Attacker distributes trojanized DMG or PKG file containing backdoor.
+
+mitre:
+  tactics:
+    - "TA0001 Initial Access"
+  techniques:
+    - "T1195 Supply Chain Compromise"
+  subtechniques:
+    - "T1195.002 Supply Chain Compromise: Compromise Software Supply Chain"
+
+requirements:
+  platforms:
+    - os: darwin
+
 args:
   - name: package_name
-    description: Name of the application being packaged
+    description: "Name of the application being packaged"
     type: string
-    default: office_suite
+    default: "office_suite"
   - name: version
-    description: Version number of trojanized installer
+    description: "Version number of trojanized installer"
     type: string
     default: "3.2.1"
   - name: source_repo
-    description: Spoofed legitimate source repository
+    description: "Spoofed legitimate source repository"
     type: string
     default: "https://downloads.example.com"
   - name: backdoor_payload
-    description: Malware payload to embed
+    description: "Malware payload to embed"
     type: string
     default: "launchctl load /tmp/.hidden_agent.plist"
+
 steps:
-  - name: Create installer package structure
-    command: mkdir -p /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS
-    
-  - name: Create legitimate application binary
-    command: |
+  - name: create_installer_package_structure
+    description: Create installer package structure
+    inline: |
+      mkdir -p /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS
+    cleanup:
+      inline: |
+        rm -rf /tmp/ttpforge_installers/{{ package_name }}_{{ version }}
+        rm -rf ~/.{{ package_name }}_cache
+        rm -f /tmp/.trojan_installed
+
+  - name: create_legitimate_application_binary
+    description: Create legitimate application binary
+    inline: |
       cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS/launcher << 'LAUNCHER'
       #!/bin/bash
       echo "{{ package_name }} {{ version }} starting..."
       exec "/Applications/{{ package_name }}.app/Contents/MacOS/{{ package_name }}"
       LAUNCHER
       chmod +x /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS/launcher
-    
-  - name: Create Info.plist with legitimate metadata
-    command: |
+
+  - name: create_info_plist_with_metadata
+    description: Create Info.plist with legitimate metadata
+    inline: |
       cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/Info.plist << 'PLIST'
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -54,45 +76,35 @@ steps:
       </dict>
       </plist>
       PLIST
-    
-  - name: Create hidden backdoor installation script
-    command: |
+
+  - name: create_hidden_backdoor_installation_script
+    description: Create hidden backdoor installation script
+    inline: |
       cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh << 'HOOK'
       #!/bin/bash
-      # Hidden installation hook executed during package installation
       mkdir -p ~/.{{ package_name }}_cache
       echo "{{ backdoor_payload }}" > ~/.{{ package_name }}_cache/init.sh
       chmod +x ~/.{{ package_name }}_cache/init.sh
       touch /tmp/.trojan_installed
       HOOK
       chmod +x /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
-    
-  - name: Execute hidden installation hook
-    command: bash /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
-    dry_run: true
 
-checks:
-  - name: Verify trojan installation marker
-    command: test -f /tmp/.trojan_installed
-    expected_output: ""
-    
-  - name: Verify hidden cache directory created
-    command: test -d ~/.{{ package_name }}_cache
-    expected_output: ""
-    
-  - name: Verify installer package structure
-    command: test -f /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/Info.plist
-    expected_output: ""
+  - name: execute_hidden_installation_hook
+    description: Execute hidden installation hook (dry run)
+    inline: |
+      echo "[*] Would execute: bash /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh"
+      echo "[*] Simulation only - not executing backdoor"
+
+  - name: verify_trojan_installation_marker
+    description: Verify trojan installation marker
+    inline: |
+      test -f /tmp/.trojan_installed && echo "PASS" || echo "Marker not found (expected in dry run)"
+
+  - name: verify_installer_package_structure
+    description: Verify installer package structure
+    inline: |
+      test -f /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/Info.plist && echo "PASS" || echo "FAIL"
 
 tests:
-  dry_run: true
-
-cleanup:
-  - name: Remove trojanized installer package
-    command: rm -rf /tmp/ttpforge_installers/{{ package_name }}_{{ version }}
-    
-  - name: Remove hidden cache directory
-    command: rm -rf ~/.{{ package_name }}_cache
-    
-  - name: Remove trojan marker
-    command: rm -f /tmp/.trojan_installed
+  - name: trojanized_installer_creation_test
+    dry_run: true

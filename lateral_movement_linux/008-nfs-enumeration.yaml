@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: b8c9d0e1-f2a3-b4c5-c8d9-e0f1a2b3c4d5
+name: NFS Enumeration for Lateral Movement
+authors:
+  - TTPForge
+description: |
+  Enumerate NFS exports for weakly configured shares.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1135 Network Share Discovery"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: network_range
+    description: "Network range to scan"
+    type: string
+    default: "192.168.1.0/24"
+  - name: nfs_port
+    description: "NFS port to scan"
+    type: string
+    default: "2049"
+
+steps:
+  - name: scan_for_nfs_services
+    description: Scan for NFS services on network
+    inline: |
+      nmap -p 2049 -sV {{ .Args.network_range }} 2>/dev/null || echo NFS service scan
+    cleanup:
+      inline: |
+        umount /tmp/nfs_test 2>/dev/null; echo "NFS enumeration step complete"
+  - name: query_nfs_mount_points
+    description: Query NFS mount points
+    inline: |
+      showmount -e 192.168.1.1 2>/dev/null || echo NFS mount enumeration
+  - name: check_mount_permissions
+    description: Check mount permissions
+    inline: |
+      mount -o ro,vers=3 192.168.1.1:/exports /tmp/nfs_test 2>/dev/null || echo Mount test
+  - name: verify_nfs_utilities_available
+    description: Verify NFS utilities are available
+    inline: |
+      which showmount && echo NFS tools found || echo NFS tools missing
+
+tests:
+  - name: dry_run_nfs_enumeration
+    dry_run: true

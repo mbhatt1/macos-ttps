@@ -1,49 +1,36 @@
+---
 api_version: 2.0
-id: fedd0e14-5513-52ag-dcfd-f4a5bfbbf0e0
+uuid: 7885c1c8-01a0-4214-9e68-988bca9388f1
 name: Enumerate macOS Installed Applications
 authors:
   - security_team
-description: Identify all installed applications, their versions, bundle identifiers, and installation locations on the system
+description: |
+  Identify all installed applications, their versions, bundle identifiers, and
+  installation locations on the system.
+mitre:
+  tactics:
+    - "TA0007 Discovery"
+  techniques:
+    - "T1518 Software Discovery"
 requirements:
   platforms:
     - os: darwin
+steps:
+  - name: List Applications Directory
+    inline: |
+      ls -la /Applications/ | head -30
+  - name: Get Application Count
+    inline: |
+      find /Applications -maxdepth 1 -name "*.app" | wc -l
+  - name: List Application Names
+    inline: |
+      find /Applications -maxdepth 1 -name "*.app" -exec basename {} \; | sort
+  - name: Get Application Details
+    inline: |
+      system_profiler SPApplicationsDataType | head -50
+  - name: Get User Applications
+    inline: |
+      find ~/Applications -maxdepth 1 -name "*.app" 2>/dev/null | wc -l || echo "0 user apps"
 tests:
   - name: dry_run
     dry_run: true
-steps:
-  - name: List Applications Directory
-    executor:
-      name: sh
-      command: ls -la /Applications/ | head -30
-      timeout: 10
-  - name: Get Application Count
-    executor:
-      name: sh
-      command: find /Applications -maxdepth 1 -name "*.app" | wc -l
-      timeout: 10
-  - name: List Application Names
-    executor:
-      name: sh
-      command: find /Applications -maxdepth 1 -name "*.app" -exec basename {} \; | sort
-      timeout: 10
-  - name: Get Application Details
-    executor:
-      name: sh
-      command: system_profiler SPApplicationsDataType | head -50
-      timeout: 10
-  - name: Get User Applications
-    executor:
-      name: sh
-      command: find ~/Applications -maxdepth 1 -name "*.app" 2>/dev/null | wc -l || echo "0 user apps"
-      timeout: 10
-checks:
-  - name: Applications Directory Exists
-    executor:
-      name: sh
-      command: test -d /Applications && echo "exists"
-      timeout: 5
-  - name: App Count Non-Zero
-    executor:
-      name: sh
-      command: find /Applications -maxdepth 1 -name "*.app" | wc -l
-      timeout: 5

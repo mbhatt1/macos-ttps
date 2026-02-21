@@ -1,167 +1,118 @@
-id: '2b6c4a9d-5e1f-4b8a-7d3c-1f4a8e2b5d6c'
-name: 'Phishing Link Detection'
-api_version: '2.0'
-platform: darwin
+---
+api_version: 2.0
+uuid: 2b6c4a9d-5e1f-4b8a-7d3c-1f4a8e2b5d6c
+name: Phishing Link Detection
+authors:
+  - mbhatt
 description: |
-  Demonstrates phishing link detection and analysis by identifying suspicious 
-  URLs embedded in emails. Includes analysis of domain similarity, SSL certificate 
+  Demonstrates phishing link detection and analysis by identifying suspicious
+  URLs embedded in emails. Includes analysis of domain similarity, SSL certificate
   indicators, and link obfuscation techniques.
 
-arguments:
-  legitimate_domain:
-    description: 'Legitimate domain being impersonated'
-    type: 'string'
-    default: 'microsoft.com'
-  phishing_url:
-    description: 'Suspicious phishing URL'
-    type: 'string'
-    default: 'https://micro-soft-verify.malicious-hosting.com/account/login'
-  obfuscation_method:
-    description: 'URL obfuscation technique'
-    type: 'string'
-    default: 'lookalike domain with hyphen substitution'
+mitre:
+  tactics:
+    - "TA0001 Initial Access"
+  techniques:
+    - "T1566 Phishing"
+  subtechniques:
+    - "T1566.002 Phishing: Spearphishing Link"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: legitimate_domain
+    description: "Legitimate domain being impersonated"
+    type: string
+    default: "microsoft.com"
+  - name: phishing_url
+    description: "Suspicious phishing URL"
+    type: string
+    default: "https://micro-soft-verify.malicious-hosting.com/account/login"
+  - name: obfuscation_method
+    description: "URL obfuscation technique"
+    type: string
+    default: "lookalike domain with hyphen substitution"
 
 steps:
-  - name: 'Create URL analysis database'
-    type: 'atomic'
-    command: |
+  - name: create_url_analysis_database
+    description: Create URL analysis database of suspicious URLs
+    inline: |
       mkdir -p /tmp/link_analysis
       cat > /tmp/link_analysis/suspicious_urls.txt << 'URLEOF'
       SUSPICIOUS URL DATABASE
-      =======================
-      
       Legitimate Domain: {{ legitimate_domain }}
-      
       Detected Phishing URLs:
       1. {{ phishing_url }}
       2. https://update-your-microsoft-account-now.xyz/verify
       3. https://microsoft.verify-account.ru/login
       4. http://microsft.com/security-check
-      5. https://app-microsoft-office365.github.io/signin
-      6. https://outlook-mail-access.weebly.com/login
       URLEOF
       echo "Created suspicious URL database"
-  
-  - name: 'Analyze link characteristics'
-    type: 'atomic'
-    command: |
+    cleanup:
+      inline: |
+        rm -rf /tmp/link_analysis
+
+  - name: analyze_link_characteristics
+    description: Analyze link characteristics for phishing indicators
+    inline: |
       cat > /tmp/link_analysis/url_analysis.txt << 'ANALYSISEOF'
       PHISHING URL ANALYSIS REPORT
-      ============================
-      
       URL: {{ phishing_url }}
-      
       DETECTION INDICATORS:
-      
-      1. DOMAIN ANALYSIS
-         - Legitimate Domain: {{ legitimate_domain }}
-         - Phishing Domain: micro-soft-verify.malicious-hosting.com
-         - Similarity Score: 65% (mimics legitimate domain)
-         - Obfuscation: {{ obfuscation_method }}
-      
-      2. SSL CERTIFICATE ANALYSIS
-         - Certificate Validity: Unknown/Expired (typical for phishing)
-         - Certificate Issuer: Not from trusted CA
-         - Domain Match: Does not match certificate CN
-         - Red Flag: Self-signed or cheap bulk certificate
-      
-      3. HOSTNAME ANALYSIS
-         - Uses hyphenated variation (micro-soft vs microsoft)
-         - Adds urgency keywords (verify, secure, update)
-         - TLD Suspicious (.xyz, .ru, .tk)
-         - Domain Age: Recently registered (days to weeks)
-      
-      4. PROTOCOL ANALYSIS
-         - Uses HTTPS (creates false sense of security)
-         - Path structure mimics legitimate login
-         - Parameters suggest credential capture
-      
-      5. REPUTATION CHECK
-         - Blacklist Status: On malware/phishing blocklists
-         - Domain Reputation: Very Poor
-         - Previous Reports: Multiple abuse complaints
-      
+      1. Domain similarity score 65 percent
+      2. SSL certificate mismatch
+      3. Hyphenated variation of legitimate domain
+      4. Recently registered domain
       RISK ASSESSMENT: CRITICAL
-      RECOMMENDATION: Block domain, quarantine emails, alert users
       ANALYSISEOF
       echo "Completed URL analysis"
-  
-  - name: 'Create detection rules'
-    type: 'atomic'
-    command: |
+
+  - name: create_detection_rules
+    description: Create detection rules for phishing links
+    inline: |
       cat > /tmp/link_analysis/detection_rules.txt << 'RULESEOF'
       PHISHING LINK DETECTION RULES
-      =============================
-      
-      RULE 1: Domain Similarity Detection
-      Pattern: Lookalike domains with character substitution
-      Action: Flag and quarantine
-      Severity: HIGH
-      
-      RULE 2: TLD Verification
-      Pattern: Suspicious TLDs (.xyz, .ru, .tk, .top)
-      Action: Flag for review
-      Severity: MEDIUM
-      
-      RULE 3: Urgency Keywords
-      Pattern: "verify", "confirm", "update", "urgent", "action required"
-      Action: Increase scrutiny
-      Severity: MEDIUM
-      
-      RULE 4: Certificate Mismatch
-      Pattern: Domain doesn't match SSL certificate CN
-      Action: Block and alert
-      Severity: CRITICAL
-      
-      RULE 5: New Domain Detection
-      Pattern: Domain registered within 30 days
-      Action: Additional verification required
-      Severity: HIGH
-      
-      RULE 6: Blacklist Check
-      Pattern: URL on phishing/malware blacklists
-      Action: Immediate block
-      Severity: CRITICAL
+      RULE 1: Domain Similarity Detection - HIGH
+      RULE 2: TLD Verification - MEDIUM
+      RULE 3: Urgency Keywords - MEDIUM
+      RULE 4: Certificate Mismatch - CRITICAL
+      RULE 5: New Domain Detection - HIGH
+      RULE 6: Blacklist Check - CRITICAL
       RULESEOF
       echo "Created detection rules"
-  
-  - name: 'Log analysis results'
-    type: 'atomic'
-    command: |
+
+  - name: log_analysis_results
+    description: Log analysis results
+    inline: |
       mkdir -p /tmp/link_logs
       timestamp=$(date +%Y%m%d_%H%M%S)
       cat > /tmp/link_logs/detection_${timestamp}.log << 'LOGEOF'
       Phishing Link Detection Report
-      ==============================
-      Timestamp: {{ timestamp }}
-      Total URLs Analyzed: 6
-      Phishing URLs Detected: 6
-      Legitimate URLs: 0
-      Detection Rate: 100%
-      Primary Technique: Domain spoofing with lookalike variations
+      Total URLs Analyzed: 4
+      Phishing URLs Detected: 4
+      Detection Rate: 100 percent
       LOGEOF
+    cleanup:
+      inline: |
+        rm -rf /tmp/link_logs
 
-checks:
-  - name: 'Verify URL database created'
-    type: 'atomic'
-    command: 'test -f /tmp/link_analysis/suspicious_urls.txt && echo "PASS: URL database created"'
-  
-  - name: 'Verify analysis report created'
-    type: 'atomic'
-    command: 'test -f /tmp/link_analysis/url_analysis.txt && echo "PASS: Analysis report created"'
-  
-  - name: 'Verify detection rules created'
-    type: 'atomic'
-    command: 'test -f /tmp/link_analysis/detection_rules.txt && echo "PASS: Detection rules created"'
+  - name: verify_url_database_created
+    description: Verify URL database was created
+    inline: |
+      test -f /tmp/link_analysis/suspicious_urls.txt && echo "PASS: URL database created"
+
+  - name: verify_analysis_report_created
+    description: Verify analysis report was created
+    inline: |
+      test -f /tmp/link_analysis/url_analysis.txt && echo "PASS: Analysis report created"
+
+  - name: verify_detection_rules_created
+    description: Verify detection rules were created
+    inline: |
+      test -f /tmp/link_analysis/detection_rules.txt && echo "PASS: Detection rules created"
 
 tests:
-  dry_run: true
-
-cleanup:
-  - name: 'Remove link analysis'
-    type: 'atomic'
-    command: 'rm -rf /tmp/link_analysis'
-  
-  - name: 'Remove link logs'
-    type: 'atomic'
-    command: 'rm -rf /tmp/link_logs'
+  - name: phishing_link_detection_test
+    dry_run: true

@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: c3d4e5f6-a7b8-90c1-c2d3-e4f5a6b7c8d9
+name: Docker Container Lateral Movement
+authors:
+  - TTPForge
+description: |
+  Pivot between Docker containers using container escape and docker socket access.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1610 Deploy Container"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: docker_host
+    description: "Docker host/socket path"
+    type: string
+    default: "unix:///var/run/docker.sock"
+  - name: target_container
+    description: "Target container ID or name"
+    type: string
+    default: "web-app"
+  - name: container_command
+    description: "Command to execute in container"
+    type: string
+    default: "id"
+
+steps:
+  - name: list_available_containers
+    description: List available containers
+    inline: |
+      docker ps -a 2>/dev/null || echo 'Docker enumeration'
+    cleanup:
+      inline: |
+        echo "Docker lateral movement step complete"
+  - name: access_target_container
+    description: Access target container and execute command
+    inline: |
+      docker exec {{ .Args.target_container }} {{ .Args.container_command }} 2>/dev/null || echo 'Container access attempt'
+  - name: verify_docker_socket_access
+    description: Verify Docker socket access
+    inline: |
+      ls -la /var/run/docker.sock 2>/dev/null && echo 'Docker socket accessible' || echo 'Docker socket not accessible'
+
+tests:
+  - name: dry_run_docker_lateral_movement
+    dry_run: true

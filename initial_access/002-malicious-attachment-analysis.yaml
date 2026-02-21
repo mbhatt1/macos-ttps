@@ -1,34 +1,48 @@
-id: '7a2b9e1f-4c6d-4e3a-8b5c-1f9d2e4a7c3b'
-name: 'Malicious Attachment Analysis'
-api_version: '2.0'
-platform: darwin
+---
+api_version: 2.0
+uuid: 7a2b9e1f-4c6d-4e3a-8b5c-1f9d2e4a7c3b
+name: Malicious Attachment Analysis
+authors:
+  - mbhatt
 description: |
-  Demonstrates malicious attachment analysis by creating and analyzing suspicious 
-  file attachments commonly used in phishing campaigns. Simulates detection of 
+  Demonstrates malicious attachment analysis by creating and analyzing suspicious
+  file attachments commonly used in phishing campaigns. Simulates detection of
   dangerous file types and embedded macros.
 
-arguments:
-  attachment_name:
-    description: 'Name of malicious attachment'
-    type: 'string'
-    default: 'Invoice_2025.docm'
-  attachment_type:
-    description: 'File extension indicating macro-enabled document'
-    type: 'string'
-    default: 'docm'
-  sender_email:
-    description: 'Email address sending attachment'
-    type: 'string'
-    default: 'accounting@trustedcompany.com'
-  target_user:
-    description: 'Target recipient'
-    type: 'string'
-    default: 'finance@company.com'
+mitre:
+  tactics:
+    - "TA0001 Initial Access"
+  techniques:
+    - "T1566 Phishing"
+  subtechniques:
+    - "T1566.001 Phishing: Spearphishing Attachment"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: attachment_name
+    description: "Name of malicious attachment"
+    type: string
+    default: "Invoice_2025.docm"
+  - name: attachment_type
+    description: "File extension indicating macro-enabled document"
+    type: string
+    default: "docm"
+  - name: sender_email
+    description: "Email address sending attachment"
+    type: string
+    default: "accounting@trustedcompany.com"
+  - name: target_user
+    description: "Target recipient"
+    type: string
+    default: "finance@company.com"
 
 steps:
-  - name: 'Create suspicious attachment'
-    type: 'atomic'
-    command: |
+  - name: create_suspicious_attachment
+    description: Create suspicious attachment file
+    inline: |
       mkdir -p /tmp/suspicious_attachments
       cat > /tmp/suspicious_attachments/{{ attachment_name }} << 'DOCEOF'
       [Content_Types].xml
@@ -38,27 +52,28 @@ steps:
       </Types>
       DOCEOF
       echo "Created suspicious attachment: {{ attachment_name }}"
-  
-  - name: 'Analyze attachment metadata'
-    type: 'atomic'
-    command: |
+    cleanup:
+      inline: |
+        rm -rf /tmp/suspicious_attachments
+
+  - name: analyze_attachment_metadata
+    description: Analyze attachment metadata and risk level
+    inline: |
       file /tmp/suspicious_attachments/{{ attachment_name }}
       ls -lah /tmp/suspicious_attachments/{{ attachment_name }}
-      echo ""
       echo "Attachment Risk Analysis:"
       echo "  - File Type: {{ attachment_type }}"
       echo "  - Risk Level: HIGH"
       echo "  - Contains Macros: Likely"
       echo "  - Sender: {{ sender_email }}"
-  
-  - name: 'Log attachment analysis'
-    type: 'atomic'
-    command: |
+
+  - name: log_attachment_analysis
+    description: Log attachment analysis results
+    inline: |
       mkdir -p /tmp/attachment_logs
       timestamp=$(date +%Y%m%d_%H%M%S)
       cat > /tmp/attachment_logs/analysis_${timestamp}.log << 'LOGEOF'
       Attachment Analysis Report
-      ==========================
       Filename: {{ attachment_name }}
       Sender: {{ sender_email }}
       Recipient: {{ target_user }}
@@ -67,28 +82,25 @@ steps:
       Action: Quarantine
       LOGEOF
       echo "Analysis logged"
+    cleanup:
+      inline: |
+        rm -rf /tmp/attachment_logs
 
-checks:
-  - name: 'Verify attachment created'
-    type: 'atomic'
-    command: 'test -f /tmp/suspicious_attachments/{{ attachment_name }} && echo "PASS: Attachment file exists"'
-  
-  - name: 'Verify file type detection'
-    type: 'atomic'
-    command: 'file /tmp/suspicious_attachments/{{ attachment_name }} | grep -q "." && echo "PASS: File type analyzed"'
-  
-  - name: 'Verify analysis logs created'
-    type: 'atomic'
-    command: 'test -d /tmp/attachment_logs && [ $(ls -1 /tmp/attachment_logs | wc -l) -gt 0 ] && echo "PASS: Analysis logs created"'
+  - name: verify_attachment_created
+    description: Verify attachment file exists
+    inline: |
+      test -f /tmp/suspicious_attachments/{{ attachment_name }} && echo "PASS: Attachment file exists"
+
+  - name: verify_file_type_detection
+    description: Verify file type was analyzed
+    inline: |
+      file /tmp/suspicious_attachments/{{ attachment_name }} | grep -q "." && echo "PASS: File type analyzed"
+
+  - name: verify_analysis_logs_created
+    description: Verify analysis logs were created
+    inline: |
+      test -d /tmp/attachment_logs && [ $(ls -1 /tmp/attachment_logs | wc -l) -gt 0 ] && echo "PASS: Analysis logs created"
 
 tests:
-  dry_run: true
-
-cleanup:
-  - name: 'Remove suspicious attachments'
-    type: 'atomic'
-    command: 'rm -rf /tmp/suspicious_attachments'
-  
-  - name: 'Remove attachment logs'
-    type: 'atomic'
-    command: 'rm -rf /tmp/attachment_logs'
+  - name: malicious_attachment_analysis_test
+    dry_run: true

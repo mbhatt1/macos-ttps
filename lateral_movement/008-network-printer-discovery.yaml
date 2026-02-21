@@ -1,51 +1,49 @@
-api_version: "2.0"
-id: "008"
-name: "Network Printer Discovery"
-description: "Discover and identify network printers for lateral movement opportunities"
-author: "TTPForge"
-created: "2026-01-30"
-updated: "2026-01-30"
-uuid: "b8c9dae1-fcf2-aeef-b7c8-d9eafb0c1d2e"
+---
+api_version: 2.0
+uuid: b8c9dae1-fcf2-aeef-b7c8-d9eafb0c1d2e
+name: Network Printer Discovery
+authors:
+  - TTPForge
+description: |
+  Discover and identify network printers for lateral movement opportunities.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1046 Network Service Discovery"
 
 requirements:
   platforms:
     - os: darwin
 
 args:
-  network_range:
+  - name: network_range
     description: "Network range to scan for printers"
-    type: "string"
-    required: false
+    type: string
     default: "192.168.1.0/24"
-  printer_port:
+  - name: printer_port
     description: "Common printer service port"
-    type: "integer"
-    required: false
-    default: 9100
-  discovery_timeout:
+    type: string
+    default: "9100"
+  - name: discovery_timeout
     description: "Discovery timeout in seconds"
-    type: "integer"
-    required: false
-    default: 30
+    type: string
+    default: "30"
 
 steps:
-  - name: "Discover printers via Bonjour"
-    executor: "sh"
-    command: "dns-sd -B _ipp._tcp local | head -20 || echo 'Printer discovery initiated'"
-
-checks:
-  - name: "Check for SNMP-enabled printers"
-    executor: "sh"
-    command: "echo '[CHECK] Scanning for SNMP services on port 161' && nc -w 1 192.168.1.1 161 < /dev/null && echo 'SNMP service found' || echo 'Checking network printers...'"
+  - name: discover_printers_via_bonjour
+    description: Discover printers via Bonjour
+    inline: |
+      dns-sd -B _ipp._tcp local | head -20 || echo 'Printer discovery initiated'
+    cleanup:
+      inline: |
+        echo "Printer discovery step complete"
+  - name: check_for_snmp_enabled_printers
+    description: Check for SNMP-enabled printers
+    inline: |
+      echo '[CHECK] Scanning for SNMP services on port 161' && nc -w 1 192.168.1.1 161 < /dev/null && echo 'SNMP service found' || echo 'Checking network printers...'
 
 tests:
-  - name: "Dry run printer enumeration"
-    executor: "sh"
-    command: "echo '[DRY RUN] Enumerating printers on network {{ network_range }}' && echo '[DRY RUN] Printers discovered:' && echo '[DRY RUN] - HP LaserJet (192.168.1.50)' && echo '[DRY RUN] - Canon ImageRunner (192.168.1.51)' && echo '[DRY RUN] - Xerox WorkCentre (192.168.1.52)'"
-
-metadata:
-  tactic: "lateral-movement"
-  technique: "network-device-discovery"
-  references:
-    - "https://attack.mitre.org/tactics/TA0008/"
-  severity: "low"
+  - name: dry_run_printer_enumeration
+    dry_run: true

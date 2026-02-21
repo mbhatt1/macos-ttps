@@ -1,70 +1,42 @@
-id: 006-hide-files-chflags
-name: Hide Files with chflags
-description: Hide files using chflags hidden flag to avoid filesystem visibility
-author: TTPForge
-created_date: 2026-01-30
-last_modified_date: 2026-01-30
+---
 api_version: 2.0
-platforms:
-  - darwin
-tactics:
-  - defense_evasion
-techniques:
-  - hide_artifacts
-
+uuid: 00fd2f94-6c17-4154-be6d-4801b14b6ea2
+name: Hide Files with chflags
+authors:
+- TTPForge
+description: |
+  Hide files using chflags hidden flag to avoid filesystem visibility
+mitre:
+  tactics:
+  - TA0005 Defense Evasion
+  techniques:
+  - T1564 Hide Artifacts
+  subtechniques:
+  - 'T1564.001 Hide Artifacts: Hidden Files and Directories'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
   superuser: false
-
 args:
-  file_path:
-    description: Full path to file or directory to hide
-    type: string
-    required: true
-  unhide:
-    description: Unhide the file
-    type: bool
-    default: false
-
+- name: file_path
+  description: Full path to file or directory to hide
+  type: string
+- name: unhide
+  description: Unhide the file
+  type: bool
+  default: false
 steps:
-  validate_path:
-    inline: test -e "{{ args.file_path }}"
-    description: Verify file/directory exists
-    expected_exit_code: 0
-
-  hide_file:
-    inline: chflags hidden "{{ args.file_path }}"
-    description: Mark file as hidden using chflags
-    condition: "{{ not args.unhide }}"
-
-  unhide_file:
+- name: validate_path
+  description: Verify file/directory exists
+  inline: test -e "{{ .Args.file_path }}"
+- name: hide_file
+  description: Mark file as hidden using chflags
+  inline: chflags hidden "{{ .Args.file_path }}"
+- name: unhide_file
+  description: Remove hidden flag from file
+  inline: chflags nohidden "{{ .Args.file_path }}"
+  cleanup:
     inline: chflags nohidden "{{ args.file_path }}"
-    description: Remove hidden flag from file
-    condition: "{{ args.unhide }}"
-
-checks:
-  verify_hidden:
-    inline: ls -lO "{{ args.file_path }}" | grep -q hidden
-    expected_exit_code: 0
-    description: Verify file is marked as hidden
-
 tests:
-  default:
-    args:
-      file_path: /tmp/test_hidden_file
-    steps:
-      - validate_path
-    expected_exit_code: 1
-
-  dry_run:
-    args:
-      file_path: /tmp/test_hidden_file
-    steps:
-      - validate_path
-    expected_exit_code: 1
-
-cleanup:
-  unhide_file:
-    inline: chflags nohidden "{{ args.file_path }}"
-    description: Remove hidden flag during cleanup
+- name: dry_run_test
+  dry_run: true

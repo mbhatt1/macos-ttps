@@ -1,53 +1,39 @@
+---
 api_version: 2.0
-id: 001-dns-resolution-testing
+uuid: c7f99f80-594a-409f-8991-fc59c8356706
 name: DNS Resolution Testing
-description: Tests DNS resolution capabilities as a basic C2 connectivity check
-type: command_and_control
-
+authors:
+- Claude Code
+description: |
+  Tests DNS resolution capabilities as a basic C2 connectivity check
+mitre:
+  tactics:
+  - TA0011 Command and Control
+  techniques:
+  - T1071 Application Layer Protocol
+  subtechniques:
+  - 'T1071.004 Application Layer Protocol: DNS'
 requirements:
   platforms:
-    - os: darwin
-
+  - os: darwin
 args:
-  - name: target_domain
-    type: string
-    description: Target domain to resolve
-    default: google.com
-  - name: dns_server
-    type: string
-    description: DNS server to query
-    default: 8.8.8.8
-
+- name: target_domain
+  description: Target domain to resolve
+  type: string
+  default: google.com
+- name: dns_server
+  description: DNS server to query
+  type: string
+  default: 8.8.8.8
 steps:
-  - name: resolve_target_domain
-    description: Resolve target domain using dig
-    command: dig @{{ dns_server }} {{ target_domain }} +short
-    type: command
-  
-  - name: nslookup_verification
-    description: Verify resolution with nslookup
-    command: nslookup {{ target_domain }} {{ dns_server }}
-    type: command
-    cleanup: true
-
-checks:
-  - name: verify_dns_resolution
-    description: Verify DNS resolution was successful
-    condition: |
-      The output should contain an IP address or CNAME record
-    type: output_validation
-
-test_type: dry_run
-
-cleanup:
-  - name: clear_dns_cache
-    description: Clear DNS resolver cache
-    command: sudo dscacheutil -flushcache
-    type: command
-    optional: true
-
-metadata:
-  created: 2026-01-30
-  author: Claude Code
-  severity: low
-  category: network_communication
+- name: resolve_target_domain
+  description: Resolve target domain using dig
+  inline: dig @{{ .Args.dns_server }} {{ .Args.target_domain }} +short
+- name: nslookup_verification
+  description: Verify resolution with nslookup
+  inline: nslookup {{ .Args.target_domain }} {{ .Args.dns_server }}
+  cleanup:
+    inline: sudo dscacheutil -flushcache
+tests:
+- name: dry_run_test
+  dry_run: true

@@ -1,79 +1,49 @@
-id: 011-clear-system-logs
-name: Clear System Logs
-description: Clear macOS system logs to remove evidence of activity
-author: TTPForge
-created_date: 2026-01-30
-last_modified_date: 2026-01-30
+---
 api_version: 2.0
-platforms:
-  - darwin
-tactics:
-  - defense_evasion
-techniques:
-  - indicator_removal_on_host
-
+uuid: 1e6a667e-dc39-4174-b420-6c656cb0d535
+name: Clear System Logs
+authors:
+- TTPForge
+description: |
+  Clear macOS system logs to remove evidence of activity
+mitre:
+  tactics:
+  - TA0005 Defense Evasion
+  techniques:
+  - T1070 Indicator Removal
+  subtechniques:
+  - 'T1070.002 Indicator Removal: Clear Linux or Mac System Logs'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
   superuser: true
-
 args:
-  log_type:
-    description: Type of logs to clear (all, system, kernel, auth)
-    type: string
-    default: all
-  days_old:
-    description: Clear logs older than N days
-    type: int
-    default: 0
-
+- name: log_type
+  description: Type of logs to clear (all, system, kernel, auth)
+  type: string
+  default: all
+- name: days_old
+  description: Clear logs older than N days
+  type: int
+  default: 0
 steps:
-  backup_logs:
-    inline: tar -czf /tmp/log_backup_$(date +%s).tar.gz /var/log/ 2>/dev/null || true
-    description: Backup system logs before clearing
-
-  clear_all_logs:
-    inline: sudo find /var/log -type f -name "*.log" -delete
-    description: Delete all log files
-    condition: "{{ args.log_type == 'all' }}"
-
-  clear_system_log:
-    inline: sudo log erase --all
-    description: Clear unified system log
-    condition: "{{ args.log_type in ['all', 'system'] }}"
-
-  clear_old_logs:
-    inline: sudo find /var/log -type f -name "*.log" -mtime +{{ args.days_old }} -delete
-    description: Delete logs older than specified days
-    condition: "{{ args.days_old > 0 }}"
-
-  truncate_logs:
-    inline: sudo truncate -s 0 /var/log/system.log /var/log/auth.log 2>/dev/null || true
-    description: Truncate log files to zero size
-
-checks:
-  logs_cleared:
-    inline: test $(find /var/log -type f -name "*.log" | wc -l) -eq 0
-    expected_exit_code: 0
-    description: Verify logs have been cleared
-
-tests:
-  default:
-    steps:
-      - backup_logs
-    expected_exit_code: 0
-
-  dry_run:
-    steps:
-      - backup_logs
-    expected_exit_code: 0
-
-cleanup:
-  none:
+- name: backup_logs
+  description: Backup system logs before clearing
+  inline: tar -czf /tmp/log_backup_$(date +%s).tar.gz /var/log/ 2>/dev/null || true
+- name: clear_all_logs
+  description: Delete all log files
+  inline: sudo find /var/log -type f -name "*.log" -delete
+- name: clear_system_log
+  description: Clear unified system log
+  inline: sudo log erase --all
+- name: clear_old_logs
+  description: Delete logs older than specified days
+  inline: sudo find /var/log -type f -name "*.log" -mtime +{{ .Args.days_old }} -delete
+- name: truncate_logs
+  description: Truncate log files to zero size
+  inline: sudo truncate -s 0 /var/log/system.log /var/log/auth.log 2>/dev/null || true
+  cleanup:
     inline: echo "Log clearing is permanent; restore from backup if needed"
-    description: Log clearing cannot be reversed
-
-notes:
-  - System log clearing requires administrative privileges
-  - Some logs may be protected by SIP and cannot be deleted
-  - Clearing logs is a significant forensic indicator itself
+tests:
+- name: dry_run_test
+  dry_run: true

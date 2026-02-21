@@ -1,77 +1,66 @@
+---
 api_version: 2.0
-uuid: 12345678-1111-1111-1111-111111111111
+uuid: fee2392e-91e6-4562-865d-703710e56c29
 name: Create LaunchAgent plist
-description: Creates a LaunchAgent plist file in ~/Library/LaunchAgents to achieve persistence
-mitre_attack_id: T1547.011
-mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Creates a LaunchAgent plist file in ~/Library/LaunchAgents to achieve persistence
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1543 Create or Modify System Process
+  subtechniques:
+  - 'T1543.001 Create or Modify System Process: Launch Agent'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  agent_name:
-    description: Name of the LaunchAgent (without .plist extension)
-    type: string
-    default: com.apple.assistant.support
-  script_path:
-    description: Path to the script to execute
-    type: string
-    default: /tmp/persistence.sh
-  run_at_load:
-    description: Run the agent when loaded
-    type: bool
-    default: true
+- name: agent_name
+  description: Name of the LaunchAgent (without .plist extension)
+  type: string
+  default: com.apple.assistant.support
+- name: script_path
+  description: Path to the script to execute
+  type: string
+  default: /tmp/persistence.sh
+- name: run_at_load
+  description: Run the agent when loaded
+  type: bool
+  default: true
 steps:
-  - name: create_launchagent_script
-    type: create_file
-    path: "{{ script_path }}"
-    contents: |
-      #!/bin/bash
-      echo "LaunchAgent persistence activated at $(date)" >> /tmp/agent.log
-      # Add malicious payload here
-    permissions: "0755"
-  
-  - name: create_launchagent_plist
-    type: create_file
-    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
-    contents: |
-      <?xml version="1.0" encoding="UTF-8"?>
-      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-      <plist version="1.0">
-      <dict>
-          <key>Label</key>
-          <string>{{ agent_name }}</string>
-          <key>ProgramArguments</key>
-          <array>
-              <string>{{ script_path }}</string>
-          </array>
-          <key>RunAtLoad</key>
-          <true/>
-          <key>StandardOutPath</key>
-          <string>/tmp/agent_stdout.log</string>
-          <key>StandardErrorPath</key>
-          <string>/tmp/agent_stderr.log</string>
-      </dict>
-      </plist>
-    permissions: "0644"
-
-checks:
-  - type: file_exists
-    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
-  - type: file_contains
-    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
-    value: "{{ agent_name }}"
-
-cleanup:
-  - type: remove_file
-    path: "~/Library/LaunchAgents/{{ agent_name }}.plist"
-  - type: remove_file
-    path: "{{ script_path }}"
-  - type: remove_file
-    path: "/tmp/agent.log"
-  - type: remove_file
-    path: "/tmp/agent_stdout.log"
-  - type: remove_file
-    path: "/tmp/agent_stderr.log"
+- name: create_launchagent_script
+  create_file: '{{ .Args.script_path }}'
+  contents: |
+    #!/bin/bash
+    echo "LaunchAgent persistence activated at $(date)" >> /tmp/agent.log
+    # Add malicious payload here
+  mode: 493
+  cleanup: default
+- name: create_launchagent_plist
+  create_file: ~/Library/LaunchAgents/{{ .Args.agent_name }}.plist
+  contents: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>{{ .Args.agent_name }}</string>
+        <key>ProgramArguments</key>
+        <array>
+            <string>{{ .Args.script_path }}</string>
+        </array>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>StandardOutPath</key>
+        <string>/tmp/agent_stdout.log</string>
+        <key>StandardErrorPath</key>
+        <string>/tmp/agent_stderr.log</string>
+    </dict>
+    </plist>
+  mode: 420
+  cleanup: default
+tests:
+- name: dry_run_test
+  dry_run: true

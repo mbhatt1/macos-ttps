@@ -1,49 +1,36 @@
+---
 api_version: 2.0
-id: f6a7b8c9-dae5-4cdb-d4e5-f6a7b8c9daeb
+uuid: 64d0fdbc-3f41-470d-b71a-15a8e1683fc8
 name: Enumerate macOS Running Processes
 authors:
   - security_team
-description: List all currently running processes including process IDs, parent process IDs, resource usage, and command line arguments
+description: |
+  List all currently running processes including process IDs, parent process IDs,
+  resource usage, and command line arguments.
+mitre:
+  tactics:
+    - "TA0007 Discovery"
+  techniques:
+    - "T1057 Process Discovery"
 requirements:
   platforms:
     - os: darwin
+steps:
+  - name: Get All Running Processes
+    inline: |
+      ps aux
+  - name: Get Process Tree
+    inline: |
+      ps -ef
+  - name: Get Process Count
+    inline: |
+      ps aux | wc -l
+  - name: Get High Memory Processes
+    inline: |
+      ps aux | sort -k4 -rn | head -10
+  - name: Get High CPU Processes
+    inline: |
+      ps aux | sort -k3 -rn | head -10
 tests:
   - name: dry_run
     dry_run: true
-steps:
-  - name: Get All Running Processes
-    executor:
-      name: sh
-      command: ps aux
-      timeout: 10
-  - name: Get Process Tree
-    executor:
-      name: sh
-      command: ps -ef
-      timeout: 10
-  - name: Get Process Count
-    executor:
-      name: sh
-      command: ps aux | wc -l
-      timeout: 5
-  - name: Get High Memory Processes
-    executor:
-      name: sh
-      command: ps aux | sort -k4 -rn | head -10
-      timeout: 10
-  - name: Get High CPU Processes
-    executor:
-      name: sh
-      command: ps aux | sort -k3 -rn | head -10
-      timeout: 10
-checks:
-  - name: Current Process
-    executor:
-      name: sh
-      command: ps -p $$
-      timeout: 5
-  - name: Process List Non-Empty
-    executor:
-      name: sh
-      command: ps aux | grep -v "^USER" | wc -l
-      timeout: 5

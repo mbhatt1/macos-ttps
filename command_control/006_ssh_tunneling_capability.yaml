@@ -1,86 +1,68 @@
+---
 api_version: 2.0
-id: 006-ssh-tunneling-capability
+uuid: 31be8134-711d-461f-bda7-16a80be84cdd
 name: SSH Tunneling Capability
-description: Tests SSH tunneling for C2 command execution and data exfiltration
-type: command_and_control
-
+authors:
+- Claude Code
+description: |
+  Tests SSH tunneling for C2 command execution and data exfiltration
+mitre:
+  tactics:
+  - TA0011 Command and Control
+  techniques:
+  - T1572 Protocol Tunneling
 requirements:
   platforms:
-    - os: darwin
-
+  - os: darwin
 args:
-  - name: ssh_host
-    type: string
-    description: SSH server hostname or IP
-    default: "c2.example.com"
-  - name: ssh_port
-    type: integer
-    description: SSH server port
-    default: 22
-  - name: ssh_user
-    type: string
-    description: SSH username
-    default: "testuser"
-  - name: ssh_key_path
-    type: string
-    description: Path to SSH private key
-    default: "~/.ssh/id_rsa"
-  - name: local_port
-    type: integer
-    description: Local forwarding port
-    default: 9999
-  - name: remote_port
-    type: integer
-    description: Remote port to forward
-    default: 8080
-
+- name: ssh_host
+  description: SSH server hostname or IP
+  type: string
+  default: c2.example.com
+- name: ssh_port
+  description: SSH server port
+  type: integer
+  default: 22
+- name: ssh_user
+  description: SSH username
+  type: string
+  default: testuser
+- name: ssh_key_path
+  description: Path to SSH private key
+  type: string
+  default: ~/.ssh/id_rsa
+- name: local_port
+  description: Local forwarding port
+  type: integer
+  default: 9999
+- name: remote_port
+  description: Remote port to forward
+  type: integer
+  default: 8080
 steps:
-  - name: ssh_connectivity_check
-    description: Test SSH connectivity
-    command: |
-      timeout 5 ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
-        -p {{ ssh_port }} {{ ssh_user }}@{{ ssh_host }} "echo 'SSH connection successful'" 2>/dev/null || echo "SSH connection failed"
-    type: command
-  
-  - name: ssh_key_validation
-    description: Validate SSH key availability
-    command: |
-      if [ -f "{{ ssh_key_path }}" ]; then
-        echo "SSH key found at {{ ssh_key_path }}"
-        ssh-keygen -l -f "{{ ssh_key_path }}" 2>/dev/null || echo "Could not read key"
-      else
-        echo "SSH key not found"
-      fi
-    type: command
-  
-  - name: ssh_tunnel_setup_test
-    description: Test SSH tunnel setup
-    command: |
-      echo "Would establish SSH tunnel:"
-      echo "ssh -N -L {{ local_port }}:localhost:{{ remote_port }} -p {{ ssh_port }} {{ ssh_user }}@{{ ssh_host }} -i {{ ssh_key_path }}"
-    type: command
-    cleanup: true
-
-checks:
-  - name: verify_ssh_tunnel_capable
-    description: Verify SSH tunneling capability
-    condition: |
-      SSH client should be available and connectivity testable
-    type: output_validation
-
-test_type: dry_run
-
-cleanup:
-  - name: kill_ssh_tunnels
-    description: Kill any SSH tunnel processes
-    command: |
-      pkill -f "ssh.*{{ ssh_host }}" 2>/dev/null || true
+- name: ssh_connectivity_check
+  description: Test SSH connectivity
+  inline: |
+    timeout 5 ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+      -p {{ .Args.ssh_port }} {{ .Args.ssh_user }}@{{ .Args.ssh_host }} "echo 'SSH connection successful'" 2>/dev/null || echo "SSH connection failed"
+- name: ssh_key_validation
+  description: Validate SSH key availability
+  inline: |
+    if [ -f "{{ .Args.ssh_key_path }}" ]; then
+      echo "SSH key found at {{ .Args.ssh_key_path }}"
+      ssh-keygen -l -f "{{ .Args.ssh_key_path }}" 2>/dev/null || echo "Could not read key"
+    else
+      echo "SSH key not found"
+    fi
+- name: ssh_tunnel_setup_test
+  description: Test SSH tunnel setup
+  inline: |
+    echo "Would establish SSH tunnel:"
+    echo "ssh -N -L {{ .Args.local_port }}:localhost:{{ .Args.remote_port }} -p {{ .Args.ssh_port }} {{ .Args.ssh_user }}@{{ .Args.ssh_host }} -i {{ .Args.ssh_key_path }}"
+  cleanup:
+    inline: |
+      pkill -f "ssh.*{{ .Args.ssh_host }}" 2>/dev/null || true
       pkill -f "ssh -N" 2>/dev/null || true
-    type: command
-    optional: true
-
-metadata:
-  created: 2026-01-30
-  author: Claude Code
-  severity: high
-  category: remote_access
+tests:
+- name: dry_run_test
+  dry_run: true

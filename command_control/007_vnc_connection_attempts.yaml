@@ -1,82 +1,66 @@
+---
 api_version: 2.0
-id: 007-vnc-connection-attempts
+uuid: 8ffe4dc2-53d3-4c29-b9b3-d6bbee13b934
 name: VNC Connection Attempts
-description: Tests VNC connection attempts for remote desktop access via C2
-type: command_and_control
-
+authors:
+- Claude Code
+description: |
+  Tests VNC connection attempts for remote desktop access via C2
+mitre:
+  tactics:
+  - TA0011 Command and Control
+  techniques:
+  - T1021 Remote Services
+  subtechniques:
+  - 'T1021.005 Remote Services: VNC'
 requirements:
   platforms:
-    - os: darwin
-
+  - os: darwin
 args:
-  - name: vnc_host
-    type: string
-    description: VNC server hostname or IP
-    default: "192.168.1.50"
-  - name: vnc_port
-    type: integer
-    description: VNC server port
-    default: 5900
-  - name: vnc_password
-    type: string
-    description: VNC password (optional)
-    default: ""
-  - name: timeout
-    type: integer
-    description: Connection timeout in seconds
-    default: 5
-
+- name: vnc_host
+  description: VNC server hostname or IP
+  type: string
+  default: 192.168.1.50
+- name: vnc_port
+  description: VNC server port
+  type: integer
+  default: 5900
+- name: vnc_password
+  description: VNC password (optional)
+  type: string
+  default: ''
+- name: timeout
+  description: Connection timeout in seconds
+  type: integer
+  default: 5
 steps:
-  - name: check_vnc_port_open
-    description: Check if VNC port is open
-    command: |
-      timeout {{ timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ vnc_host }}/{{ vnc_port }}" && echo "VNC port {{ vnc_port }} is open" || echo "VNC port {{ vnc_port }} is closed"
-    type: command
-  
-  - name: scan_for_vnc_service
-    description: Scan for VNC service
-    command: |
-      if command -v nc &> /dev/null; then
-        timeout {{ timeout }} nc -zv {{ vnc_host }} {{ vnc_port }}
-      elif command -v ncat &> /dev/null; then
-        timeout {{ timeout }} ncat -zv {{ vnc_host }} {{ vnc_port }}
-      else
-        echo "nc/ncat not available for scanning"
-      fi
-    type: command
-  
-  - name: test_vnc_client
-    description: Test VNC client availability
-    command: |
-      if command -v open &> /dev/null; then
-        echo "macOS open command available for VNC launch"
-        echo "Would execute: open vnc://{{ vnc_host }}:{{ vnc_port }}"
-      else
-        echo "VNC client not readily available"
-      fi
-    type: command
-    cleanup: true
-
-checks:
-  - name: verify_vnc_reachable
-    description: Verify VNC port is reachable
-    condition: |
-      Port should respond or be reachable for VNC connection
-    type: output_validation
-
-test_type: dry_run
-
-cleanup:
-  - name: close_vnc_connections
-    description: Close any VNC connection attempts
-    command: |
+- name: check_vnc_port_open
+  description: Check if VNC port is open
+  inline: |
+    timeout {{ .Args.timeout }} bash -c "cat < /dev/null > /dev/tcp/{{ .Args.vnc_host }}/{{ .Args.vnc_port }}" && echo "VNC port {{ .Args.vnc_port }} is open" || echo "VNC port {{ .Args.vnc_port }} is closed"
+- name: scan_for_vnc_service
+  description: Scan for VNC service
+  inline: |
+    if command -v nc &> /dev/null; then
+      timeout {{ .Args.timeout }} nc -zv {{ .Args.vnc_host }} {{ .Args.vnc_port }}
+    elif command -v ncat &> /dev/null; then
+      timeout {{ .Args.timeout }} ncat -zv {{ .Args.vnc_host }} {{ .Args.vnc_port }}
+    else
+      echo "nc/ncat not available for scanning"
+    fi
+- name: test_vnc_client
+  description: Test VNC client availability
+  inline: |
+    if command -v open &> /dev/null; then
+      echo "macOS open command available for VNC launch"
+      echo "Would execute: open vnc://{{ .Args.vnc_host }}:{{ .Args.vnc_port }}"
+    else
+      echo "VNC client not readily available"
+    fi
+  cleanup:
+    inline: |
       pkill -f "vnc" 2>/dev/null || true
       pkill -f "remote-desktop" 2>/dev/null || true
-    type: command
-    optional: true
-
-metadata:
-  created: 2026-01-30
-  author: Claude Code
-  severity: high
-  category: remote_access
+tests:
+- name: dry_run_test
+  dry_run: true

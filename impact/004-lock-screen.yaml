@@ -1,77 +1,43 @@
 ---
-id: 004
-name: Lock Screen
-description: Locks the macOS screen to deny user access and force authentication
 api_version: 2.0
-type: impact
-tactics:
-  - impact
-techniques:
-  - T1531  # Account Access Removal
-
+uuid: 27e379bb-767f-4585-bbab-8c7b65b5838e
+name: Lock Screen
+authors:
+- TTPForge
+description: |
+  Locks the macOS screen to deny user access and force authentication
+mitre:
+  tactics:
+  - TA0040 Impact
+  techniques:
+  - T1531 Account Access Removal
 requirements:
   platforms:
-    - os: darwin
-      versions:
-        - "10.15+"
+  - os: darwin
   superuser: false
-  executables:
-    - osascript
-    - launchctl
-
 args:
-  immediate:
-    description: Lock screen immediately without delay
-    type: boolean
-    default: true
-  
-  screensaver:
-    description: Use screensaver to lock instead of security option
-    type: boolean
-    default: false
-
+- name: immediate
+  description: Lock screen immediately without delay
+  type: boolean
+  default: true
+- name: screensaver
+  description: Use screensaver to lock instead of security option
+  type: boolean
+  default: false
 steps:
-  - name: Enable screen lock via security preferences
-    command: defaults write com.apple.screensaver askForPassword -int 1
-    
-  - name: Set password delay to immediate
-    command: defaults write com.apple.screensaver askForPasswordDelay -int 0
-    
-  - name: Activate screensaver to lock screen
-    command: open -a ScreenSaverEngine
-    
-  - name: Verify lock screen is active
-    command: ps aux | grep ScreenSaverEngine | grep -v grep
-
-checks:
-  - name: Verify screensaver is running
-    command: ps aux | grep ScreenSaverEngine | grep -v grep
-    expected_output: true
-  
-  - name: Verify screen lock settings enabled
-    command: defaults read com.apple.screensaver askForPassword
-    expected_output: 1
-
+- name: Enable screen lock via security preferences
+  inline: defaults write com.apple.screensaver askForPassword -int 1
+- name: Set password delay to immediate
+  inline: defaults write com.apple.screensaver askForPasswordDelay -int 0
+- name: Activate screensaver to lock screen
+  inline: open -a ScreenSaverEngine
+- name: Verify lock screen is active
+  inline: ps aux | grep ScreenSaverEngine | grep -v grep
+  cleanup:
+    inline: |-
+      killall ScreenSaverEngine 2>/dev/null || true
+      defaults delete com.apple.screensaver askForPassword 2>/dev/null || true
+      ps aux | grep ScreenSaverEngine | grep -v grep || echo "Screen unlocked"
 tests:
-  - name: dry_run_test
-    description: Test lock screen activation without actual execution
-    dry_run: true
-    steps:
-      - echo "Screen would be locked immediately"
-      - echo "User would need to authenticate to unlock"
-
-cleanup:
-  - name: Unlock screen by stopping screensaver
-    command: killall ScreenSaverEngine 2>/dev/null || true
-    
-  - name: Reset screen lock preferences
-    command: defaults delete com.apple.screensaver askForPassword 2>/dev/null || true
-    
-  - name: Verify screen unlocked
-    command: ps aux | grep ScreenSaverEngine | grep -v grep || echo "Screen unlocked"
-
-metadata:
-  created: "2026-01-30"
-  updated: "2026-01-30"
-  severity: medium
-  uuid: "550e8400-e29b-41d4-a716-446655440004"
+- name: dry_run_test
+  dry_run: true

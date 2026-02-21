@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: b2c3d4e5-f6a7-489b-b1c2-d3e4f5a6b7c8
+name: Network Share Access via NFS
+authors:
+  - TTPForge
+description: |
+  Access network shares through NFS mounts for lateral movement and data exfiltration.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1021.002 Remote Services: SMB/Windows Admin Shares"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: nfs_server
+    description: "NFS server IP address"
+    type: string
+    default: "192.168.1.105"
+  - name: nfs_mount
+    description: "NFS mount path on server"
+    type: string
+    default: "/exports/data"
+  - name: mount_point
+    description: "Local mount point"
+    type: string
+    default: "/mnt/nfs_share"
+
+steps:
+  - name: scan_for_nfs_shares
+    description: Scan for NFS shares on target server
+    inline: |
+      showmount -e {{ .Args.nfs_server }} 2>/dev/null || echo 'NFS enumeration'
+    cleanup:
+      inline: |
+        umount {{ .Args.mount_point }} 2>/dev/null; echo "NFS cleanup complete"
+  - name: mount_nfs_share
+    description: Mount NFS share to local mount point
+    inline: |
+      mount -t nfs {{ .Args.nfs_server }}:{{ .Args.nfs_mount }} {{ .Args.mount_point }} 2>/dev/null || echo 'NFS mount attempt'
+  - name: verify_nfs_service_availability
+    description: Verify NFS service availability
+    inline: |
+      nc -w 2 {{ .Args.nfs_server }} 2049 < /dev/null && echo 'NFS port open' || echo 'NFS port closed'
+
+tests:
+  - name: dry_run_nfs_mount_test
+    dry_run: true

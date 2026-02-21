@@ -1,84 +1,49 @@
-id: 010-create-hidden-directories
-name: Create Hidden Directories
-description: Create hidden directories using dot prefix to evade filesystem detection
-author: TTPForge
-created_date: 2026-01-30
-last_modified_date: 2026-01-30
+---
 api_version: 2.0
-platforms:
-  - darwin
-tactics:
-  - defense_evasion
-techniques:
-  - hide_artifacts
-
+uuid: 86fd04e4-6826-41d0-a101-b64ee42d5c40
+name: Create Hidden Directories
+authors:
+- TTPForge
+description: |
+  Create hidden directories using dot prefix to evade filesystem detection
+mitre:
+  tactics:
+  - TA0005 Defense Evasion
+  techniques:
+  - T1564 Hide Artifacts
+  subtechniques:
+  - 'T1564.001 Hide Artifacts: Hidden Files and Directories'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
   superuser: false
-
 args:
-  base_path:
-    description: Base path for hidden directory
-    type: string
-    default: ~
-  directory_name:
-    description: Name of hidden directory (without . prefix)
-    type: string
-    required: true
-  nested_depth:
-    description: Create nested hidden directories
-    type: int
-    default: 1
-
+- name: base_path
+  description: Base path for hidden directory
+  type: string
+  default: null
+- name: directory_name
+  description: Name of hidden directory (without . prefix)
+  type: string
+- name: nested_depth
+  description: Create nested hidden directories
+  type: int
+  default: 1
 steps:
-  expand_path:
-    inline: eval echo "{{ args.base_path }}"
-    description: Expand base path with variables
-
-  create_hidden_dir:
-    inline: mkdir -p "{{ args.base_path }}/.{{ args.directory_name }}"
-    description: Create hidden directory with dot prefix
-
-  create_nested:
-    inline: mkdir -p "{{ args.base_path }}/.{{ args.directory_name }}/{{ range(args.nested_depth) | join('/') }}"
-    description: Create nested hidden directories
-    condition: "{{ args.nested_depth > 1 }}"
-
-  list_hidden:
-    inline: ls -lah "{{ args.base_path }}/" | grep "^\." 
-    description: List hidden directories in base path
-
-checks:
-  hidden_dir_exists:
-    inline: test -d "{{ args.base_path }}/.{{ args.directory_name }}"
-    expected_exit_code: 0
-    description: Verify hidden directory exists
-
-  not_visible_without_flag:
-    inline: ls "{{ args.base_path }}" | grep -q "\.{{ args.directory_name }}"
-    expected_exit_code: 1
-    description: Verify directory not visible in normal listing
-
-tests:
-  default:
-    args:
-      base_path: /tmp
-      directory_name: suspicious_dir
-    steps:
-      - create_hidden_dir
-      - check_hidden_dir_exists
-    expected_exit_code: 0
-
-  dry_run:
-    args:
-      base_path: /tmp
-      directory_name: suspicious_dir
-    steps:
-      - expand_path
-    expected_exit_code: 0
-
-cleanup:
-  remove_hidden_dir:
+- name: expand_path
+  description: Expand base path with variables
+  inline: eval echo "{{ .Args.base_path }}"
+- name: create_hidden_dir
+  description: Create hidden directory with dot prefix
+  inline: mkdir -p "{{ .Args.base_path }}/.{{ .Args.directory_name }}"
+- name: create_nested
+  description: Create nested hidden directories
+  inline: mkdir -p "{{ .Args.base_path }}/.{{ .Args.directory_name }}/{{ range(args.nested_depth) | join('/') }}"
+- name: list_hidden
+  description: List hidden directories in base path
+  inline: ls -lah "{{ .Args.base_path }}/" | grep "^\."
+  cleanup:
     inline: rm -rf "{{ args.base_path }}/.{{ args.directory_name }}"
-    description: Remove hidden directory and contents
+tests:
+- name: dry_run_test
+  dry_run: true

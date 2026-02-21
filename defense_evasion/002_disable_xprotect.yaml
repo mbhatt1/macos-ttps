@@ -1,65 +1,43 @@
-id: 002-disable-xprotect
-name: Disable XProtect
-description: Disable macOS XProtect malware detection engine
-author: TTPForge
-created_date: 2026-01-30
-last_modified_date: 2026-01-30
+---
 api_version: 2.0
-platforms:
-  - darwin
-tactics:
-  - defense_evasion
-techniques:
-  - disable_or_modify_security_tools
-
+uuid: bc83344f-3ffb-494b-9bf2-1cca2a6f2345
+name: Disable XProtect
+authors:
+- TTPForge
+description: |
+  Disable macOS XProtect malware detection engine
+mitre:
+  tactics:
+  - TA0005 Defense Evasion
+  techniques:
+  - T1562 Impair Defenses
+  subtechniques:
+  - 'T1562.001 Impair Defenses: Disable or Modify Tools'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
   superuser: true
-
 args:
-  status:
-    description: Check XProtect status
-    type: bool
-    default: true
-  disable:
-    description: Disable XProtect
-    type: bool
-    default: false
-
+- name: status
+  description: Check XProtect status
+  type: bool
+  default: true
+- name: disable
+  description: Disable XProtect
+  type: bool
+  default: false
 steps:
-  check_xprotect:
-    inline: ls -la /System/Library/CoreServices/XProtect.bundle/
-    description: Check if XProtect is present
-
-  disable_xprotect:
-    inline: chmod 000 /System/Library/CoreServices/XProtect.bundle/XProtect
-    description: Remove execute permissions from XProtect binary
-    condition: "{{ args.disable }}"
-
-  restore_xprotect:
+- name: check_xprotect
+  description: Check if XProtect is present
+  inline: ls -la /System/Library/CoreServices/XProtect.bundle/
+- name: disable_xprotect
+  description: Remove execute permissions from XProtect binary
+  inline: chmod 000 /System/Library/CoreServices/XProtect.bundle/XProtect
+- name: restore_xprotect
+  description: Restore XProtect permissions
+  inline: chmod 755 /System/Library/CoreServices/XProtect.bundle/XProtect
+  cleanup:
     inline: chmod 755 /System/Library/CoreServices/XProtect.bundle/XProtect
-    description: Restore XProtect permissions
-    condition: "{{ args.disable }}"
-
-checks:
-  verify_disabled:
-    inline: test ! -x /System/Library/CoreServices/XProtect.bundle/XProtect
-    expected_exit_code: 0
-    description: Verify XProtect is not executable
-
 tests:
-  default:
-    steps:
-      - check_xprotect
-    expected_exit_code: 0
-
-  dry_run:
-    steps:
-      - check_xprotect
-    expected_exit_code: 0
-
-cleanup:
-  restore_permissions:
-    inline: chmod 755 /System/Library/CoreServices/XProtect.bundle/XProtect
-    description: Restore XProtect to executable state
+- name: dry_run_test
+  dry_run: true

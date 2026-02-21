@@ -1,0 +1,49 @@
+---
+api_version: 2.0
+uuid: f6a7b8c9-d0e1-f2a3-a6b7-c8d9e0f1a2b3
+name: Sudo Abuse for Privilege Escalation
+authors:
+  - TTPForge
+description: |
+  Exploit sudo misconfigurations for privilege escalation and lateral movement.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1548.003 Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: target_user
+    description: "Target user with sudo rights"
+    type: string
+    default: "appuser"
+  - name: sudo_command
+    description: "Sudo command to execute"
+    type: string
+    default: "list"
+
+steps:
+  - name: check_sudo_configuration
+    description: Check sudo configuration for target user
+    inline: |
+      sudo -u {{ .Args.target_user }} -l 2>/dev/null || echo Sudo enumeration
+    cleanup:
+      inline: |
+        echo "Sudo abuse step complete"
+  - name: list_nopasswd_entries
+    description: List NOPASSWD entries in sudoers
+    inline: |
+      grep -r NOPASSWD /etc/sudoers.d/ 2>/dev/null || echo Sudo config check
+  - name: verify_sudo_availability
+    description: Verify sudo availability
+    inline: |
+      sudo -n true 2>/dev/null && echo Sudo available || echo Sudo requires password
+
+tests:
+  - name: dry_run_sudo_abuse
+    dry_run: true

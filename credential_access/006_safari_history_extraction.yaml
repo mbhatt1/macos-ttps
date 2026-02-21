@@ -1,53 +1,39 @@
+---
 api_version: 2.0
-uuid: 12345678-1234-1234-1234-000000000006
+uuid: 2430d6d1-300d-4535-94c4-ae184bb42a2c
 name: Safari History Extraction
-description: Extract browsing history from Safari application
-author: TTPForge
-created: 2025-01-30
-tactics:
-  - Credential Access
-techniques:
-  - T1555.003
+authors:
+- TTPForge
+description: |
+  Extract browsing history from Safari application
+mitre:
+  tactics:
+  - TA0006 Credential Access
+  techniques:
+  - T1217 Browser Information Discovery
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
 args:
-  - name: output_file
-    description: File to store extracted history
-    default: "/tmp/safari_history.txt"
-  - name: limit
-    description: Maximum number of history items to extract
-    default: "100"
+- name: output_file
+  description: File to store extracted history
+  type: string
+  default: /tmp/safari_history.txt
+- name: limit
+  description: Maximum number of history items to extract
+  type: string
+  default: '100'
 steps:
-  - name: Check Safari Database
-    type: command
-    command: "test -f ~/Library/Safari/History.db && echo 'Safari history found'"
-    
-  - name: Extract Safari History
-    type: command
-    command: "sqlite3 ~/Library/Safari/History.db 'SELECT url, title, last_visited_time FROM history_items ORDER BY last_visited_time DESC LIMIT {{ limit }};' 2>/dev/null"
-    
-  - name: Save to File
-    type: command
-    command: "sqlite3 ~/Library/Safari/History.db 'SELECT url, title, last_visited_time FROM history_items ORDER BY last_visited_time DESC LIMIT {{ limit }};' > {{ output_file }} 2>/dev/null || true"
-
-checks:
-  - type: file_exists
-    value: "{{ output_file }}"
-    description: Verify output file was created
-  - type: file_contains
-    value: "{{ output_file }}"
-    pattern: "http"
-    description: Verify extracted URLs in output file
-
+- name: Check Safari Database
+  inline: test -f ~/Library/Safari/History.db && echo 'Safari history found'
+- name: Extract Safari History
+  inline: sqlite3 ~/Library/Safari/History.db 'SELECT url, title, last_visited_time FROM history_items ORDER BY last_visited_time
+    DESC LIMIT {{ .Args.limit }};' 2>/dev/null
+- name: Save to File
+  inline: sqlite3 ~/Library/Safari/History.db 'SELECT url, title, last_visited_time FROM history_items ORDER BY last_visited_time
+    DESC LIMIT {{ .Args.limit }};' > {{ .Args.output_file }} 2>/dev/null || true
+  cleanup:
+    inline: rm -f {{ .Args.output_file }}
 tests:
-  - name: Query Safari History
-    description: Extract Safari browsing history
-    test_type: default
-    steps:
-      - "sqlite3 ~/Library/Safari/History.db '.tables' 2>/dev/null || echo 'History DB check'"
-
-cleanup:
-  - type: command
-    command: "rm -f {{ output_file }}"
-    description: Remove extracted Safari history
+- name: dry_run_test
+  dry_run: true

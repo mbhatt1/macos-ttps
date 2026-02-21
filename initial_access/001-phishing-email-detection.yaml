@@ -1,89 +1,94 @@
-id: '69c4df6c-8e3b-4f2a-9b1c-7e5d2f4a8c3b'
-name: 'Phishing Email Detection'
-api_version: '2.0'
-platform: darwin
+---
+api_version: 2.0
+uuid: 69c4df6c-8e3b-4f2a-9b1c-7e5d2f4a8c3b
+name: Phishing Email Detection
+authors:
+  - mbhatt
 description: |
-  Demonstrates phishing email detection by simulating a malicious email with 
-  suspicious characteristics including spoofed sender addresses, urgency tactics, 
+  Demonstrates phishing email detection by simulating a malicious email with
+  suspicious characteristics including spoofed sender addresses, urgency tactics,
   and suspicious links commonly used in phishing campaigns.
 
-arguments:
-  attacker_email:
-    description: 'Spoofed sender email address'
-    type: 'string'
-    default: 'security-alert@paypa1.com'
-  target_user:
-    description: 'Target user email address'
-    type: 'string'
-    default: 'user@company.com'
-  phishing_link:
-    description: 'Suspicious link in phishing email'
-    type: 'string'
-    default: 'https://secure-verify-account.malicious-domain.com/login'
-  urgency_message:
-    description: 'Urgency-based message to trigger action'
-    type: 'string'
-    default: 'Your account will be suspended in 24 hours'
+mitre:
+  tactics:
+    - "TA0001 Initial Access"
+  techniques:
+    - "T1566 Phishing"
+  subtechniques:
+    - "T1566.001 Phishing: Spearphishing Attachment"
+
+requirements:
+  platforms:
+    - os: darwin
+
+args:
+  - name: attacker_email
+    description: "Spoofed sender email address"
+    type: string
+    default: "security-alert@paypa1.com"
+  - name: target_user
+    description: "Target user email address"
+    type: string
+    default: "user@company.com"
+  - name: phishing_link
+    description: "Suspicious link in phishing email"
+    type: string
+    default: "https://secure-verify-account.malicious-domain.com/login"
+  - name: urgency_message
+    description: "Urgency-based message to trigger action"
+    type: string
+    default: "Your account will be suspended in 24 hours"
 
 steps:
-  - name: 'Create phishing email simulation'
-    type: 'atomic'
-    command: |
+  - name: create_phishing_email_simulation
+    description: Create phishing email simulation
+    inline: |
       cat > /tmp/phishing_email_simulation.txt << 'EMAILEOF'
       From: {{ attacker_email }}
       To: {{ target_user }}
-      Subject: URGENT: Verify Your Account Now
-      
+      Subject: URGENT Verify Your Account Now
       Dear User,
-      
       {{ urgency_message }}. Click the link below to verify your identity:
-      
       {{ phishing_link }}
-      
       This is a security notice from our team.
       EMAILEOF
       echo "Phishing email simulation created"
-  
-  - name: 'Analyze email characteristics'
-    type: 'atomic'
-    command: |
+    cleanup:
+      inline: |
+        rm -f /tmp/phishing_email_simulation.txt
+
+  - name: analyze_email_characteristics
+    description: Analyze email headers for phishing indicators
+    inline: |
       echo "Analyzing email headers for phishing indicators..."
       grep -i "from:" /tmp/phishing_email_simulation.txt
       grep -i "subject:" /tmp/phishing_email_simulation.txt
-      echo "Phishing characteristics detected:"
-      echo "  - Spoofed sender domain"
-      echo "  - Urgency language"
-      echo "  - Suspicious link domain"
-  
-  - name: 'Log detection results'
-    type: 'atomic'
-    command: |
+
+  - name: log_detection_results
+    description: Log detection results to file
+    inline: |
       mkdir -p /tmp/phishing_logs
       timestamp=$(date +%Y%m%d_%H%M%S)
-      echo "Phishing detected: {{ attacker_email }} -> {{ target_user }}" > /tmp/phishing_logs/detection_${timestamp}.log
-      echo "Link: {{ phishing_link }}" >> /tmp/phishing_logs/detection_${timestamp}.log
+      echo "Phishing detected" > /tmp/phishing_logs/detection_${timestamp}.log
+    cleanup:
+      inline: |
+        rm -rf /tmp/phishing_logs
 
-checks:
-  - name: 'Verify email simulation created'
-    type: 'atomic'
-    command: 'test -f /tmp/phishing_email_simulation.txt && echo "PASS: Email simulation file exists"'
-  
-  - name: 'Verify phishing characteristics detected'
-    type: 'atomic'
-    command: 'grep -q "paypa1" /tmp/phishing_email_simulation.txt && echo "PASS: Spoofed domain detected"'
-  
-  - name: 'Verify logs created'
-    type: 'atomic'
-    command: 'test -d /tmp/phishing_logs && [ $(ls -1 /tmp/phishing_logs | wc -l) -gt 0 ] && echo "PASS: Detection logs created"'
+  - name: verify_email_simulation_created
+    description: Verify email simulation file was created
+    inline: |
+      test -f /tmp/phishing_email_simulation.txt && echo "PASS"
+
+  - name: verify_phishing_characteristics_detected
+    description: Verify phishing characteristics were detected
+    inline: |
+      grep -q "paypa1" /tmp/phishing_email_simulation.txt && echo "PASS"
+
+  - name: verify_logs_created
+    description: Verify detection logs were created
+    inline: |
+      test -d /tmp/phishing_logs && echo "PASS"
 
 tests:
-  dry_run: true
-
-cleanup:
-  - name: 'Remove email simulation'
-    type: 'atomic'
-    command: 'rm -f /tmp/phishing_email_simulation.txt'
-  
-  - name: 'Remove detection logs'
-    type: 'atomic'
-    command: 'rm -rf /tmp/phishing_logs'
+  - name: phishing_email_detection_test
+    dry_run: true

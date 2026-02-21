@@ -1,0 +1,53 @@
+---
+api_version: 2.0
+uuid: d0e1f2a3-b4c5-d6e7-e0f1-a2b3c4d5e6f7
+name: LDAP Enumeration for Lateral Movement
+authors:
+  - TTPForge
+description: |
+  Enumerate LDAP directory services for lateral movement.
+
+mitre:
+  tactics:
+    - "TA0008 Lateral Movement"
+  techniques:
+    - "T1018 Remote System Discovery"
+
+requirements:
+  platforms:
+    - os: linux
+
+args:
+  - name: ldap_server
+    description: "LDAP server address"
+    type: string
+    default: "192.168.1.120"
+  - name: ldap_port
+    description: "LDAP server port"
+    type: string
+    default: "389"
+  - name: base_dn
+    description: "LDAP base distinguished name"
+    type: string
+    default: "dc=example,dc=com"
+
+steps:
+  - name: query_ldap_directory
+    description: Query LDAP directory for entries
+    inline: |
+      ldapsearch -h {{ .Args.ldap_server }} -p {{ .Args.ldap_port }} -b {{ .Args.base_dn }} -x objectClass=* 2>/dev/null || echo LDAP query
+    cleanup:
+      inline: |
+        echo "LDAP enumeration step complete"
+  - name: enumerate_users
+    description: Enumerate LDAP users
+    inline: |
+      ldapsearch -h {{ .Args.ldap_server }} -p {{ .Args.ldap_port }} -b {{ .Args.base_dn }} -x objectClass=posixAccount cn 2>/dev/null || echo User enum
+  - name: verify_ldap_connectivity
+    description: Verify LDAP connectivity
+    inline: |
+      nc -w 2 {{ .Args.ldap_server }} {{ .Args.ldap_port }} && echo LDAP port open || echo LDAP port closed
+
+tests:
+  - name: dry_run_ldap_enumeration
+    dry_run: true

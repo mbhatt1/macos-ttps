@@ -1,0 +1,31 @@
+---
+api_version: 2.0
+uuid: 7a3f8b2e-4c1d-4e9a-b5f6-8d2e1c3a7b9f
+name: System Shutdown
+authors:
+  - TTPForge
+description: |
+  Simulates a system shutdown on Linux to test impact detection capabilities.
+  This TTP demonstrates the T1529 System Shutdown/Reboot technique.
+mitre:
+  tactics:
+    - "TA0040 Impact"
+  techniques:
+    - "T1529 System Shutdown/Reboot"
+requirements:
+  platforms:
+    - os: linux
+steps:
+  - name: check_shutdown_command
+    description: Verify shutdown command is available
+    inline: |
+      which shutdown && echo "shutdown command available"
+  - name: simulate_shutdown_check
+    description: Check current uptime and scheduled shutdowns
+    inline: |
+      uptime
+      who -b
+      echo "System shutdown simulation complete"
+tests:
+  - name: dry_run_test
+    dry_run: true

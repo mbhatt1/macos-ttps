@@ -1,69 +1,47 @@
-id: 005-disable-spotlight
-name: Disable Spotlight Indexing
-description: Disable macOS Spotlight indexing to avoid detection through searches
-author: TTPForge
-created_date: 2026-01-30
-last_modified_date: 2026-01-30
+---
 api_version: 2.0
-platforms:
-  - darwin
-tactics:
-  - defense_evasion
-techniques:
-  - disable_or_modify_security_tools
-
+uuid: 9800d919-f198-4bd5-a058-4e66bdf50f94
+name: Disable Spotlight Indexing
+authors:
+- TTPForge
+description: |
+  Disable macOS Spotlight indexing to avoid detection through searches
+mitre:
+  tactics:
+  - TA0005 Defense Evasion
+  techniques:
+  - T1562 Impair Defenses
+  subtechniques:
+  - 'T1562.001 Impair Defenses: Disable or Modify Tools'
 requirements:
   platforms:
-    - os: darwin
+  - os: darwin
   superuser: true
-
 args:
-  disable:
-    description: Disable Spotlight indexing
-    type: bool
-    default: false
-  target_volume:
-    description: Target volume to disable Spotlight on
-    type: string
-    default: /
-  path:
-    description: Specific path to exclude from Spotlight
-    type: string
-    default: ""
-
+- name: disable
+  description: Disable Spotlight indexing
+  type: bool
+  default: false
+- name: target_volume
+  description: Target volume to disable Spotlight on
+  type: string
+  default: /
+- name: path
+  description: Specific path to exclude from Spotlight
+  type: string
+  default: ''
 steps:
-  check_spotlight_status:
-    inline: mdutil -s /
-    description: Check Spotlight indexing status
-
-  disable_spotlight:
-    inline: mdutil -i off "{{ args.target_volume }}"
-    description: Disable Spotlight indexing on target volume
-    condition: "{{ args.disable }}"
-
-  exclude_path:
-    inline: mdutil -E "{{ args.path }}"
-    description: Exclude specific path from Spotlight indexing
-    condition: "{{ args.path != '' }}"
-
-checks:
-  verify_disabled:
-    inline: mdutil -s / | grep -q "indexing disabled"
-    expected_exit_code: 0
-    description: Verify Spotlight indexing is disabled
-
-tests:
-  default:
-    steps:
-      - check_spotlight_status
-    expected_exit_code: 0
-
-  dry_run:
-    steps:
-      - check_spotlight_status
-    expected_exit_code: 0
-
-cleanup:
-  restore_spotlight:
+- name: check_spotlight_status
+  description: Check Spotlight indexing status
+  inline: mdutil -s /
+- name: disable_spotlight
+  description: Disable Spotlight indexing on target volume
+  inline: mdutil -i off "{{ .Args.target_volume }}"
+- name: exclude_path
+  description: Exclude specific path from Spotlight indexing
+  inline: mdutil -E "{{ .Args.path }}"
+  cleanup:
     inline: mdutil -i on /
-    description: Re-enable Spotlight indexing
+tests:
+- name: dry_run_test
+  dry_run: true

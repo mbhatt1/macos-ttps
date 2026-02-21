@@ -1,73 +1,38 @@
-id: 016
-name: Enumerate Security Tools (EDR/AV Detection)
+---
 api_version: 2.0
-description: Identify installed security tools, endpoint detection and response (EDR) solutions, and antivirus software on macOS
-author: TTPForge
-created: "2026-01-30"
-uuid: "a1f3c8e2-4b7d-11eb-92e5-f23c91f4c3d2"
-
+uuid: a36e183d-4ac4-4bb2-a55f-adb60b1df206
+name: Enumerate Security Tools (EDR/AV Detection)
+authors:
+  - TTPForge
+description: |
+  Identify installed security tools, endpoint detection and response (EDR) solutions,
+  and antivirus software on macOS.
+mitre:
+  tactics:
+    - "TA0007 Discovery"
+  techniques:
+    - "T1518 Software Discovery"
+  subtechniques:
+    - "T1518.001 Software Discovery: Security Software Discovery"
 requirements:
   platforms:
     - os: darwin
-      min_version: "10.13"
-
 steps:
-  - id: check_edr_processes
-    name: Check for running EDR processes
-    type: command
-    command: |
+  - name: Check for running EDR processes
+    inline: |
       pgrep -l -i "crowdstrike|sentinel|defender|kaspersky|mcafee|norton|avast|avg|bitdefender|trend|palo|carbon|cortex" 2>/dev/null | head -20
-
-  - id: check_security_tools_files
-    name: Check for installed security tools
-    type: command
-    command: |
+  - name: Check for installed security tools
+    inline: |
       ls -la /Applications | grep -i "security\|defender\|kaspersky\|mcafee\|norton\|avast\|bitdefender\|palo" 2>/dev/null
-
-  - id: check_launchd_security
-    name: Check launchd for security agents
-    type: command
-    command: |
+  - name: Check launchd for security agents
+    inline: |
       defaults read /Library/LaunchDaemons 2>/dev/null | grep -i "security\|edr\|antivirus\|defender" | head -10
-
-  - id: check_kernel_extensions
-    name: Enumerate kernel extensions related to security
-    type: command
-    command: |
+  - name: Enumerate kernel extensions related to security
+    inline: |
       kextstat 2>/dev/null | grep -i "security\|edr\|antivirus" || echo "No kernel extensions found"
-
-  - id: check_system_extensions
-    name: Check system extensions for security software
-    type: command
-    command: |
+  - name: Check system extensions for security software
+    inline: |
       systemextensionsctl list 2>/dev/null || echo "SystemExtensions not available"
-
-checks:
-  - id: validate_edr_detection
-    name: Validate EDR process output
-    type: regex
-    target: check_edr_processes
-    pattern: "^[0-9]+"
-    required: false
-
-  - id: validate_application_list
-    name: Validate application directory listing
-    type: regex
-    target: check_security_tools_files
-    pattern: "Applications"
-    required: false
-
 tests:
-  - id: dry_run_edr_check
-    name: Dry run EDR process enumeration
-    type: dry_run
-    steps:
-      - check_edr_processes
-      - check_security_tools_files
-
-metadata:
-  attack_stage: discovery
-  tactic: discovery
-  technique: "T1010"
-  category: enumeration
-  severity: medium
+  - name: dry_run
+    dry_run: true
