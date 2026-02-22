@@ -55,10 +55,15 @@ steps:
       echo "SSH key not found"
     fi
 - name: ssh_tunnel_setup_test
-  description: Test SSH tunnel setup
+  description: Establish SSH local port forwarding tunnel
   inline: |
-    echo "Would establish SSH tunnel:"
-    echo "ssh -N -L {{ .Args.local_port }}:localhost:{{ .Args.remote_port }} -p {{ .Args.ssh_port }} {{ .Args.ssh_user }}@{{ .Args.ssh_host }} -i {{ .Args.ssh_key_path }}"
+    echo "Establishing SSH tunnel: local {{ .Args.local_port }} -> {{ .Args.ssh_host }}:{{ .Args.remote_port }}"
+    timeout 10 ssh -N -f -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+      -L {{ .Args.local_port }}:localhost:{{ .Args.remote_port }} \
+      -p {{ .Args.ssh_port }} {{ .Args.ssh_user }}@{{ .Args.ssh_host }} \
+      -i {{ .Args.ssh_key_path }} 2>&1 || echo "SSH tunnel failed (target may not be reachable)"
+    # Verify tunnel is listening
+    lsof -i :{{ .Args.local_port }} 2>/dev/null | grep ssh || echo "Tunnel not active on port {{ .Args.local_port }}"
   cleanup:
     inline: |
       pkill -f "ssh.*{{ .Args.ssh_host }}" 2>/dev/null || true

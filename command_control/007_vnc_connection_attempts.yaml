@@ -49,14 +49,15 @@ steps:
       echo "nc/ncat not available for scanning"
     fi
 - name: test_vnc_client
-  description: Test VNC client availability
+  description: Attempt VNC connection to target host
   inline: |
-    if command -v open &> /dev/null; then
-      echo "macOS open command available for VNC launch"
-      echo "Would execute: open vnc://{{ .Args.vnc_host }}:{{ .Args.vnc_port }}"
-    else
-      echo "VNC client not readily available"
-    fi
+    echo "Initiating VNC connection to {{ .Args.vnc_host }}:{{ .Args.vnc_port }}"
+    open vnc://{{ .Args.vnc_host }}:{{ .Args.vnc_port }} 2>/dev/null &
+    VNC_PID=$!
+    sleep 3
+    # Check if Screen Sharing app launched
+    pgrep -x "Screen Sharing" > /dev/null && echo "VNC client launched successfully" || echo "VNC client did not launch"
+    kill $VNC_PID 2>/dev/null || true
   cleanup:
     inline: |
       pkill -f "vnc" 2>/dev/null || true

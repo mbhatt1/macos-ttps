@@ -77,9 +77,23 @@ steps:
       echo "  Upgrade: websocket"
       echo "  Connection: Upgrade"
     else
-      # Placeholder for WebSocket implementation
-      echo "Would implement WebSocket connection to {{ .Args.websocket_url }}"
-      echo "Note: Requires WebSocket client library (e.g., wscat, websocat)"
+      # Use curl with WebSocket upgrade headers to send data
+      if [ '{{ .Args.compression }}' = 'true' ]; then
+        gzip -c '{{ .Args.data_file }}' | base64 | split -b {{ .Args.chunk_size }} - /tmp/ws_chunk_
+      else
+        base64 < '{{ .Args.data_file }}' | split -b {{ .Args.chunk_size }} - /tmp/ws_chunk_
+      fi
+      for chunk in /tmp/ws_chunk_*; do
+        curl -s -N \
+          -H "Connection: Upgrade" \
+          -H "Upgrade: websocket" \
+          -H "Sec-WebSocket-Version: 13" \
+          -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
+          --data-binary "@${chunk}" \
+          "{{ .Args.websocket_url }}" 2>/dev/null || true
+      done
+      echo "Sent $(ls /tmp/ws_chunk_* 2>/dev/null | wc -l) WebSocket chunks"
+      rm -f /tmp/ws_chunk_*
     fi
   cleanup:
     inline: rm -f /tmp/test_websocket.dat

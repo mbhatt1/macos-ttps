@@ -56,10 +56,19 @@ steps:
       echo "dns-sd not available"
     fi
 - name: test_ard_connection
-  description: Test ARD connection capability
+  description: Attempt ARD connection to target host
   inline: |
-    echo "Testing ARD connection to {{ .Args.ard_host }}:{{ .Args.ard_port }}"
-    echo "Would use: /System/Library/CoreServices/Remote\ Desktop\ Connection.app or similar"
+    echo "Initiating ARD connection to {{ .Args.ard_host }}:{{ .Args.ard_port }}"
+    # Check if ARD agent is running locally
+    ps aux | grep -i "[Aa]RDAgent" | head -5
+    # Check remote management status
+    /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -agent -print 2>/dev/null || true
+    # Attempt VNC-based connection (ARD uses VNC protocol)
+    open vnc://{{ .Args.ard_host }}:{{ .Args.ard_port }} 2>/dev/null &
+    ARD_PID=$!
+    sleep 3
+    pgrep -x "Screen Sharing" > /dev/null && echo "ARD/Screen Sharing client launched" || echo "ARD client did not launch"
+    kill $ARD_PID 2>/dev/null || true
   cleanup:
     inline: |
       pkill -f "Remote Desktop" 2>/dev/null || true

