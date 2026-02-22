@@ -28,7 +28,7 @@ steps:
   inline: mkdir -p {{ .Args.output_path }}
 - name: Extract Messages database
   inline: |
-    messages_db="~/Library/Messages/chat.db"
+    messages_db="$HOME/Library/Messages/chat.db"
     if [ -f "$messages_db" ]; then
       cp "$messages_db" "{{ .Args.output_path }}/chat.db" 2>/dev/null || true
     fi
@@ -37,7 +37,7 @@ steps:
     find ~/Library/Messages -name "*.vcf" -o -name "*.vcard" 2>/dev/null | xargs -I {} cp {} {{ .Args.output_path }}/ 2>/dev/null || true
 - name: Collect message attachments
   inline: |
-    attachments_path="~/Library/Messages/Transfers"
+    attachments_path="$HOME/Library/Messages/Transfers"
     if [ -d "$attachments_path" ]; then
       mkdir -p {{ .Args.output_path }}/attachments
       cp -r "$attachments_path" "{{ .Args.output_path }}/attachments/" 2>/dev/null || true
@@ -55,7 +55,7 @@ steps:
     find ~/Library/Preferences -name "*messages*" -o -name "*imessage*" 2>/dev/null | xargs -I {} cp {} {{ .Args.output_path }}/ 2>/dev/null || true
 - name: Extract message cache
   inline: |
-    cache_path="~/Library/Caches/com.apple.Messages"
+    cache_path="$HOME/Library/Caches/com.apple.Messages"
     if [ -d "$cache_path" ]; then
       cp -r "$cache_path" "{{ .Args.output_path }}/message_cache" 2>/dev/null || true
     fi

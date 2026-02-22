@@ -29,13 +29,13 @@ args:
 steps:
 - name: check_audit_status
   description: Check current audit logging status
-  inline: sudo auditctl -l | head -5
+  inline: sudo praudit /var/audit/current 2>/dev/null | head -5 || sudo audit -s 2>/dev/null || echo "Audit status check complete"
 - name: check_audit_daemon
   description: Check if audit daemon is running
   inline: sudo launchctl list | grep -i audit
 - name: disable_audit
   description: Disable audit logging
-  inline: sudo audit -i off
+  inline: sudo audit -t
 - name: stop_audit_daemon
   description: Stop audit daemon
   inline: sudo launchctl stop com.apple.auditd
@@ -43,7 +43,7 @@ steps:
   description: Remove audit configuration
   inline: sudo rm -f /etc/security/audit_control 2>/dev/null || true
   cleanup:
-    inline: sudo audit -i on && sudo launchctl start com.apple.auditd
+    inline: sudo audit -s && sudo launchctl start com.apple.auditd
 tests:
 - name: dry_run_test
   dry_run: true

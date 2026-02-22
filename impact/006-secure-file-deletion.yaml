@@ -25,16 +25,16 @@ args:
   type: integer
   default: 3
 - name: method
-  description: Deletion method (srm, dd, shred)
+  description: Deletion method (rm -P, dd)
   type: string
-  default: srm
+  default: rm_secure
 steps:
 - name: Create test file for deletion
   inline: echo 'sensitive data to be destroyed' > ~/.temp_delete
 - name: Verify file exists before deletion
   inline: test -f ~/.temp_delete && echo 'File exists'
-- name: Secure delete with srm (Gutmann method)
-  inline: srm -f -z ~/.temp_delete 2>/dev/null || rm -P ~/.temp_delete 2>/dev/null || true
+- name: Secure delete with three-pass overwrite
+  inline: rm -P -f ~/.temp_delete 2>/dev/null || true
 - name: Verify file is deleted
   inline: test ! -f ~/.temp_delete && echo 'File securely deleted'
 - name: Check filesystem for recovery

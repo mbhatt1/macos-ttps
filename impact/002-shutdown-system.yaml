@@ -28,12 +28,12 @@ steps:
 - name: Log shutdown event
   inline: 'logger -s ''TTP: Initiating system shutdown'''
 - name: Schedule system shutdown
-  inline: shutdown -h +{{ .Args.delay }}
+  inline: sudo shutdown -h +{{ .Args.delay }}
 - name: Verify shutdown is scheduled
   inline: sleep 2 && ps aux | grep -i shutdown | grep -v grep
   cleanup:
     inline: |-
-      shutdown -c
+      sudo killall shutdown 2>/dev/null || true
       ps aux | grep -i shutdown | grep -v grep || echo "Shutdown cancelled"
 tests:
 - name: dry_run_test

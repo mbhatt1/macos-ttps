@@ -36,7 +36,7 @@ steps:
   description: Remove hidden flag from file
   inline: chflags nohidden "{{ .Args.file_path }}"
   cleanup:
-    inline: chflags nohidden "{{ args.file_path }}"
+    inline: chflags nohidden "{{ .Args.file_path }}"
 tests:
 - name: dry_run_test
   dry_run: true

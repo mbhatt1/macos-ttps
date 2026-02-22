@@ -53,7 +53,7 @@ steps:
     if [ '{{ .Args.compression }}' = 'true' ]; then
       compressed=$(gzip -c '{{ .Args.data_file }}' | wc -c)
       compression_ratio=$((100 * compressed / filesize))
-      echo "  Compressed size: $(numfmt --to=iec-i --suffix=B $compressed 2>/dev/null || echo ${compressed} bytes)"
+      echo "  Compressed size: $(echo $compressed | awk '{ split("B KB MB GB TB",v); s=1; while($1>1024 && s<5){$1/=1024; s++} printf "%.1f %s\n",$1,v[s] }' 2>/dev/null || echo "${compressed} bytes")"
       echo "  Compression ratio: ${compression_ratio}%"
     fi
 - name: Establish WebSocket connection

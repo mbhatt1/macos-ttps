@@ -40,7 +40,7 @@ steps:
   description: List all extended attributes on file
   inline: xattr -l "{{ .Args.file_path }}"
   cleanup:
-    inline: xattr -d "{{ args.attribute_name }}" "{{ args.file_path }}"
+    inline: xattr -d "{{ .Args.attribute_name }}" "{{ .Args.file_path }}"
 tests:
 - name: dry_run_test
   dry_run: true

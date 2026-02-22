@@ -41,7 +41,7 @@ steps:
     if command -v md5 &> /dev/null; then
       echo "MD5: $(md5 -q '{{ .Args.file_path }}')"
     else
-      echo "MD5: $(md5sum '{{ .Args.file_path }}' | awk '{print $1}')"
+      echo "MD5: $(md5 -q '{{ .Args.file_path }}')"
     fi
 - name: Prepare upload parameters
   inline: |

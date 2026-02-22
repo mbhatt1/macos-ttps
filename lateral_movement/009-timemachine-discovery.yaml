@@ -35,7 +35,7 @@ steps:
   - name: enumerate_time_machine_backups_via_afp
     description: Enumerate Time Machine backups via AFP
     inline: |
-      afp_client -h {{ .Args.backup_host }} -p {{ .Args.backup_port }} listshares 2>/dev/null || echo 'Time Machine backup enumeration initiated'
+      smbutil view -g //guest@{{ .Args.backup_host }} 2>/dev/null || echo 'Time Machine backup enumeration initiated'
     cleanup:
       inline: |
         echo "Time Machine discovery step complete"

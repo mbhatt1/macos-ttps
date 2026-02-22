@@ -38,12 +38,17 @@ steps:
   inline: mkdir -p "{{ .Args.base_path }}/.{{ .Args.directory_name }}"
 - name: create_nested
   description: Create nested hidden directories
-  inline: mkdir -p "{{ .Args.base_path }}/.{{ .Args.directory_name }}/{{ range(args.nested_depth) | join('/') }}"
+  inline: |
+    NESTED_PATH="{{ .Args.base_path }}/.{{ .Args.directory_name }}"
+    for i in $(seq 1 {{ .Args.nested_depth }}); do
+      NESTED_PATH="${NESTED_PATH}/.nested_${i}"
+    done
+    mkdir -p "${NESTED_PATH}"
 - name: list_hidden
   description: List hidden directories in base path
   inline: ls -lah "{{ .Args.base_path }}/" | grep "^\."
   cleanup:
-    inline: rm -rf "{{ args.base_path }}/.{{ args.directory_name }}"
+    inline: rm -rf "{{ .Args.base_path }}/.{{ .Args.directory_name }}"
 tests:
 - name: dry_run_test
   dry_run: true

@@ -42,35 +42,35 @@ steps:
   - name: create_installer_package_structure
     description: Create installer package structure
     inline: |
-      mkdir -p /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS
+      mkdir -p /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/Contents/MacOS
     cleanup:
       inline: |
-        rm -rf /tmp/ttpforge_installers/{{ package_name }}_{{ version }}
-        rm -rf ~/.{{ package_name }}_cache
+        rm -rf /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}
+        rm -rf ~/.{{ .Args.package_name }}_cache
         rm -f /tmp/.trojan_installed
 
   - name: create_legitimate_application_binary
     description: Create legitimate application binary
     inline: |
-      cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS/launcher << 'LAUNCHER'
+      cat > /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/Contents/MacOS/launcher << 'LAUNCHER'
       #!/bin/bash
-      echo "{{ package_name }} {{ version }} starting..."
-      exec "/Applications/{{ package_name }}.app/Contents/MacOS/{{ package_name }}"
+      echo "{{ .Args.package_name }} {{ .Args.version }} starting..."
+      exec "/Applications/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }}"
       LAUNCHER
-      chmod +x /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/MacOS/launcher
+      chmod +x /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/Contents/MacOS/launcher
 
   - name: create_info_plist_with_metadata
     description: Create Info.plist with legitimate metadata
     inline: |
-      cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/Info.plist << 'PLIST'
+      cat > /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/Contents/Info.plist << 'PLIST'
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
       <plist version="1.0">
       <dict>
         <key>CFBundleName</key>
-        <string>{{ package_name }}</string>
+        <string>{{ .Args.package_name }}</string>
         <key>CFBundleVersion</key>
-        <string>{{ version }}</string>
+        <string>{{ .Args.version }}</string>
         <key>CFBundleExecutable</key>
         <string>launcher</string>
       </dict>
@@ -80,19 +80,19 @@ steps:
   - name: create_hidden_backdoor_installation_script
     description: Create hidden backdoor installation script
     inline: |
-      cat > /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh << 'HOOK'
+      cat > /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/.installer_hook.sh << 'HOOK'
       #!/bin/bash
-      mkdir -p ~/.{{ package_name }}_cache
-      echo "{{ backdoor_payload }}" > ~/.{{ package_name }}_cache/init.sh
-      chmod +x ~/.{{ package_name }}_cache/init.sh
+      mkdir -p ~/.{{ .Args.package_name }}_cache
+      echo "{{ .Args.backdoor_payload }}" > ~/.{{ .Args.package_name }}_cache/init.sh
+      chmod +x ~/.{{ .Args.package_name }}_cache/init.sh
       touch /tmp/.trojan_installed
       HOOK
-      chmod +x /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
+      chmod +x /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/.installer_hook.sh
 
   - name: execute_hidden_installation_hook
     description: Execute the hidden installation hook with backdoor payload
     inline: |
-      bash /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
+      bash /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/.installer_hook.sh
 
   - name: verify_trojan_installation_marker
     description: Verify trojan installation marker
@@ -102,7 +102,7 @@ steps:
   - name: verify_installer_package_structure
     description: Verify installer package structure
     inline: |
-      test -f /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/Contents/Info.plist && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_installers/{{ .Args.package_name }}_{{ .Args.version }}/Contents/Info.plist && echo "PASS" || echo "FAIL"
 
 tests:
   - name: trojanized_installer_creation_test

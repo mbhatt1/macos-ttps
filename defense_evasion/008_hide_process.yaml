@@ -28,11 +28,11 @@ steps:
   description: Find process by name
   inline: ps aux | grep -v grep | grep "{{ .Args.process_name }}"
 - name: get_process_info
-  description: Get process information from /proc filesystem
-  inline: ls -lah /proc/{{ .Args.pid }}/
+  description: Get process information
+  inline: ps -p {{ .Args.pid }} -o pid,ppid,user,%cpu,%mem,command 2>/dev/null || echo "Process not found"
 - name: check_process_path
   description: Check process command line
-  inline: cat /proc/{{ .Args.pid }}/cmdline 2>/dev/null || echo "Process not found"
+  inline: ps -p {{ .Args.pid }} -o command= 2>/dev/null || echo "Process not found"
 tests:
 - name: dry_run_test
   dry_run: true

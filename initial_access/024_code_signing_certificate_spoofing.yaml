@@ -46,7 +46,7 @@ steps:
     cleanup:
       inline: |
         rm -rf /tmp/ttpforge_certs/fake_certificates
-        rm -rf /tmp/ttpforge_certs/{{ package_name }}.app
+        rm -rf /tmp/ttpforge_certs/{{ .Args.package_name }}.app
         rm -f /tmp/.malware_signed /tmp/.codesign_log
 
   - name: generate_fake_certificate
@@ -59,33 +59,33 @@ steps:
   - name: create_application_bundle_structure
     description: Create application bundle structure
     inline: |
-      mkdir -p /tmp/ttpforge_certs/{{ package_name }}.app/Contents/{MacOS,Resources}
+      mkdir -p /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/{MacOS,Resources}
 
   - name: create_legitimate_looking_binary
     description: Create legitimate-looking application binary
     inline: |
-      cat > /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} << 'BINARY'
+      cat > /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }} << 'BINARY'
       #!/bin/bash
-      echo "{{ package_name }} {{ version }} is running"
+      echo "{{ .Args.package_name }} {{ .Args.version }} is running"
       BINARY
-      chmod +x /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }}
+      chmod +x /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }}
 
   - name: create_info_plist_for_bundle
     description: Create Info.plist for application bundle
     inline: |
-      cat > /tmp/ttpforge_certs/{{ package_name }}.app/Contents/Info.plist << 'PLIST'
+      cat > /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/Info.plist << 'PLIST'
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
       <plist version="1.0">
       <dict>
         <key>CFBundleName</key>
-        <string>{{ package_name }}</string>
+        <string>{{ .Args.package_name }}</string>
         <key>CFBundleVersion</key>
-        <string>{{ version }}</string>
+        <string>{{ .Args.version }}</string>
         <key>CFBundleExecutable</key>
-        <string>{{ package_name }}</string>
+        <string>{{ .Args.package_name }}</string>
         <key>CFBundleIdentifier</key>
-        <string>com.company.{{ package_name }}</string>
+        <string>com.company.{{ .Args.package_name }}</string>
       </dict>
       </plist>
       PLIST
@@ -93,13 +93,13 @@ steps:
   - name: create_signature_marker_file
     description: Create signature marker file
     inline: |
-      touch /tmp/ttpforge_certs/{{ package_name }}.app/.signed
+      touch /tmp/ttpforge_certs/{{ .Args.package_name }}.app/.signed
 
   - name: sign_binary_with_fake_certificate
     description: Sign the application binary with the spoofed certificate
     inline: |
-      codesign --sign - --force /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} 2>/dev/null || true
-      codesign -dvv /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} 2>&1 || true
+      codesign --sign - --force /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }} 2>/dev/null || true
+      codesign -dvv /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }} 2>&1 || true
 
   - name: verify_fake_certificate_exists
     description: Verify fake certificate exists
@@ -109,12 +109,12 @@ steps:
   - name: verify_application_bundle_created
     description: Verify application bundle was created
     inline: |
-      test -d /tmp/ttpforge_certs/{{ package_name }}.app/Contents && echo "PASS" || echo "FAIL"
+      test -d /tmp/ttpforge_certs/{{ .Args.package_name }}.app/Contents && echo "PASS" || echo "FAIL"
 
   - name: verify_binary_signed_marker
     description: Verify binary signed marker
     inline: |
-      test -f /tmp/ttpforge_certs/{{ package_name }}.app/.signed && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_certs/{{ .Args.package_name }}.app/.signed && echo "PASS" || echo "FAIL"
 
 tests:
   - name: code_signing_certificate_spoofing_test

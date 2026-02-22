@@ -28,14 +28,14 @@ steps:
   inline: mkdir -p {{ .Args.output_path }}
 - name: Collect Slack databases
   inline: |
-    slack_path="~/Library/Application Support/Slack"
+    slack_path="$HOME/Library/Application Support/Slack"
     if [ -d "$slack_path" ]; then
       mkdir -p {{ .Args.output_path }}/slack_db
       find "$slack_path" -name "*.db" -o -name "*.sqlite" 2>/dev/null | xargs -I {} cp {} {{ .Args.output_path }}/slack_db/ 2>/dev/null || true
     fi
 - name: Extract message cache
   inline: |
-    cache_path="~/Library/Caches/com.tinyspeck.slackmacgap"
+    cache_path="$HOME/Library/Caches/com.tinyspeck.slackmacgap"
     if [ -d "$cache_path" ]; then
       mkdir -p {{ .Args.output_path }}/slack_cache
       cp -r "$cache_path"/* "{{ .Args.output_path }}/slack_cache/" 2>/dev/null || true
@@ -45,20 +45,20 @@ steps:
     find ~/Library/Preferences -name "*slack*" -o -name "*slackmac*" 2>/dev/null | xargs -I {} cp {} {{ .Args.output_path }}/ 2>/dev/null || true
 - name: Extract saved state
   inline: |
-    saved_path="~/Library/Saved Application State/com.tinyspeck.slackmacgap.savedState"
+    saved_path="$HOME/Library/Saved Application State/com.tinyspeck.slackmacgap.savedState"
     if [ -d "$saved_path" ]; then
       cp -r "$saved_path" "{{ .Args.output_path }}/saved_state" 2>/dev/null || true
     fi
 - name: Collect Slack data directory
   inline: |
-    slack_data="~/Library/Application Support/Slack/downloads"
+    slack_data="$HOME/Library/Application Support/Slack/downloads"
     if [ -d "$slack_data" ]; then
       mkdir -p {{ .Args.output_path }}/downloads
       cp -r "$slack_data" "{{ .Args.output_path }}/downloads/" 2>/dev/null || true
     fi
 - name: Extract Slack workspaces metadata
   inline: |
-    metadata_path="~/Library/Application Support/Slack/storage"
+    metadata_path="$HOME/Library/Application Support/Slack/storage"
     if [ -d "$metadata_path" ]; then
       mkdir -p {{ .Args.output_path }}/workspace_metadata
       find "$metadata_path" -type f 2>/dev/null | head -20 | xargs -I {} cp {} {{ .Args.output_path }}/workspace_metadata/ 2>/dev/null || true

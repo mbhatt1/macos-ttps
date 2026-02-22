@@ -26,7 +26,7 @@ steps:
       ioreg -l 2>/dev/null | grep -i "vmware\|parallels\|virtualbox\|kvm\|xen\|hyperv" | head -10
   - name: Check if process is sandboxed
     inline: |
-      grep -i "sandbox" /proc/$$/environ 2>/dev/null || echo "No sandbox detected"
+      env | grep -i "sandbox" 2>/dev/null || echo "No sandbox detected"
   - name: Enumerate system serial number (VM indicators)
     inline: |
       system_profiler SPHardwareDataType 2>/dev/null | grep -i "serial\|model"

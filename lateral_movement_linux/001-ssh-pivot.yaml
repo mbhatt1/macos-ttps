@@ -1,6 +1,6 @@
 ---
 api_version: 2.0
-uuid: a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7
+uuid: a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5b7c8
 name: SSH Pivot to Remote Linux Systems
 authors:
   - TTPForge

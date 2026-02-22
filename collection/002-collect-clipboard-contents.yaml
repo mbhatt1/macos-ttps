@@ -30,13 +30,13 @@ steps:
   inline: pbpaste > {{ .Args.output_path }}/clipboard_current.txt 2>/dev/null || echo "Clipboard empty"
 - name: Collect Pasty clipboard history
   inline: |
-    if [ -d "~/Library/Application Support/Pasty" ]; then
-      cp -r "~/Library/Application Support/Pasty" "{{ .Args.output_path }}/pasty_history" 2>/dev/null || true
+    if [ -d "$HOME/Library/Application Support/Pasty" ]; then
+      cp -r "$HOME/Library/Application Support/Pasty" "{{ .Args.output_path }}/pasty_history" 2>/dev/null || true
     fi
 - name: Check for clipboard sync
   inline: |
-    if [ -d "~/Library/Saved Application State/com.apple.universalclipboard" ]; then
-      cp -r "~/Library/Saved Application State/com.apple.universalclipboard" "{{ .Args.output_path }}/universal_clipboard" 2>/dev/null || true
+    if [ -d "$HOME/Library/Saved Application State/com.apple.universalclipboard" ]; then
+      cp -r "$HOME/Library/Saved Application State/com.apple.universalclipboard" "{{ .Args.output_path }}/universal_clipboard" 2>/dev/null || true
     fi
 - name: Verify clipboard collection
   inline: ls -lah {{ .Args.output_path }}/

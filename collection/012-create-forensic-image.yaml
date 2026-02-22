@@ -63,7 +63,7 @@ steps:
 - name: Create image hash
   inline: |
     if [ -f "{{ .Args.image_path }}" ]; then
-      md5sum "{{ .Args.image_path }}" > "{{ .Args.image_path }}.md5" 2>/dev/null || shasum -a 256 "{{ .Args.image_path }}" > "{{ .Args.image_path }}.sha256" 2>/dev/null || true
+      md5 "{{ .Args.image_path }}" > "{{ .Args.image_path }}.md5" 2>/dev/null || shasum -a 256 "{{ .Args.image_path }}" > "{{ .Args.image_path }}.sha256" 2>/dev/null || true
     fi
 - name: Create forensic documentation
   inline: |

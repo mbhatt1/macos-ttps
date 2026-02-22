@@ -42,19 +42,19 @@ steps:
   - name: create_dependency_package_structure
     description: Create dependency package structure
     inline: |
-      mkdir -p /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/node_modules
+      mkdir -p /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/node_modules
     cleanup:
       inline: |
-        rm -rf /tmp/ttpforge_deps/{{ package_name }}_{{ version }}
+        rm -rf /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}
         rm -f /tmp/.dependency_backdoor
 
   - name: create_package_definition
     description: Create package definition file
     inline: |
-      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/package.json << 'PKGJSON'
+      cat > /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/package.json << 'PKGJSON'
       {
-        "name": "{{ package_name }}",
-        "version": "{{ version }}",
+        "name": "{{ .Args.package_name }}",
+        "version": "{{ .Args.version }}",
         "description": "Common library",
         "main": "lib/index.js",
         "scripts": {
@@ -66,10 +66,10 @@ steps:
   - name: create_legitimate_library_code
     description: Create legitimate library code
     inline: |
-      mkdir -p /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib
-      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/index.js << 'LIBJS'
+      mkdir -p /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib
+      cat > /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib/index.js << 'LIBJS'
       module.exports = {
-        version: "{{ version }}",
+        version: "{{ .Args.version }}",
         init: function() {
           console.log("Library initialized");
         }
@@ -79,18 +79,18 @@ steps:
   - name: create_backdoored_postinstall_script
     description: Create backdoored postinstall script
     inline: |
-      cat > /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js << 'POSTINSTALL'
+      cat > /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib/postinstall.js << 'POSTINSTALL'
       #!/usr/bin/env node
       const fs = require('fs');
       fs.writeFileSync('/tmp/.dependency_backdoor', 'injected', 'utf8');
       console.log("Postinstall: finalizing setup...");
       POSTINSTALL
-      chmod +x /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
+      chmod +x /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib/postinstall.js
 
   - name: execute_dependency_installation
     description: Execute the backdoored postinstall script
     inline: |
-      node /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
+      node /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib/postinstall.js
 
   - name: verify_backdoor_marker_file_created
     description: Verify backdoor marker file created
@@ -100,12 +100,12 @@ steps:
   - name: verify_dependency_package_exists
     description: Verify dependency package exists
     inline: |
-      test -f /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/package.json && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/package.json && echo "PASS" || echo "FAIL"
 
   - name: verify_library_code_present
     description: Verify library code is present
     inline: |
-      test -f /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/index.js && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_deps/{{ .Args.package_name }}_{{ .Args.version }}/lib/index.js && echo "PASS" || echo "FAIL"
 
 tests:
   - name: backdoored_dependency_injection_test

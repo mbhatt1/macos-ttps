@@ -56,7 +56,7 @@ steps:
             <string>{{ .Args.script_path }}</string>
         </array>
         <key>RunAtLoad</key>
-        <{{ run_at_load|lower }}/>>
+        <{{ .Args.run_at_load }}/>
         <key>StartInterval</key>
         <integer>{{ .Args.start_interval }}</integer>
         <key>StandardOutPath</key>

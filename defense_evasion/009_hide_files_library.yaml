@@ -45,7 +45,7 @@ steps:
   description: Verify file moved successfully
   inline: test -e "{{ .Args.library_path }}/{{ .Args.new_name }}"
   cleanup:
-    inline: mv "{{ args.library_path }}/{{ args.new_name }}" "{{ args.source_path }}"
+    inline: mv "{{ .Args.library_path }}/{{ .Args.new_name }}" "{{ .Args.source_path }}"
 tests:
 - name: dry_run_test
   dry_run: true

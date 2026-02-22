@@ -25,7 +25,7 @@ steps:
 - name: Find SUID binaries with executable bit
   description: Find SUID binaries that are executable
   inline: |
-    find / -perm -4000 -type f -executable 2>/dev/null
+    find / -perm -4000 -type f -perm +111 2>/dev/null
 - name: Check SUID binaries owned by root
   description: Filter SUID binaries owned by root user
   inline: |

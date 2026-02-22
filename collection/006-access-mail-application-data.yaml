@@ -30,13 +30,13 @@ steps:
   inline: mkdir -p {{ .Args.output_path }}
 - name: Collect Mail database
   inline: |
-    mail_path="~/Library/Mail\ Downloads"
+    mail_path="$HOME/Library/Mail\ Downloads"
     if [ -d "$mail_path" ]; then
       cp -r "$mail_path" "{{ .Args.output_path }}/mail_downloads" 2>/dev/null || true
     fi
 - name: Extract V series Mail data
   inline: |
-    v_mail_path="~/Library/Mail/V*/MailData"
+    v_mail_path="$HOME/Library/Mail/V*/MailData"
     if ls "$v_mail_path" 1> /dev/null 2>&1; then
       mkdir -p {{ .Args.output_path }}/mail_v_series
       find "$v_mail_path" -name "*.db" -o -name "*.plist" | xargs -I {} cp {} {{ .Args.output_path }}/mail_v_series/ 2>/dev/null || true

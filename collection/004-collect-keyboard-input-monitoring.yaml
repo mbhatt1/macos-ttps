@@ -33,8 +33,8 @@ steps:
     find /Applications -name "*keystroke*" -o -name "*logger*" -o -name "*monitor*" 2>/dev/null > {{ .Args.output_path }}/monitoring_apps.txt || true
 - name: Extract accessibility logs
   inline: |
-    if [ -f "~/Library/Preferences/com.apple.accessibility.plist" ]; then
-      cp "~/Library/Preferences/com.apple.accessibility.plist" "{{ .Args.output_path }}/accessibility.plist" 2>/dev/null || true
+    if [ -f "$HOME/Library/Preferences/com.apple.accessibility.plist" ]; then
+      cp "$HOME/Library/Preferences/com.apple.accessibility.plist" "{{ .Args.output_path }}/accessibility.plist" 2>/dev/null || true
     fi
 - name: Check Universal Clipboard/Handoff
   inline: |

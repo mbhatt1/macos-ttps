@@ -19,7 +19,7 @@ steps:
 - name: Enumerate IOKit services
   description: List all IOKit services available
   inline: |
-    iokit-examine 2>/dev/null | head -20 || echo "IOKit examination tool not available"
+    ioreg -l 2>/dev/null | head -20 || echo "IOKit enumeration not available"
 - name: Check IOKit device classes
   description: List IOKit device tree entries
   inline: |

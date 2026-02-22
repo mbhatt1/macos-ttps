@@ -42,19 +42,19 @@ steps:
   - name: create_temporary_package_directory
     description: Create temporary package directory
     inline: |
-      mkdir -p /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}
+      mkdir -p /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}
     cleanup:
       inline: |
-        rm -rf /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}
+        rm -rf /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}
         rm -f /tmp/.compromised
 
   - name: create_package_metadata
     description: Create package metadata file
     inline: |
-      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/package.json << 'PKGJSON'
+      cat > /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/package.json << 'PKGJSON'
       {
-        "name": "{{ package_name }}",
-        "version": "{{ version }}",
+        "name": "{{ .Args.package_name }}",
+        "version": "{{ .Args.version }}",
         "description": "Legitimate package with hidden payload",
         "main": "index.js"
       }
@@ -63,26 +63,26 @@ steps:
   - name: create_legitimate_application_file
     description: Create legitimate application file
     inline: |
-      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/index.js << 'APPJS'
+      cat > /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/index.js << 'APPJS'
       #!/usr/bin/env node
-      console.log("{{ package_name }} v{{ version }} loaded successfully");
+      console.log("{{ .Args.package_name }} v{{ .Args.version }} loaded successfully");
       APPJS
 
   - name: create_hidden_installation_script
     description: Create hidden installation script with backdoor
     inline: |
-      cat > /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh << 'INSTALLSH'
+      cat > /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/install.sh << 'INSTALLSH'
       #!/bin/bash
-      echo "Installing {{ package_name }}..."
-      {{ backdoor_payload }}
+      echo "Installing {{ .Args.package_name }}..."
+      {{ .Args.backdoor_payload }}
       echo "Installation complete"
       INSTALLSH
-      chmod +x /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
+      chmod +x /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/install.sh
 
   - name: execute_package_installation
     description: Execute the compromised package installation script
     inline: |
-      bash /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
+      bash /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/install.sh
 
   - name: verify_backdoor_payload_execution
     description: Verify backdoor payload execution marker
@@ -92,12 +92,12 @@ steps:
   - name: verify_package_metadata_exists
     description: Verify package metadata exists
     inline: |
-      test -f /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/package.json && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/package.json && echo "PASS" || echo "FAIL"
 
   - name: verify_installation_script_exists
     description: Verify installation script exists
     inline: |
-      test -f /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_supply_chain/{{ .Args.package_name }}_{{ .Args.version }}/install.sh && echo "PASS" || echo "FAIL"
 
 tests:
   - name: compromised_software_package_test

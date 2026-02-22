@@ -31,16 +31,16 @@ args:
 steps:
 - name: Create ransom note script
   inline: |-
-    cat > ~/.ransom_note.sh << 'SCRIPT'
+    cat > ~/.ransom_note.sh <<SCRIPT
     #!/bin/bash
-    osascript << 'AS'
-    display alert "ALERT" message "Your files have been encrypted. Contact attackers@example.com. Payment required." buttons {"OK"} default button 1 with icon caution giving up after 600
+    osascript <<AS
+    display alert "{{ .Args.title }}" message "{{ .Args.message }}" buttons {"OK"} default button 1 with icon caution giving up after 600
     AS
     SCRIPT
 - name: Make script executable
   inline: chmod +x ~/.ransom_note.sh
 - name: Display alert dialog to current user
-  inline: osascript -e 'display alert "ALERT" message "Your files have been encrypted" buttons {"OK"} default button 1 with
+  inline: osascript -e 'display alert "{{ .Args.title }}" message "{{ .Args.message }}" buttons {"OK"} default button 1 with
     icon caution' 2>/dev/null || true
 - name: Log ransom event
   inline: 'logger ''TTP: Ransom note displayed to user'''

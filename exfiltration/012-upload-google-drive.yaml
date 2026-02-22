@@ -44,11 +44,11 @@ steps:
     echo "  Size: $(du -h '{{ .Args.file_path }}' | cut -f1)"
 - name: Prepare upload metadata
   inline: |
-    cat > /tmp/drive_metadata.json << 'JSON_EOF'
+    cat > /tmp/drive_metadata.json <<JSON_EOF
     {
-      "name": "test_file",
-      "description": "Exfiltrated data",
-      "parents": ["1a2B3c4D5e6F7g8H9i0J"],
+      "name": "$(basename '{{ .Args.file_path }}')",
+      "description": "{{ .Args.file_description }}",
+      "parents": ["{{ .Args.drive_folder_id }}"],
       "mimeType": "application/octet-stream"
     }
     JSON_EOF

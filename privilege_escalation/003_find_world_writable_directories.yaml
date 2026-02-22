@@ -35,7 +35,7 @@ steps:
 - name: Check common writable directories
   description: Verify permissions of common directories
   inline: |
-    ls -ld /tmp /var/tmp /dev/shm 2>/dev/null
+    ls -ld /tmp /var/tmp 2>/dev/null
   cleanup:
     inline: |
       rm -f /tmp/test_write_* 2>/dev/null

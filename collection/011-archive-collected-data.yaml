@@ -62,7 +62,7 @@ steps:
 - name: Calculate archive checksum
   inline: |
     if [ -f "{{ .Args.archive_path }}" ]; then
-      md5sum "{{ .Args.archive_path }}" > "$(dirname "{{ .Args.archive_path }}")/archive.md5" 2>/dev/null || shasum -a 256 "{{ .Args.archive_path }}" > "$(dirname "{{ .Args.archive_path }}")/archive.sha256" 2>/dev/null || true
+      md5 "{{ .Args.archive_path }}" > "$(dirname "{{ .Args.archive_path }}")/archive.md5" 2>/dev/null || shasum -a 256 "{{ .Args.archive_path }}" > "$(dirname "{{ .Args.archive_path }}")/archive.sha256" 2>/dev/null || true
     fi
 - name: Optional Create backup archive
   inline: |

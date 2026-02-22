@@ -18,10 +18,10 @@ requirements:
 steps:
   - name: Get Listening TCP Ports
     inline: |
-      netstat -tlnp
+      netstat -an -p tcp | grep LISTEN
   - name: Get Listening UDP Ports
     inline: |
-      netstat -ulmn
+      netstat -an -p udp
   - name: Get All Listening Sockets
     inline: |
       netstat -an | grep LISTEN

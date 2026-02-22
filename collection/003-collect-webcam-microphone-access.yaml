@@ -31,13 +31,13 @@ steps:
     find /Applications -name "*.app" -exec codesign -d --entitlements :- {} \; 2>/dev/null | grep -i "camera\|microphone\|AVCapture" > {{ .Args.output_path }}/entitlements.txt 2>/dev/null || true
 - name: Extract Camera app data
   inline: |
-    if [ -d "~/Library/Application Support/FaceTime" ]; then
-      cp -r "~/Library/Application Support/FaceTime" "{{ .Args.output_path }}/facetime_data" 2>/dev/null || true
+    if [ -d "$HOME/Library/Application Support/FaceTime" ]; then
+      cp -r "$HOME/Library/Application Support/FaceTime" "{{ .Args.output_path }}/facetime_data" 2>/dev/null || true
     fi
 - name: Collect Zoom camera access logs
   inline: |
-    if [ -d "~/Library/Logs/zoom.us" ]; then
-      cp -r "~/Library/Logs/zoom.us" "{{ .Args.output_path }}/zoom_logs" 2>/dev/null || true
+    if [ -d "$HOME/Library/Logs/zoom.us" ]; then
+      cp -r "$HOME/Library/Logs/zoom.us" "{{ .Args.output_path }}/zoom_logs" 2>/dev/null || true
     fi
 - name: Check system privacy database
   inline: |
@@ -45,8 +45,8 @@ steps:
       "SELECT * FROM DiagnosticMessagesMetaData LIMIT 10" 2>/dev/null > {{ .Args.output_path }}/diagnostic_metadata.txt || true
 - name: Collect privacy preferences
   inline: |
-    if [ -f "~/Library/Preferences/com.apple.privacy.plist" ]; then
-      cp "~/Library/Preferences/com.apple.privacy.plist" "{{ .Args.output_path }}/privacy.plist" 2>/dev/null || true
+    if [ -f "$HOME/Library/Preferences/com.apple.privacy.plist" ]; then
+      cp "$HOME/Library/Preferences/com.apple.privacy.plist" "{{ .Args.output_path }}/privacy.plist" 2>/dev/null || true
     fi
   cleanup:
     inline: |-

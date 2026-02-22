@@ -28,7 +28,7 @@ steps:
   inline: mkdir -p {{ .Args.output_path }}
 - name: Collect Chrome data
   inline: |
-    chrome_path="~/Library/Application Support/Google/Chrome"
+    chrome_path="$HOME/Library/Application Support/Google/Chrome"
     if [ -d "$chrome_path" ]; then
       mkdir -p {{ .Args.output_path }}/chrome
       cp -r "$chrome_path"/Default/History "{{ .Args.output_path }}/chrome/" 2>/dev/null || true
@@ -37,7 +37,7 @@ steps:
     fi
 - name: Collect Firefox data
   inline: |
-    firefox_path="~/Library/Application Support/Firefox"
+    firefox_path="$HOME/Library/Application Support/Firefox"
     if [ -d "$firefox_path" ]; then
       mkdir -p {{ .Args.output_path }}/firefox
       find "$firefox_path" -name "places.sqlite" -exec cp {} "{{ .Args.output_path }}/firefox/" \; 2>/dev/null || true
@@ -45,7 +45,7 @@ steps:
     fi
 - name: Collect Safari data
   inline: |
-    safari_path="~/Library/Safari"
+    safari_path="$HOME/Library/Safari"
     if [ -d "$safari_path" ]; then
       mkdir -p {{ .Args.output_path }}/safari
       cp -r "$safari_path/History.db" "{{ .Args.output_path }}/safari/" 2>/dev/null || true

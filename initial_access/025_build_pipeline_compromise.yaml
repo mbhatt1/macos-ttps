@@ -42,16 +42,16 @@ steps:
   - name: create_fake_repository_structure
     description: Create fake repository structure
     inline: |
-      mkdir -p /tmp/ttpforge_build/{{ package_name }}/.github/workflows
+      mkdir -p /tmp/ttpforge_build/{{ .Args.package_name }}/.github/workflows
     cleanup:
       inline: |
-        rm -rf /tmp/ttpforge_build/{{ package_name }}
+        rm -rf /tmp/ttpforge_build/{{ .Args.package_name }}
         rm -f /tmp/.build_infected /tmp/.build_payload
 
   - name: create_malicious_github_actions_workflow
     description: Create malicious GitHub Actions workflow
     inline: |
-      cat > /tmp/ttpforge_build/{{ package_name }}/.github/workflows/build.yml << 'WORKFLOW'
+      cat > /tmp/ttpforge_build/{{ .Args.package_name }}/.github/workflows/build.yml << 'WORKFLOW'
       name: Build and Release
       on:
         push:
@@ -67,7 +67,7 @@ steps:
                 ./build.sh
             - name: Inject malicious code
               run: |
-                echo '{{ backdoor_payload }}' >> src/main.swift
+                echo '{{ .Args.backdoor_payload }}' >> src/main.swift
             - name: Release
               run: ./release.sh
       WORKFLOW
@@ -75,28 +75,28 @@ steps:
   - name: create_compromised_build_script
     description: Create compromised build script
     inline: |
-      cat > /tmp/ttpforge_build/{{ package_name }}/build.sh << 'BUILDSH'
+      cat > /tmp/ttpforge_build/{{ .Args.package_name }}/build.sh << 'BUILDSH'
       #!/bin/bash
-      echo "Building {{ package_name }} version {{ version }}..."
+      echo "Building {{ .Args.package_name }} version {{ .Args.version }}..."
       mkdir -p build
       cat > build/inject_payload.sh << 'PAYLOAD'
       #!/bin/bash
-      echo "{{ backdoor_payload }}" > /tmp/.build_payload
+      echo "{{ .Args.backdoor_payload }}" > /tmp/.build_payload
       touch /tmp/.build_infected
       PAYLOAD
       chmod +x build/inject_payload.sh
       bash build/inject_payload.sh
       echo "Build complete"
       BUILDSH
-      chmod +x /tmp/ttpforge_build/{{ package_name }}/build.sh
+      chmod +x /tmp/ttpforge_build/{{ .Args.package_name }}/build.sh
 
   - name: create_package_manifest_with_backdoor
     description: Create package manifest with backdoor
     inline: |
-      cat > /tmp/ttpforge_build/{{ package_name }}/package.json << 'MANIFEST'
+      cat > /tmp/ttpforge_build/{{ .Args.package_name }}/package.json << 'MANIFEST'
       {
-        "name": "{{ package_name }}",
-        "version": "{{ version }}",
+        "name": "{{ .Args.package_name }}",
+        "version": "{{ .Args.version }}",
         "description": "Legitimate application",
         "scripts": {
           "build": "bash build.sh",
@@ -108,7 +108,7 @@ steps:
   - name: execute_compromised_build
     description: Execute the compromised build pipeline
     inline: |
-      cd /tmp/ttpforge_build/{{ package_name }} && bash build.sh
+      cd /tmp/ttpforge_build/{{ .Args.package_name }} && bash build.sh
 
   - name: verify_build_infection
     description: Verify the build produced the infection marker
@@ -119,12 +119,12 @@ steps:
   - name: verify_workflow_file_exists
     description: Verify workflow file exists
     inline: |
-      test -f /tmp/ttpforge_build/{{ package_name }}/.github/workflows/build.yml && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_build/{{ .Args.package_name }}/.github/workflows/build.yml && echo "PASS" || echo "FAIL"
 
   - name: verify_malicious_package_manifest
     description: Verify malicious package manifest
     inline: |
-      test -f /tmp/ttpforge_build/{{ package_name }}/package.json && echo "PASS" || echo "FAIL"
+      test -f /tmp/ttpforge_build/{{ .Args.package_name }}/package.json && echo "PASS" || echo "FAIL"
 
 tests:
   - name: build_pipeline_compromise_test
