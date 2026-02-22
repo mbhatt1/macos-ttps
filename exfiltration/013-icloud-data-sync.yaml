@@ -33,10 +33,6 @@ args:
   description: Sync timeout in seconds
   type: string
   default: '60'
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo "File not found"; exit 1)
@@ -58,22 +54,15 @@ steps:
     echo "  Apple ID: {{ .Args.apple_id }}"
 - name: Copy file to iCloud
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: iCloud Sync"
-      echo "Would copy to iCloud:"
-      echo "  cp '{{ .Args.file_path }}' '{{ .Args.icloud_folder }}/'"
-      echo "After sync, file would be accessible across Apple devices"
+    icloud_path=$(eval echo '{{ .Args.icloud_folder }}')
+    if [ -d "$icloud_path" ]; then
+      cp '{{ .Args.file_path }}' "$icloud_path/$(basename '{{ .Args.file_path }}')"
+      echo "File copied to iCloud folder"
+      # Wait for sync
+      sleep {{ .Args.sync_timeout }}
     else
-      icloud_path=$(eval echo '{{ .Args.icloud_folder }}')
-      if [ -d "$icloud_path" ]; then
-        cp '{{ .Args.file_path }}' "$icloud_path/$(basename '{{ .Args.file_path }}')"
-        echo "File copied to iCloud folder"
-        # Wait for sync
-        sleep {{ .Args.sync_timeout }}
-      else
-        echo "ERROR: iCloud folder not accessible"
-        exit 1
-      fi
+      echo "ERROR: iCloud folder not accessible"
+      exit 1
     fi
   cleanup:
     inline: rm -f /tmp/test_icloud.dat

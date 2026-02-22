@@ -39,10 +39,6 @@ args:
   description: Private key file path for authentication
   type: string
   default: ~/.ssh/id_rsa
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo 'File not found'; exit 1)
@@ -65,16 +61,11 @@ steps:
     echo "  Remote path: {{ .Args.remote_path }}"
     echo "  File: $(basename '{{ .Args.file_path }}')"
 - name: Execute SFTP upload
-  inline: |-
-    if [ "{{ .Args.dry_run }}" = "true" ]; then
-      keypath=$(eval echo '{{ .Args.private_key }}');
-      echo "DRY RUN: Would execute SFTP transfer with command:";
-      echo "sftp -P {{ .Args.sftp_port }} -i \$keypath {{ .Args.sftp_user }}@{{ .Args.sftp_host }}:{{ .Args.remote_path }}";
-      echo "  > put '{{ .Args.file_path }}' '{{ .Args.remote_path }}/$(basename '{{ .Args.file_path }}')')";
-    else
-      keypath=$(eval echo '{{ .Args.private_key }}');
-      sftp -P "{{ .Args.sftp_port }}" -i "$keypath" "{{ .Args.sftp_user }}@{{ .Args.sftp_host }}" <<'HEREDOC_END'
-    put /tmp/.staging/data.tar.gz /uploads/data.tar.gz bye HEREDOC_END fi
+  inline: |
+    keypath=$(eval echo '{{ .Args.private_key }}')
+    echo "put '{{ .Args.file_path }}' '{{ .Args.remote_path }}/$(basename '{{ .Args.file_path }}')'" | \
+      sftp -P '{{ .Args.sftp_port }}' -i "$keypath" '{{ .Args.sftp_user }}@{{ .Args.sftp_host }}' || \
+      echo "SFTP upload failed"
   cleanup:
     inline: rm -f /tmp/test_sftp.dat
 tests:

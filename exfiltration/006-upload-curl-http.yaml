@@ -31,10 +31,6 @@ args:
   description: Verify SSL certificates
   type: string
   default: 'false'
-- name: dry_run
-  description: Enable dry-run mode (no actual upload)
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo "File not found"; exit 1)
@@ -51,19 +47,10 @@ steps:
     echo "File size: $(du -h '{{ .Args.file_path }}' | cut -f1)"
 - name: Execute upload
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: Would upload with the following command:"
-      if [ '{{ .Args.verify_ssl }}' = 'false' ]; then
-        echo "curl -k --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')')"
-      else
-        echo "curl --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')')"
-      fi
+    if [ '{{ .Args.verify_ssl }}' = 'false' ]; then
+      curl -k --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')'
     else
-      if [ '{{ .Args.verify_ssl }}' = 'false' ]; then
-        curl -k --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')'
-      else
-        curl --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')'
-      fi
+      curl --max-time {{ .Args.timeout }} --upload-file '{{ .Args.file_path }}' '{{ .Args.remote_url }}/$(basename '{{ .Args.file_path }}')'
     fi
   cleanup:
     inline: rm -f /tmp/test_upload.dat

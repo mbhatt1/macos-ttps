@@ -35,10 +35,6 @@ args:
   description: Email subject
   type: string
   default: Document Transfer
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo "File not found"; exit 1)
@@ -57,37 +53,28 @@ steps:
     echo "  Attachment: $(basename '{{ .Args.file_path }}')"
 - name: Send email with attachment
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: Would send email via:"
-      echo "  Subject: {{ .Args.subject }}"
-      echo "  From: {{ .Args.sender_email }}"
-      echo "  To: {{ .Args.recipient_email }}"
-      echo "  Attachment: '{{ .Args.file_path }}'"
-      echo "  SMTP Server: {{ .Args.smtp_host }}"
-    else
-      # Create a temporary mime-formatted email
-      {
-        echo "From: {{ .Args.sender_email }}"
-        echo "To: {{ .Args.recipient_email }}"
-        echo "Subject: {{ .Args.subject }}"
-        echo "MIME-Version: 1.0"
-        echo "Content-Type: multipart/mixed; boundary=\"boundary123\""
-        echo ""
-        echo "--boundary123"
-        echo "Content-Type: text/plain"
-        echo ""
-        echo "Please find the attached document."
-        echo ""
-        echo "--boundary123"
-        echo "Content-Type: application/octet-stream"
-        echo "Content-Transfer-Encoding: base64"
-        echo "Content-Disposition: attachment; filename=\"$(basename '{{ .Args.file_path }}')\""
-        echo ""
-        base64 < '{{ .Args.file_path }}'
-        echo ""
-        echo "--boundary123--"
-      } | mail -S smtp={{ .Args.smtp_host }} -F '{{ .Args.sender_email }}' '{{ .Args.recipient_email }}'
-    fi
+    # Create a temporary mime-formatted email
+    {
+      echo "From: {{ .Args.sender_email }}"
+      echo "To: {{ .Args.recipient_email }}"
+      echo "Subject: {{ .Args.subject }}"
+      echo "MIME-Version: 1.0"
+      echo "Content-Type: multipart/mixed; boundary=\"boundary123\""
+      echo ""
+      echo "--boundary123"
+      echo "Content-Type: text/plain"
+      echo ""
+      echo "Please find the attached document."
+      echo ""
+      echo "--boundary123"
+      echo "Content-Type: application/octet-stream"
+      echo "Content-Transfer-Encoding: base64"
+      echo "Content-Disposition: attachment; filename=\"$(basename '{{ .Args.file_path }}')\""
+      echo ""
+      base64 < '{{ .Args.file_path }}'
+      echo ""
+      echo "--boundary123--"
+    } | mail -S smtp={{ .Args.smtp_host }} -F '{{ .Args.sender_email }}' '{{ .Args.recipient_email }}'
   cleanup:
     inline: rm -f /tmp/test_email.dat
 tests:

