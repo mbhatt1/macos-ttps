@@ -5,8 +5,8 @@ name: Compromised Software Package
 authors:
   - mbhatt
 description: |
-  Simulate supply chain attack through compromised software package installation.
-  The package contains hidden malware payload that executes during installation.
+  Supply chain attack through compromised software package installation.
+  The package contains a hidden payload that executes during installation.
 
 mitre:
   tactics:
@@ -79,16 +79,15 @@ steps:
       INSTALLSH
       chmod +x /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
 
-  - name: simulate_package_installation
-    description: Simulate package installation (dry run)
+  - name: execute_package_installation
+    description: Execute the compromised package installation script
     inline: |
-      echo "[*] Would execute: bash /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh"
-      echo "[*] Simulation only - not executing backdoor payload"
+      bash /tmp/ttpforge_supply_chain/{{ package_name }}_{{ version }}/install.sh
 
   - name: verify_backdoor_payload_execution
     description: Verify backdoor payload execution marker
     inline: |
-      test -f /tmp/.compromised && echo "PASS" || echo "Marker not found (expected in dry run)"
+      test -f /tmp/.compromised && echo "PASS" || echo "FAIL: Marker not found"
 
   - name: verify_package_metadata_exists
     description: Verify package metadata exists

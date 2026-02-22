@@ -5,7 +5,9 @@ name: Bluetooth Device Pairing
 authors:
 - TTPs Generator
 description: |
-  Simulate exploitation of Bluetooth device pairing to establish initial access
+  Enumerate Bluetooth status, paired devices, power state, discoverability settings, and
+  Bluetooth services on macOS to identify potential hardware addition attack vectors
+  through Bluetooth device pairing.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,43 +16,38 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: target_device
-  description: Target macOS device UUID
-  type: string
-  default: 00:1A:7D:DA:71:13
-- name: bluetooth_device
-  description: Malicious Bluetooth device address
-  type: string
-  default: 00:1B:44:11:3A:00
-- name: device_type
-  description: Type of Bluetooth device (headphones, keyboard, mouse, speaker)
-  type: string
-  default: headphones
-- name: pairing_method
-  description: Pairing method (just_works, passkey, oob)
-  type: string
-  default: just_works
 steps:
-- name: Scan for Bluetooth devices
-  description: Scan for available Bluetooth devices
-  inline: system_profiler SPBluetoothDataType 2>/dev/null | head -10 > /tmp/bluetooth_scan.log || echo "Bluetooth scan completed"
-    > /tmp/bluetooth_scan.log
-- name: Spoof Bluetooth device
-  description: Spoof malicious Bluetooth device
-  inline: 'echo "Spoofed Bluetooth device: ${bluetooth_device} (${device_type})" > /tmp/bluetooth_attack.log'
-- name: Initiate pairing request
-  description: Initiate Bluetooth pairing request
-  inline: echo "Pairing request sent to ${target_device} at $(date)" >> /tmp/bluetooth_attack.log
-- name: Exploit pairing process
-  description: Exploit vulnerable pairing process
-  inline: 'echo "Pairing method: ${pairing_method}" >> /tmp/bluetooth_attack.log && echo "Exploiting ${pairing_method} vulnerability"
-    >> /tmp/bluetooth_attack.log'
-- name: Establish connection
-  description: Establish malicious Bluetooth connection
-  inline: echo "Connection established with target device" >> /tmp/bluetooth_attack.log
-  cleanup:
-    inline: rm -f /tmp/bluetooth_attack.log /tmp/bluetooth_scan.log
+- name: Enumerate Bluetooth status and devices
+  description: List all Bluetooth information including controller details and connected devices
+  inline: |
+    echo "=== Bluetooth Status and Devices ==="
+    system_profiler SPBluetoothDataType 2>/dev/null || echo "Bluetooth data not available"
+- name: Check Bluetooth power state
+  description: Read the Bluetooth controller power state from system preferences
+  inline: |
+    echo "=== Bluetooth Power State ==="
+    defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState 2>/dev/null && echo "(1 = ON, 0 = OFF)" || echo "Could not read Bluetooth power state"
+- name: List paired Bluetooth devices
+  description: Enumerate previously paired Bluetooth devices from system preferences
+  inline: |
+    echo "=== Paired Bluetooth Devices ==="
+    defaults read /Library/Preferences/com.apple.Bluetooth PairedDevices 2>/dev/null || echo "No paired devices plist entry found"
+    echo ""
+    echo "=== Device Cache ==="
+    defaults read /Library/Preferences/com.apple.Bluetooth DeviceCache 2>/dev/null | head -40 || echo "No device cache found"
+- name: Check Bluetooth discoverability
+  description: Check whether Bluetooth is set to discoverable mode
+  inline: |
+    echo "=== Bluetooth Discoverability ==="
+    defaults read /Library/Preferences/com.apple.Bluetooth DiscoverableState 2>/dev/null && echo "(1 = discoverable, 0 = hidden)" || echo "Could not read discoverability state"
+- name: Enumerate Bluetooth services
+  description: List Bluetooth services and profiles available on the system
+  inline: |
+    echo "=== Bluetooth Services (IOKit) ==="
+    ioreg -r -c IOBluetoothDevice -l 2>/dev/null | grep "Name\|Address\|ClassOfDevice\|ServiceRecord" | head -30 || echo "No Bluetooth devices in IOKit registry"
+    echo ""
+    echo "=== Bluetooth Hardware Info ==="
+    system_profiler SPBluetoothDataType 2>/dev/null | grep -A 5 "Bluetooth Controller" | head -10
 tests:
 - name: dry_run_test
   dry_run: true

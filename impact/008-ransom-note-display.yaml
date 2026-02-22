@@ -5,7 +5,7 @@ name: Ransom Note Display
 authors:
 - TTPForge
 description: |
-  Displays ransom-style message to user simulating ransomware impact
+  Displays ransom-style message to user demonstrating ransomware impact
 mitre:
   tactics:
   - TA0040 Impact

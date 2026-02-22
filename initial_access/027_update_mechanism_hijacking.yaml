@@ -5,7 +5,7 @@ name: Update mechanism hijacking
 authors:
 - TTPForge
 description: |
-  Simulate hijacking of software update mechanism. Attacker intercepts or spoofs legitimate application updates to distribute malware to existing users.
+  Hijacking of software update mechanism. Attacker intercepts or spoofs legitimate application updates to distribute malware to existing users.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -68,7 +68,7 @@ steps:
   inline: |
     cat > /tmp/ttpforge_updates/{{ .Args.package_name }}/v{{ .Args.version }}/macos/install_update.sh << 'INSTALLER'
     #!/bin/bash
-    # Legitimate update installation simulation
+    # Legitimate update installation process
     echo "Installing {{ .Args.package_name }} {{ .Args.version }} update..."
 
     # Hidden malware injection
@@ -82,7 +82,7 @@ steps:
     echo "Update installation complete"
     INSTALLER
     chmod +x /tmp/ttpforge_updates/{{ .Args.package_name }}/v{{ .Args.version }}/macos/install_update.sh
-- name: Simulate update installation
+- name: Execute hijacked update installation
   inline: bash /tmp/ttpforge_updates/{{ .Args.package_name }}/v{{ .Args.version }}/macos/install_update.sh
   cleanup:
     inline: |-

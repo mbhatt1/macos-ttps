@@ -5,8 +5,9 @@ name: System Shutdown
 authors:
   - TTPForge
 description: |
-  Simulates a system shutdown on Linux to test impact detection capabilities.
-  This TTP demonstrates the T1529 System Shutdown/Reboot technique.
+  Schedule a system shutdown on Linux to demonstrate the T1529 System
+  Shutdown/Reboot impact technique. Schedules shutdown with a delay to
+  allow cancellation during testing.
 mitre:
   tactics:
     - "TA0040 Impact"
@@ -15,17 +16,33 @@ mitre:
 requirements:
   platforms:
     - os: linux
+  superuser: true
 steps:
-  - name: check_shutdown_command
-    description: Verify shutdown command is available
-    inline: |
-      which shutdown && echo "shutdown command available"
-  - name: simulate_shutdown_check
-    description: Check current uptime and scheduled shutdowns
+  - name: check_system_uptime
+    description: Check current system uptime and boot time
     inline: |
       uptime
       who -b
-      echo "System shutdown simulation complete"
+
+  - name: schedule_system_shutdown
+    description: Schedule system shutdown with 5 minute delay
+    inline: |
+      shutdown -h +5 "TTPForge: System shutdown scheduled for impact testing"
+      echo "Shutdown scheduled in 5 minutes"
+
+  - name: verify_shutdown_scheduled
+    description: Verify shutdown has been scheduled
+    inline: |
+      if [ -f /run/systemd/shutdown/scheduled ]; then
+        cat /run/systemd/shutdown/scheduled
+      else
+        echo "Shutdown is pending"
+      fi
+    cleanup:
+      inline: |
+        shutdown -c 2>/dev/null || true
+        echo "Scheduled shutdown cancelled"
+
 tests:
   - name: dry_run_test
     dry_run: true

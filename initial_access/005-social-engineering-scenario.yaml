@@ -5,9 +5,10 @@ name: Social Engineering Scenario
 authors:
   - mbhatt
 description: |
-  Demonstrates social engineering scenario execution by simulating multi-stage
-  manipulation tactics including pretexting, authority impersonation, and
-  creating false urgency to manipulate targets into revealing sensitive information.
+  Executes social engineering techniques using native macOS osascript to display
+  fake system dialogs and notifications. Presents a fake password prompt dialog
+  mimicking System Preferences, a fake software update notification, and a fake
+  security alert to capture user input through deceptive UI elements.
 
 mitre:
   tactics:
@@ -22,101 +23,67 @@ requirements:
     - os: darwin
 
 args:
-  - name: attacker_persona
-    description: "Fictional persona used for impersonation"
+  - name: dialog_title
+    description: "Title for the fake system dialog"
     type: string
-    default: "John Smith, IT Support Manager"
-  - name: target_department
-    description: "Department being targeted"
+    default: "System Preferences"
+  - name: prompt_message
+    description: "Message displayed in the fake dialog"
     type: string
-    default: "Finance"
-  - name: urgency_reason
-    description: "Reason for urgent action"
-    type: string
-    default: "Security audit"
-  - name: pretext_story
-    description: "Cover story for the request"
-    type: string
-    default: "We are updating security protocols and need to verify accounts"
+    default: "macOS requires your password to apply security updates"
 
 steps:
-  - name: create_social_engineering_script
-    description: Create social engineering engagement script
+  - name: display_fake_password_prompt
+    description: Display a fake system dialog requesting the user password
     inline: |
-      mkdir -p /tmp/se_scenarios
-      cat > /tmp/se_scenarios/engagement_script.txt << 'SCRIPTEOF'
-      SOCIAL ENGINEERING SCENARIO
-      ATTACKER PERSONA: {{ attacker_persona }}
-      TARGET: {{ target_department }} Department
-      OBJECTIVE: Credential harvesting and information disclosure
-      PHASE 1: INITIAL CONTACT
-      PHASE 2: PRETEXT ESTABLISHMENT - {{ pretext_story }}
-      PHASE 3: INFORMATION EXTRACTION
-      PHASE 4: CREDENTIAL HARVESTING
-      SCRIPTEOF
-      echo "Created social engineering script"
+      mkdir -p /tmp/ttp_social_eng
+      echo "[+] Displaying fake system password dialog..."
+      RESPONSE=$(osascript -e 'try
+        set userInput to display dialog "{{ .Args.prompt_message }}" default answer "" with hidden answer with title "{{ .Args.dialog_title }}" with icon caution giving up after 15
+        return text returned of userInput
+      on error
+        return "DIALOG_CANCELLED"
+      end try' 2>/dev/null || echo "DIALOG_DISMISSED")
+      echo "[+] Dialog response captured"
+      TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+      echo "${TIMESTAMP} - Password dialog response: ${RESPONSE}" >> /tmp/ttp_social_eng/interaction.log
+      echo "[+] Response logged to /tmp/ttp_social_eng/interaction.log"
+
+  - name: display_fake_software_update_notification
+    description: Display a fake software update notification via Notification Center
+    inline: |
+      osascript -e 'display notification "A critical security update is available. Click to install now." with title "Software Update" subtitle "macOS Security Update 2025-001"'
+      echo "[+] Fake software update notification sent to Notification Center"
+      TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+      echo "${TIMESTAMP} - Software update notification displayed" >> /tmp/ttp_social_eng/interaction.log
+
+  - name: display_fake_security_alert_dialog
+    description: Display a fake security alert dialog requesting action
+    inline: |
+      echo "[+] Displaying fake security alert dialog..."
+      RESPONSE=$(osascript -e 'try
+        set alertResult to display dialog "Your Mac has detected a security threat. Authentication is required to remove the threat." buttons {"Cancel", "Authenticate"} default button "Authenticate" with title "macOS Security Alert" with icon stop giving up after 15
+        return button returned of alertResult
+      on error
+        return "DIALOG_CANCELLED"
+      end try' 2>/dev/null || echo "DIALOG_DISMISSED")
+      echo "[+] Security alert response: ${RESPONSE}"
+      TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+      echo "${TIMESTAMP} - Security alert response: ${RESPONSE}" >> /tmp/ttp_social_eng/interaction.log
+
+  - name: log_interaction_results
+    description: Log all captured interaction results
+    inline: |
+      echo "[+] Social engineering interaction log:"
+      cat /tmp/ttp_social_eng/interaction.log
+      INTERACTIONS=$(wc -l < /tmp/ttp_social_eng/interaction.log | tr -d ' ')
+      echo ""
+      echo "[+] Total interactions logged: ${INTERACTIONS}"
+      echo "[+] PASS: Social engineering dialogs were presented"
     cleanup:
       inline: |
-        rm -rf /tmp/se_scenarios
-
-  - name: create_engagement_timeline
-    description: Create engagement timeline
-    inline: |
-      cat > /tmp/se_scenarios/engagement_timeline.txt << 'TIMELINEEOF'
-      ENGAGEMENT TIMELINE
-      T+0:00 - Initial contact established
-      T+0:05 - Pretext story introduced: {{ pretext_story }}
-      T+0:08 - Urgency emphasized: {{ urgency_reason }}
-      T+0:15 - Request for username
-      T+0:18 - Request for password verification
-      T+0:25 - Credential confirmation
-      T+0:30 - Conversation termination
-      TIMELINEEOF
-      echo "Created engagement timeline"
-
-  - name: document_attacker_techniques
-    description: Document attacker techniques used
-    inline: |
-      cat > /tmp/se_scenarios/techniques_used.txt << 'TECHEOF'
-      SOCIAL ENGINEERING TECHNIQUES EMPLOYED
-      1. AUTHORITY IMPERSONATION
-      2. URGENCY CREATION
-      3. TRUST BUILDING
-      4. INFORMATION EXTRACTION
-      5. PRETEXTING
-      TECHEOF
-      echo "Documented techniques"
-
-  - name: log_scenario_execution
-    description: Log scenario execution details
-    inline: |
-      mkdir -p /tmp/se_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/se_logs/scenario_${timestamp}.log << 'LOGEOF'
-      Social Engineering Scenario Executed
-      Attacker Persona: {{ attacker_persona }}
-      Target Department: {{ target_department }}
-      Pretext: {{ pretext_story }}
-      Urgency Factor: {{ urgency_reason }}
-      LOGEOF
-    cleanup:
-      inline: |
-        rm -rf /tmp/se_logs
-
-  - name: verify_scenario_script_created
-    description: Verify engagement script was created
-    inline: |
-      test -f /tmp/se_scenarios/engagement_script.txt && echo "PASS: Engagement script created"
-
-  - name: verify_timeline_created
-    description: Verify engagement timeline was created
-    inline: |
-      test -f /tmp/se_scenarios/engagement_timeline.txt && echo "PASS: Engagement timeline created"
-
-  - name: verify_techniques_documented
-    description: Verify techniques were documented
-    inline: |
-      test -f /tmp/se_scenarios/techniques_used.txt && echo "PASS: Techniques documented"
+        rm -rf /tmp/ttp_social_eng
+        echo "[+] Cleanup: Interaction logs removed"
 
 tests:
   - name: social_engineering_scenario_test

@@ -5,7 +5,9 @@ name: Drive-by Download
 authors:
 - TTPs Generator
 description: |
-  Simulate drive-by download attack where malware is automatically downloaded upon website visit
+  Demonstrate a drive-by download attack by hosting a malicious payload on a local HTTP server,
+  downloading it via curl (representing an automatic browser download), and executing the
+  downloaded file to achieve initial access on macOS.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,43 +17,82 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: malicious_url
-  description: URL hosting malicious file for download
-  type: string
-  default: http://attacker.com/update.dmg
-- name: download_destination
-  description: Local directory for downloaded malware
+- name: listen_port
+  description: Port for the local HTTP server hosting the payload
+  type: int
+  default: 8889
+- name: download_dir
+  description: Directory where the drive-by download is saved
   type: string
   default: /tmp/downloads
-- name: file_type
-  description: Type of file being downloaded (dmg, zip, app, pkg)
-  type: string
-  default: dmg
-- name: browser_user_agent
-  description: User agent string of victim browser
-  type: string
-  default: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
 steps:
-- name: Create download directory
-  description: Create destination directory for drive-by downloads
-  inline: mkdir -p "${download_destination}" && echo "Download directory created" > /tmp/drive_by.log
-- name: Simulate website visit
-  description: Simulate user visiting malicious website
-  inline: 'echo "User visited malicious website: ${malicious_url} at $(date)" >> /tmp/drive_by.log'
-- name: Trigger automatic download
-  description: Simulate automatic malware download without user consent
-  inline: echo "Automatic download triggered for ${file_type} file" >> /tmp/drive_by.log
-- name: Download malware file
-  description: Simulate downloading malware payload
-  inline: touch "${download_destination}/malware.${file_type}" && echo "Malware downloaded to ${download_destination}/malware.${file_type}"
-    >> /tmp/drive_by.log
-- name: Execute downloaded file
-  description: Simulate automatic or user-initiated execution
-  inline: echo "Attempting execution of downloaded ${file_type} file" >> /tmp/drive_by.log
+- name: Create downloadable payload
+  description: Create a malicious script payload and an HTML page that triggers the download
+  inline: |
+    mkdir -p /tmp/driveby_server
+    cat > /tmp/driveby_server/update.sh <<'PAYLOAD'
+    #!/bin/bash
+    echo "Drive-by payload executed at $(date)" > /tmp/driveby_execution.log
+    echo "User: $(whoami)" >> /tmp/driveby_execution.log
+    echo "Host: $(hostname)" >> /tmp/driveby_execution.log
+    echo "PID: $$" >> /tmp/driveby_execution.log
+    PAYLOAD
+    chmod +x /tmp/driveby_server/update.sh
+    cat > /tmp/driveby_server/index.html <<'HTMLEOF'
+    <html>
+    <head><title>Software Update</title></head>
+    <body>
+    <h1>Critical Update Available</h1>
+    <meta http-equiv="refresh" content="0;url=update.sh">
+    <p>Your download will begin automatically...</p>
+    </body>
+    </html>
+    HTMLEOF
+    echo "Payload and landing page created in /tmp/driveby_server/"
+- name: Start HTTP server
+  description: Start a local Python HTTP server to host the malicious download
+  inline: |
+    cd /tmp/driveby_server && python3 -m http.server {{ .Args.listen_port }} &>/tmp/driveby_server.log &
+    SERVER_PID=$!
+    echo $SERVER_PID > /tmp/driveby_server.pid
+    sleep 2
+    echo "HTTP server started on port {{ .Args.listen_port }} (PID: $SERVER_PID)"
+- name: Download payload via drive-by
+  description: Use curl to download the payload file representing an automatic browser download
+  inline: |
+    mkdir -p {{ .Args.download_dir }}
+    echo "=== Visiting malicious site ==="
+    curl -s http://127.0.0.1:{{ .Args.listen_port }}/index.html
+    echo ""
+    echo "=== Automatic download triggered ==="
+    curl -s -o {{ .Args.download_dir }}/update.sh http://127.0.0.1:{{ .Args.listen_port }}/update.sh
+    echo "File downloaded to {{ .Args.download_dir }}/update.sh"
+    ls -la {{ .Args.download_dir }}/update.sh
+- name: Verify downloaded file
+  description: Inspect the downloaded payload before execution
+  inline: |
+    echo "=== Downloaded file contents ==="
+    cat {{ .Args.download_dir }}/update.sh
+    echo ""
+    echo "=== File type ==="
+    file {{ .Args.download_dir }}/update.sh
+- name: Execute downloaded payload
+  description: Execute the downloaded payload to complete the drive-by compromise
+  inline: |
+    chmod +x {{ .Args.download_dir }}/update.sh
+    {{ .Args.download_dir }}/update.sh
+    echo "=== Execution results ==="
+    cat /tmp/driveby_execution.log
   cleanup:
-    inline: |-
-      rm -rf "${download_destination}"
-      rm -f /tmp/drive_by.log
+    inline: |
+      if [ -f /tmp/driveby_server.pid ]; then
+        kill $(cat /tmp/driveby_server.pid) 2>/dev/null || true
+        rm -f /tmp/driveby_server.pid
+      fi
+      rm -f /tmp/driveby_execution.log
+      rm -f /tmp/driveby_server.log
+      rm -rf /tmp/driveby_server
+      rm -rf {{ .Args.download_dir }}
 tests:
 - name: dry_run_test
   dry_run: true

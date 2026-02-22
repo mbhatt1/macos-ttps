@@ -5,7 +5,9 @@ name: Trusted Relationship Abuse
 authors:
 - TTPs Generator
 description: |
-  Simulate abuse of trusted relationship (vendor, partner, supplier) to deliver malware
+  Enumerate trust relationships on macOS including SSH known hosts and authorized keys,
+  MDM profiles, trusted certificates, remote management status, and VPN configurations
+  to identify avenues for initial access via trusted relationship abuse.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,43 +16,40 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: trusted_entity
-  description: Name of trusted entity (vendor, partner, supplier)
-  type: string
-  default: SoftwareVendor Inc
-- name: target_organization
-  description: Target organization being attacked
-  type: string
-  default: TargetCorp
-- name: delivery_vector
-  description: How malware is delivered (software_update, plugin, extension)
-  type: string
-  default: software_update
-- name: malware_url
-  description: URL hosting malware payload
-  type: string
-  default: http://attacker.com/update.pkg
 steps:
-- name: Compromise trusted entity
-  description: Simulate compromising the trusted relationship
-  inline: 'echo "Compromised trusted entity: ${trusted_entity}" > /tmp/trusted_abuse.log'
-- name: Create trojanized update
-  description: Create malware-infested update or plugin
-  inline: touch /tmp/trojanized_update.pkg && echo "Trojanized ${delivery_vector} created" >> /tmp/trusted_abuse.log
-- name: Sign with legitimate certificate
-  description: Simulate signing with legitimate vendor certificate
-  inline: echo "Signed with ${trusted_entity} certificate" >> /tmp/trusted_abuse.log
-- name: Distribute through trusted channel
-  description: Simulate distributing through trusted distribution channel
-  inline: echo "Distributed to ${target_organization} via ${delivery_vector}" >> /tmp/trusted_abuse.log
-- name: Monitor target installation
-  description: Monitor target organization installing malware
-  inline: echo "Target ${target_organization} installed at $(date)" >> /tmp/trusted_abuse.log
-  cleanup:
-    inline: |-
-      rm -f /tmp/trojanized_update.pkg
-      rm -f /tmp/trusted_abuse.log
+- name: Enumerate SSH known hosts
+  description: List SSH known_hosts entries to identify previously trusted remote hosts
+  inline: |
+    echo "=== SSH Known Hosts ==="
+    cat ~/.ssh/known_hosts 2>/dev/null || echo "No known_hosts file found"
+- name: Enumerate SSH authorized keys
+  description: List SSH authorized_keys to identify keys that grant access to this host
+  inline: |
+    echo "=== SSH Authorized Keys ==="
+    cat ~/.ssh/authorized_keys 2>/dev/null || echo "No authorized_keys file found"
+- name: Enumerate MDM profiles
+  description: List MDM enrollment profiles and device trust configuration
+  inline: |
+    echo "=== MDM / Configuration Profiles ==="
+    profiles list 2>&1 || echo "Unable to list profiles (may require elevated privileges)"
+- name: List trusted certificates
+  description: Enumerate trusted certificates in the System keychain
+  inline: |
+    echo "=== Trusted Certificates (System Keychain) ==="
+    security find-certificate -a /Library/Keychains/System.keychain 2>/dev/null | grep "labl" | head -30 || echo "Unable to read System keychain"
+- name: Check remote management status
+  description: Check whether Apple Remote Desktop agent is running
+  inline: |
+    echo "=== Remote Management (ARDAgent) ==="
+    ps aux | grep -i "[A]RDAgent" && echo "ARDAgent is running" || echo "ARDAgent is not running"
+    echo ""
+    echo "=== Remote Management Settings ==="
+    defaults read /Library/Preferences/com.apple.RemoteManagement 2>/dev/null || echo "No Remote Management preferences found"
+- name: Enumerate VPN configurations
+  description: List configured VPN connections on the system
+  inline: |
+    echo "=== VPN Configurations ==="
+    scutil --nc list 2>&1
 tests:
 - name: dry_run_test
   dry_run: true

@@ -61,7 +61,7 @@ steps:
     payload_size={{ .Args.packet_size }}
     packets=$((filesize / payload_size + 1))
     echo "  Estimated packets: $packets"
-- name: Simulate ICMP tunnel
+- name: Execute ICMP tunnel exfiltration
   inline: |
     if [ '{{ .Args.dry_run }}' = 'true' ]; then
       echo "DRY RUN: ICMP Tunnel Exfiltration"

@@ -5,7 +5,9 @@ name: SSO Bypass
 authors:
 - Claude Code
 description: |
-  Bypass Single Sign-On mechanisms to gain unauthorized macOS system access
+  Enumerate and attempt to bypass Single Sign-On mechanisms on a macOS system.
+  Inspects Kerberos tickets, checks for SAML/SSO configuration profiles, lists
+  enrolled MDM profiles, and searches the Keychain for SSO token entries.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,53 +16,94 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: target_account
-  description: Target SSO account or system identifier
-  type: string
-- name: password_list
-  description: Path to file containing SSO bypass techniques or credentials
-  type: string
-- name: leaked_creds_file
-  description: Path to file with leaked SSO credentials
-  type: string
-- name: oauth_token
-  description: OAuth or SAML token for SSO bypass
-  type: string
 steps:
-- name: enumerate_sso_configuration
-  description: Enumerate SSO configuration of target system
+- name: enumerate_kerberos_tickets
+  description: Enumerate active Kerberos tickets on the system
   inline: |
-    echo "Enumerating SSO configuration for: ${target_account}"
-    # Dry run: simulate configuration enumeration
-    echo "SSO configuration enumeration in progress"
-- name: load_sso_exploits
-  description: Load SSO bypass techniques and exploits
-  inline: |
-    echo "Loading SSO bypass techniques"
-    if [ -f "${password_list}" ]; then
-      wc -l < "${password_list}" | xargs echo "SSO techniques loaded:"
+    echo "=== Enumerating Kerberos Tickets ==="
+    klist_output=$(klist 2>&1)
+    klist_exit=$?
+    echo "$klist_output"
+    if [ $klist_exit -eq 0 ]; then
+      echo ""
+      echo "--- Kerberos ticket details ---"
+      klist -e 2>&1 || true
+      echo ""
+      echo "--- Kerberos configuration ---"
+      if [ -f /etc/krb5.conf ]; then
+        echo "Kerberos config found at /etc/krb5.conf:"
+        cat /etc/krb5.conf 2>/dev/null
+      fi
+      if [ -f "$HOME/Library/Preferences/edu.mit.Kerberos" ]; then
+        echo "User Kerberos preferences found"
+        cat "$HOME/Library/Preferences/edu.mit.Kerberos" 2>/dev/null
+      fi
+    else
+      echo "No Kerberos credentials cache found or Kerberos not configured"
     fi
-- name: extract_sso_tokens
-  description: Extract leaked SSO tokens and credentials
+- name: check_sso_configuration
+  description: Check for SAML/SSO configuration profiles on the system
   inline: |
-    echo "Extracting leaked SSO tokens"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "SSO tokens found:"
-    fi
-- name: attempt_sso_bypass
-  description: Attempt to bypass SSO protection mechanisms
+    echo "=== Checking SSO Configuration ==="
+    echo "--- Configuration Profiles ---"
+    defaults read com.apple.preferences.configurationprofiles 2>&1 || echo "No configuration profiles preferences found"
+    echo ""
+    echo "--- Extensible SSO ---"
+    defaults read com.apple.extensibleSSO 2>&1 || echo "No Extensible SSO configuration found"
+    echo ""
+    echo "--- Platform SSO ---"
+    defaults read com.apple.PlatformSSO 2>&1 || echo "No Platform SSO configuration found"
+    echo ""
+    echo "--- Directory Services ---"
+    dsconfigad -show 2>&1 || echo "Not bound to Active Directory"
+    echo ""
+    echo "--- LDAP Configuration ---"
+    defaults read /Library/Preferences/com.apple.openldap 2>&1 || echo "No LDAP configuration found"
+- name: list_mdm_profiles
+  description: List enrolled MDM profiles that may contain SSO configurations
   inline: |
-    echo "Attempting SSO bypass"
-    if [ -n "${oauth_token}" ]; then
-      # Dry run: simulate SSO bypass
-      echo "SSO bypass attempt with token in progress"
+    echo "=== Listing MDM Profiles ==="
+    profiles list 2>&1 || echo "Could not list profiles (may require elevated privileges)"
+    echo ""
+    echo "--- Installed profile details ---"
+    profiles show 2>&1 || true
+    echo ""
+    echo "--- Enrollment profile ---"
+    profiles status -type enrollment 2>&1 || true
+    echo ""
+    echo "--- Configuration profile payloads ---"
+    find /var/db/ConfigurationProfiles -name "*.mobileconfig" -o -name "*.plist" 2>/dev/null | while read -r f; do
+      echo "Profile file: $f"
+      plutil -p "$f" 2>/dev/null | grep -iE "SSO|SAML|Kerberos|OAuth|Identity" | head -5 || true
+    done
+- name: search_keychain_sso_tokens
+  description: Search the macOS Keychain for SSO and identity token entries
+  inline: |
+    echo "=== Searching Keychain for SSO Tokens ==="
+    sso_services=("com.apple.sso" "com.apple.extensibleSSO" "com.apple.PlatformSSO" "com.apple.idms" "com.apple.idms.appleid" "com.microsoft.identity" "com.microsoft.adalcache" "com.okta.token" "com.onelogin" "com.pingidentity")
+    for svc in "${sso_services[@]}"; do
+      result=$(security find-generic-password -s "$svc" 2>&1)
+      if ! echo "$result" | grep -q "could not be found"; then
+        echo "FINDING: SSO entry found for service: $svc"
+        echo "$result" | grep -E "svce|acct|type|cdat|mdat" | head -5
+      fi
+    done
+    echo ""
+    echo "--- Keychain entries with identity/SSO references ---"
+    security dump-keychain login.keychain-db 2>&1 | grep -iB3 "sso\|saml\|kerberos\|identity\|idp\|federation" | head -50 || echo "No SSO-related keychain entries found"
+    echo ""
+    echo "--- Checking for Kerberos keytab files ---"
+    find / -name "*.keytab" -type f 2>/dev/null | head -5 | while read -r f; do
+      echo "FINDING: Keytab file found: $f"
+      ls -la "$f"
+    done
+    if [ -f /etc/krb5.keytab ]; then
+      echo "FINDING: System keytab found at /etc/krb5.keytab"
+      klist -k /etc/krb5.keytab 2>&1 || true
     fi
   cleanup:
     inline: |
-      echo "Revoking SSO tokens"
-
-      echo "Resetting SSO credentials"
+      echo "SSO bypass enumeration complete. No temporary files to clean up."
 tests:
 - name: dry_run_test
   dry_run: true

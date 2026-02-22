@@ -5,7 +5,7 @@ name: Package manager poisoning
 authors:
 - TTPForge
 description: |
-  Simulate package manager poisoning attack. Attacker creates malicious packages with legitimate names in public package repositories (npm, PyPI, Homebrew, etc.) to distribute malware.
+  Package manager poisoning attack. Attacker creates malicious packages with legitimate names in public package repositories (npm, PyPI, Homebrew, etc.) to distribute malware.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -96,7 +96,7 @@ steps:
     const util = require('{{ .Args.package_name }}');
     const result = util.parse(jsonData);
     README
-- name: Simulate npm install of poisoned package
+- name: Execute npm install of poisoned package
   inline: node /tmp/ttpforge_npm/{{ .Args.package_name }}/scripts/postinstall.js
   cleanup:
     inline: |-

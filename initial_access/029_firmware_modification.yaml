@@ -5,7 +5,7 @@ name: Firmware modification
 authors:
 - TTPForge
 description: |
-  Simulate firmware modification attack where attacker modifies device firmware during manufacturing or supply chain to persist malware at boot level.
+  Firmware modification attack where attacker modifies device firmware during manufacturing or supply chain to persist malware at boot level.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -55,7 +55,7 @@ steps:
     # Create persistent backdoor marker
     touch /tmp/.firmware_modified
 
-    # Simulate firmware infection
+    # Create firmware infection marker
     mkdir -p /var/db/.hidden_firmware
     echo "{{ .Args.backdoor_payload }}" > /var/db/.hidden_firmware/payload.bin
 
@@ -92,7 +92,7 @@ steps:
     echo "Firmware installation complete"
     INSTALLFIRM
     chmod +x /tmp/ttpforge_firmware/{{ .Args.package_name }}_{{ .Args.version }}/install_firmware.sh
-- name: Simulate firmware installation
+- name: Execute firmware installation
   inline: bash /tmp/ttpforge_firmware/{{ .Args.package_name }}_{{ .Args.version }}/install_firmware.sh
   cleanup:
     inline: |-

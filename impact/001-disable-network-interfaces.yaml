@@ -5,7 +5,7 @@ name: Disable Network Interfaces
 authors:
 - TTPForge
 description: |
-  Disables all active network interfaces on macOS to simulate network isolation attack
+  Disables all active network interfaces on macOS to perform network isolation attack
 mitre:
   tactics:
   - TA0040 Impact

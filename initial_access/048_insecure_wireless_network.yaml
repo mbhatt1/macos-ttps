@@ -5,7 +5,9 @@ name: Insecure Wireless Network
 authors:
 - TTPs Generator
 description: |
-  Simulate exploitation of insecure wireless network to establish initial access
+  Enumerate wireless network configuration on macOS including scanning for available networks,
+  identifying the current connection, checking security types, and listing saved/preferred
+  wireless networks to identify insecure or open networks that could enable initial access.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,40 +17,51 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: network_ssid
-  description: SSID of insecure wireless network
+- name: interface
+  description: Wireless network interface to inspect
   type: string
-  default: PublicWiFi
-- name: network_security
-  description: Security type of network (open, wep, weak_wpa2)
-  type: string
-  default: open
-- name: target_device
-  description: Target device connecting to insecure network
-  type: string
-  default: MacBook Pro
-- name: malware_url
-  description: URL hosting malware payload
-  type: string
-  default: http://attacker.com/backdoor.dmg
+  default: en0
 steps:
-- name: Scan for wireless networks
-  description: Scan for available wireless networks
-  inline: echo "Scanning for wireless networks..." > /tmp/wireless_attack.log
-- name: Identify insecure network
-  description: Identify insecure wireless network
-  inline: 'echo "Found insecure network: ${network_ssid} (${network_security})" >> /tmp/wireless_attack.log'
-- name: Connect to network
-  description: Simulate connecting to insecure network
-  inline: echo "Connected to ${network_ssid} at $(date)" >> /tmp/wireless_attack.log
-- name: Position for MITM attack
-  description: Simulate positioning for man-in-the-middle attack
-  inline: echo "Positioned for network interception" >> /tmp/wireless_attack.log
-- name: Deliver malware payload
-  description: Deliver malware through insecure network
-  inline: echo "Malware payload delivered via ${network_ssid}" >> /tmp/wireless_attack.log
-  cleanup:
-    inline: rm -f /tmp/wireless_attack.log
+- name: Scan for available wireless networks
+  description: Scan for nearby wireless networks using the airport utility or networksetup
+  inline: |
+    echo "=== Available Wireless Networks ==="
+    /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -s 2>/dev/null || echo "airport utility not available, falling back to networksetup"
+    networksetup -listallhardwareports 2>/dev/null | grep -A 2 "Wi-Fi\|AirPort"
+- name: Identify current wireless connection
+  description: Show the currently connected wireless network and its details
+  inline: |
+    echo "=== Current Wireless Connection ==="
+    networksetup -getairportnetwork {{ .Args.interface }} 2>/dev/null || echo "Could not query wireless on {{ .Args.interface }}"
+    echo ""
+    echo "=== Interface Details ==="
+    ifconfig {{ .Args.interface }} 2>/dev/null | head -10
+- name: Check wireless security type
+  description: Check the security type of the current wireless connection
+  inline: |
+    echo "=== Wireless Security Info ==="
+    /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null | grep -i "link auth\|SSID\|channel\|security" || echo "Could not determine security type via airport"
+- name: List saved wireless networks
+  description: Enumerate saved and preferred wireless networks on the system
+  inline: |
+    echo "=== Saved Wireless Networks ==="
+    defaults read /Library/Preferences/com.apple.wifi.known-networks.plist 2>/dev/null | head -40 || echo "Could not read known-networks plist"
+    echo ""
+    echo "=== Preferred Wireless Networks ==="
+    networksetup -listpreferredwirelessnetworks {{ .Args.interface }} 2>/dev/null || echo "Could not list preferred networks on {{ .Args.interface }}"
+- name: Check for open networks in saved list
+  description: Identify any open or insecure networks among the saved wireless profiles
+  inline: |
+    echo "=== Checking for open/insecure saved networks ==="
+    networksetup -listpreferredwirelessnetworks {{ .Args.interface }} 2>/dev/null | while read -r network; do
+      if [ -n "$network" ] && [ "$network" != "Preferred networks on {{ .Args.interface }}:" ]; then
+        network=$(echo "$network" | xargs)
+        echo "Saved network: $network"
+      fi
+    done
+    echo ""
+    echo "=== Wi-Fi proxy settings ==="
+    networksetup -getwebproxy {{ .Args.interface }} 2>/dev/null
 tests:
 - name: dry_run_test
   dry_run: true

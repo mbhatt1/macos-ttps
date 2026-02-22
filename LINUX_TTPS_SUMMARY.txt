@@ -1,0 +1,61 @@
+LINUX LATERAL MOVEMENT TTPs - GENERATION SUMMARY
+================================================
+
+Successfully generated 10 Linux lateral movement TTPs.
+
+Location: /Users/mbhatt/macos-ttps/lateral_movement_linux/
+
+Files Created:
+==============
+
+001. 001-ssh-pivot.yaml
+     - SSH Pivot to Remote Linux Systems
+     - Technique: remote-access-tools
+
+002. 002-network-share-access.yaml
+     - Network Share Access via NFS
+     - Technique: network-share-discovery
+
+003. 003-docker-container-pivoting.yaml
+     - Docker Container Lateral Movement
+     - Technique: container-escape
+
+004. 004-kubernetes-lateral-movement.yaml
+     - Kubernetes Lateral Movement
+     - Technique: kubernetes-exploitation
+
+005. 005-ssh-key-reuse.yaml
+     - SSH Key Reuse for Lateral Movement
+     - Technique: ssh-key-exploitation
+
+006. 006-sudo-abuse.yaml
+     - Sudo Abuse for Privilege Escalation
+     - Technique: sudo-exploitation
+
+007. 007-shared-library-hijacking.yaml
+     - Shared Library Exploitation
+     - Technique: library-hijacking
+
+008. 008-nfs-enumeration.yaml
+     - NFS Enumeration for Lateral Movement
+     - Technique: nfs-enumeration
+
+009. 009-smb-enumeration.yaml
+     - SMB Enumeration for Network Pivot
+     - Technique: smb-enumeration
+
+010. 010-ldap-enumeration.yaml
+     - LDAP Enumeration for Lateral Movement
+     - Technique: ldap-enumeration
+
+YAML Structure:
+===============
+All files include:
+- api_version: "2.0"
+- id, name, description, author, created, updated, uuid
+- requirements: platform linux
+- args: configurable parameters
+- steps: execution steps
+- checks: verification checks
+- tests: dry run tests
+- metadata: tactic, technique, references, severity

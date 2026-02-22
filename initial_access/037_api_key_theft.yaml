@@ -5,7 +5,9 @@ name: API Key Theft
 authors:
 - Claude Code
 description: |
-  Use stolen API keys to gain initial access to macOS systems and services
+  Search for and extract API keys, secrets, and tokens from a macOS system. Checks
+  environment variables, configuration files, cloud provider credential stores
+  (AWS, GCP, Azure), and git configurations for exposed credentials.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,57 +17,113 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_account
-  description: Target system or service account
+- name: search_path
+  description: Base path to search for API keys and secrets
   type: string
-- name: password_list
-  description: Path to file containing potential API keys
-  type: string
-- name: leaked_creds_file
-  description: Path to file with leaked API keys
-  type: string
-- name: oauth_token
-  description: Stolen OAuth token or API key string
-  type: string
+  default: "~"
 steps:
-- name: load_stolen_api_keys
-  description: Load stolen API keys from breach data
+- name: search_environment_variables
+  description: Search environment variables for API keys, secrets, and tokens
   inline: |
-    echo "Loading stolen API keys"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "API keys loaded:"
+    echo "=== Searching Environment Variables for API Keys ==="
+    env | grep -iE "api|key|secret|token|password|credential|auth" 2>/dev/null | while read -r line; do
+      varname=$(echo "$line" | cut -d'=' -f1)
+      # Mask the value for safe reporting
+      value=$(echo "$line" | cut -d'=' -f2-)
+      masked=$(echo "$value" | sed 's/./*/g')
+      echo "FINDING: $varname=$masked (${#value} chars)"
+    done || echo "No matching environment variables found"
+- name: search_config_files
+  description: Search common config file locations for embedded API keys
+  inline: |
+    echo "=== Searching Config Files for API Keys ==="
+    search_dir=$(eval echo {{ .Args.search_path }})
+    echo "--- Searching .env files ---"
+    find "$search_dir" -maxdepth 5 -name ".env" -o -name ".env.local" -o -name ".env.production" 2>/dev/null | while read -r f; do
+      echo "FINDING: .env file at $f"
+      grep -iE "api_key|API_KEY|secret|token|password" "$f" 2>/dev/null | head -5
+    done
+    echo "--- Searching config/ini files ---"
+    find "$search_dir" -maxdepth 5 \( -name "*.cfg" -o -name "*.ini" -o -name "*.conf" -o -name "*.toml" -o -name "*.yml" -o -name "*.yaml" \) -type f 2>/dev/null | xargs grep -liE "api_key|API_KEY|secret_key|access_key|token" 2>/dev/null | head -20 | while read -r f; do
+      echo "FINDING: Potential secrets in $f"
+      grep -inE "api_key|API_KEY|secret_key|access_key|token" "$f" 2>/dev/null | head -3
+    done
+    echo "--- Searching JSON config files ---"
+    find "$search_dir" -maxdepth 5 -name "*.json" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | xargs grep -liE "api_key|apiKey|secret|token|password" 2>/dev/null | head -20 | while read -r f; do
+      echo "FINDING: Potential secrets in $f"
+    done
+- name: check_cloud_credentials
+  description: Check for stored AWS, GCP, and Azure credential files
+  inline: |
+    echo "=== Checking Cloud Provider Credentials ==="
+    echo "--- AWS Credentials ---"
+    if [ -f "$HOME/.aws/credentials" ]; then
+      echo "FINDING: AWS credentials file found"
+      cat "$HOME/.aws/credentials" 2>/dev/null | grep -E "^\[|aws_access_key_id|aws_secret_access_key" | sed 's/aws_secret_access_key.*/aws_secret_access_key = ***REDACTED***/'
+    else
+      echo "No AWS credentials file found"
     fi
-- name: enumerate_api_endpoints
-  description: Enumerate available API endpoints using stolen keys
-  inline: |
-    echo "Enumerating API endpoints for: ${target_account}"
-    # Dry run: simulate endpoint discovery
-    echo "API endpoint enumeration in progress"
-- name: test_api_key_validity
-  description: Test validity and permissions of stolen API keys
-  inline: |
-    echo "Testing API key validity"
-    if [ -f "${leaked_creds_file}" ]; then
-      count=0
-      while IFS= read -r key; do
-        count=$((count + 1))
-        # Dry run: simulate key validation
-        [ $((count % 20)) -eq 0 ] && echo "Tested ${count} API keys"
-      done < "${leaked_creds_file}"
+    if [ -f "$HOME/.aws/config" ]; then
+      echo "AWS config found:"
+      cat "$HOME/.aws/config" 2>/dev/null
     fi
-- name: authenticate_with_api_key
-  description: Authenticate to system using stolen API key
+    echo "--- GCP Credentials ---"
+    if [ -f "$HOME/.config/gcloud/credentials.db" ]; then
+      echo "FINDING: GCP credentials database found"
+      sqlite3 "$HOME/.config/gcloud/credentials.db" "SELECT account_id FROM credentials LIMIT 10;" 2>/dev/null || echo "Could not query GCP credentials DB"
+    fi
+    if [ -d "$HOME/.config/gcloud" ]; then
+      echo "GCP config directory contents:"
+      ls -la "$HOME/.config/gcloud/" 2>/dev/null
+      find "$HOME/.config/gcloud" -name "*.json" 2>/dev/null | while read -r f; do
+        echo "FINDING: GCP JSON credential file: $f"
+      done
+    else
+      echo "No GCP config directory found"
+    fi
+    echo "--- Azure Credentials ---"
+    if [ -d "$HOME/.azure" ]; then
+      echo "FINDING: Azure config directory found"
+      ls -la "$HOME/.azure/" 2>/dev/null
+      [ -f "$HOME/.azure/accessTokens.json" ] && echo "FINDING: Azure access tokens file exists"
+      [ -f "$HOME/.azure/azureProfile.json" ] && echo "Azure profile found"
+    else
+      echo "No Azure config directory found"
+    fi
+- name: search_git_configs
+  description: Search git configurations for stored credentials and tokens
   inline: |
-    echo "Authenticating with stolen API key"
-    if [ -n "${oauth_token}" ]; then
-      # Dry run: simulate API authentication
-      echo "API key authentication attempted"
+    echo "=== Searching Git Configurations ==="
+    echo "--- Global git config ---"
+    if [ -f "$HOME/.gitconfig" ]; then
+      grep -iE "token|password|credential|oauth" "$HOME/.gitconfig" 2>/dev/null || echo "No credentials in .gitconfig"
+    fi
+    echo "--- Git credential store ---"
+    if [ -f "$HOME/.git-credentials" ]; then
+      echo "FINDING: Git credential store found at ~/.git-credentials"
+      wc -l < "$HOME/.git-credentials" | xargs echo "Stored credential entries:"
+      # Show URLs with masked passwords
+      sed 's|://[^:]*:[^@]*@|://***:***@|g' "$HOME/.git-credentials" 2>/dev/null
+    fi
+    echo "--- GitHub CLI token ---"
+    gh_config="$HOME/.config/gh/hosts.yml"
+    if [ -f "$gh_config" ]; then
+      echo "FINDING: GitHub CLI config found"
+      grep -v "oauth_token" "$gh_config" 2>/dev/null || true
+    fi
+    echo "--- NPM token ---"
+    if [ -f "$HOME/.npmrc" ]; then
+      echo "FINDING: NPM config found"
+      grep -i "token\|authToken\|_auth" "$HOME/.npmrc" 2>/dev/null | sed 's/=.*/=***REDACTED***/' || true
+    fi
+    echo "--- Docker config ---"
+    if [ -f "$HOME/.docker/config.json" ]; then
+      echo "FINDING: Docker config found"
+      python3 -c "import json; d=json.load(open('$HOME/.docker/config.json')); print('Registries:', list(d.get('auths',{}).keys()))" 2>/dev/null || true
     fi
   cleanup:
     inline: |
-      echo "Revoking compromised API keys"
-
-      echo "Resetting API credentials"
+      echo "API key search complete. No temporary files to clean up."
 tests:
 - name: dry_run_test
   dry_run: true

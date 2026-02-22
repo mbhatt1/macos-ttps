@@ -5,7 +5,7 @@ name: Reboot System
 authors:
 - TTPForge
 description: |
-  Forces macOS system reboot to simulate denial of service and disrupt operations
+  Forces macOS system reboot as denial of service impact to disrupt operations
 mitre:
   tactics:
   - TA0040 Impact

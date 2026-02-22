@@ -5,7 +5,7 @@ name: DLL/dylib injection
 authors:
 - TTPForge
 description: |
-  Simulate dynamic library (dylib) injection attack. Attacker injects malicious dylib into legitimate application libraries to gain code execution when application loads.
+  Dynamic library (dylib) injection attack. Attacker injects malicious dylib into legitimate application libraries to gain code execution when application loads.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -78,7 +78,7 @@ steps:
     </dict>
     </plist>
     PLIST
-- name: Simulate application execution with dylib injection
+- name: Execute application with dylib injection
   inline: |
     /tmp/ttpforge_dylib/{{ .Args.package_name }}.app/Contents/MacOS/{{ .Args.package_name }} > /dev/null 2>&1 || true
     touch /tmp/.dylib_injected

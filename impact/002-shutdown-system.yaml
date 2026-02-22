@@ -5,7 +5,7 @@ name: Shutdown System
 authors:
 - TTPForge
 description: |
-  Gracefully shuts down the macOS system to simulate denial of service
+  Gracefully shuts down the macOS system as a denial of service impact technique
 mitre:
   tactics:
   - TA0040 Impact

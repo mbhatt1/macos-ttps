@@ -5,7 +5,7 @@ name: Backdoored Dependency Injection
 authors:
   - mbhatt
 description: |
-  Simulate supply chain attack through dependency injection. Malware is injected
+  Supply chain attack through dependency injection. Malware is injected
   into legitimate dependency packages used by target applications.
 
 mitre:
@@ -87,16 +87,15 @@ steps:
       POSTINSTALL
       chmod +x /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
 
-  - name: simulate_dependency_installation
-    description: Simulate dependency installation (dry run)
+  - name: execute_dependency_installation
+    description: Execute the backdoored postinstall script
     inline: |
-      echo "[*] Would execute: node /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js"
-      echo "[*] Simulation only - not executing backdoor"
+      node /tmp/ttpforge_deps/{{ package_name }}_{{ version }}/lib/postinstall.js
 
   - name: verify_backdoor_marker_file_created
     description: Verify backdoor marker file created
     inline: |
-      test -f /tmp/.dependency_backdoor && echo "PASS" || echo "Marker not found (expected in dry run)"
+      test -f /tmp/.dependency_backdoor && echo "PASS" || echo "FAIL: Marker not found"
 
   - name: verify_dependency_package_exists
     description: Verify dependency package exists

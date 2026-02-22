@@ -5,7 +5,7 @@ name: Build Pipeline Compromise
 authors:
   - mbhatt
 description: |
-  Simulate compromise of software build pipeline. Attacker injects malware into
+  Compromise of software build pipeline. Attacker injects malware into
   build scripts or CI/CD configuration to poison all compiled artifacts.
 
 mitre:
@@ -106,15 +106,15 @@ steps:
       MANIFEST
 
   - name: execute_compromised_build
-    description: Execute compromised build (dry run)
+    description: Execute the compromised build pipeline
     inline: |
-      echo "[*] Would execute: bash /tmp/ttpforge_build/{{ package_name }}/build.sh"
-      echo "[*] Simulation only - not executing compromised build"
+      cd /tmp/ttpforge_build/{{ package_name }} && bash build.sh
 
-  - name: verify_build_pipeline_created
-    description: Verify build pipeline was created
+  - name: verify_build_infection
+    description: Verify the build produced the infection marker
     inline: |
-      test -f /tmp/ttpforge_build/{{ package_name }}/build.sh && echo "PASS" || echo "FAIL"
+      test -f /tmp/.build_infected && echo "PASS: Build infection marker found" || echo "FAIL"
+      test -f /tmp/.build_payload && echo "PASS: Build payload created" || echo "FAIL"
 
   - name: verify_workflow_file_exists
     description: Verify workflow file exists

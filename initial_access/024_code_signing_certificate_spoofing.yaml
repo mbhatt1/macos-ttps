@@ -5,7 +5,7 @@ name: Code Signing Certificate Spoofing
 authors:
   - mbhatt
 description: |
-  Simulate code signing certificate spoofing attack where attacker creates false
+  Code signing certificate spoofing attack where attacker creates false
   code signing certificates to sign malware, bypassing macOS Gatekeeper protections.
 
 mitre:
@@ -95,11 +95,11 @@ steps:
     inline: |
       touch /tmp/ttpforge_certs/{{ package_name }}.app/.signed
 
-  - name: simulate_code_signing
-    description: Simulate code signing with fake certificate (dry run)
+  - name: sign_binary_with_fake_certificate
+    description: Sign the application binary with the spoofed certificate
     inline: |
-      echo "[*] Would sign {{ package_name }}.app with spoofed certificate"
-      echo "[*] Simulation only - not actually signing"
+      codesign --sign - --force /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} 2>/dev/null || true
+      codesign -dvv /tmp/ttpforge_certs/{{ package_name }}.app/Contents/MacOS/{{ package_name }} 2>&1 || true
 
   - name: verify_fake_certificate_exists
     description: Verify fake certificate exists

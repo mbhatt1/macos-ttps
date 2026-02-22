@@ -5,9 +5,9 @@ name: Phishing Link Detection
 authors:
   - mbhatt
 description: |
-  Demonstrates phishing link detection and analysis by identifying suspicious
-  URLs embedded in emails. Includes analysis of domain similarity, SSL certificate
-  indicators, and link obfuscation techniques.
+  Performs active reconnaissance and analysis of a target URL to identify phishing
+  indicators. Uses DNS resolution, SSL certificate inspection, HTTP redirect tracing,
+  and WHOIS domain age analysis to evaluate whether a URL is potentially malicious.
 
 mitre:
   tactics:
@@ -22,96 +22,75 @@ requirements:
     - os: darwin
 
 args:
-  - name: legitimate_domain
-    description: "Legitimate domain being impersonated"
+  - name: target_url
+    description: "URL to analyze for phishing indicators"
     type: string
-    default: "microsoft.com"
-  - name: phishing_url
-    description: "Suspicious phishing URL"
-    type: string
-    default: "https://micro-soft-verify.malicious-hosting.com/account/login"
-  - name: obfuscation_method
-    description: "URL obfuscation technique"
-    type: string
-    default: "lookalike domain with hyphen substitution"
+    default: "https://example.com"
 
 steps:
-  - name: create_url_analysis_database
-    description: Create URL analysis database of suspicious URLs
+  - name: resolve_dns_for_target
+    description: Resolve DNS records for the target domain
     inline: |
-      mkdir -p /tmp/link_analysis
-      cat > /tmp/link_analysis/suspicious_urls.txt << 'URLEOF'
-      SUSPICIOUS URL DATABASE
-      Legitimate Domain: {{ legitimate_domain }}
-      Detected Phishing URLs:
-      1. {{ phishing_url }}
-      2. https://update-your-microsoft-account-now.xyz/verify
-      3. https://microsoft.verify-account.ru/login
-      4. http://microsft.com/security-check
-      URLEOF
-      echo "Created suspicious URL database"
+      mkdir -p /tmp/ttp_linkanalysis
+      DOMAIN=$(echo "{{ .Args.target_url }}" | sed -E 's|https?://||' | sed 's|/.*||' | sed 's|:.*||')
+      echo "[+] Analyzing domain: ${DOMAIN}"
+      echo "=== DNS Resolution ===" > /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] A Records:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      dig +short A ${DOMAIN} 2>/dev/null | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] MX Records:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      dig +short MX ${DOMAIN} 2>/dev/null | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] NS Records:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      dig +short NS ${DOMAIN} 2>/dev/null | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] DNS resolution complete"
+
+  - name: check_ssl_certificate
+    description: Check SSL certificate details for the target domain
+    inline: |
+      DOMAIN=$(echo "{{ .Args.target_url }}" | sed -E 's|https?://||' | sed 's|/.*||' | sed 's|:.*||')
+      echo "=== SSL Certificate Analysis ===" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] Checking SSL certificate for ${DOMAIN}:443..."
+      CERT_INFO=$(echo | openssl s_client -connect ${DOMAIN}:443 -servername ${DOMAIN} 2>/dev/null | openssl x509 -noout -subject -issuer -dates -serial 2>/dev/null || echo "No SSL certificate found or connection failed")
+      echo "${CERT_INFO}" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] Certificate Subject Alternative Names:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo | openssl s_client -connect ${DOMAIN}:443 -servername ${DOMAIN} 2>/dev/null | openssl x509 -noout -ext subjectAltName 2>/dev/null | tee -a /tmp/ttp_linkanalysis/analysis.txt || echo "Could not retrieve SAN" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+
+  - name: trace_url_redirects
+    description: Follow URL redirects and record the redirect chain
+    inline: |
+      echo "=== URL Redirect Analysis ===" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] Tracing redirects for {{ .Args.target_url }}..." | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      curl -Ls -o /dev/null -w "Final URL: %{url_effective}\nHTTP Code: %{http_code}\nRedirects: %{num_redirects}\nTotal Time: %{time_total}s\n" "{{ .Args.target_url }}" 2>/dev/null | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] Full redirect chain:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      curl -Ls -D - -o /dev/null "{{ .Args.target_url }}" 2>/dev/null | grep -i "^location:" | tee -a /tmp/ttp_linkanalysis/analysis.txt || echo "No redirects detected" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+
+  - name: check_whois_domain_info
+    description: Check WHOIS information for domain age and registrar details
+    inline: |
+      DOMAIN=$(echo "{{ .Args.target_url }}" | sed -E 's|https?://||' | sed 's|/.*||' | sed 's|:.*||')
+      echo "=== WHOIS Domain Analysis ===" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      echo "[+] WHOIS lookup for ${DOMAIN}:" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+      whois ${DOMAIN} 2>/dev/null | grep -iE "(creation date|registrar|expir|name server|registrant|updated)" | head -20 | tee -a /tmp/ttp_linkanalysis/analysis.txt || echo "WHOIS lookup failed or not available" | tee -a /tmp/ttp_linkanalysis/analysis.txt
+
+  - name: generate_analysis_report
+    description: Generate final analysis report with all findings
+    inline: |
+      echo ""
+      echo "========================================="
+      echo "[+] PHISHING LINK ANALYSIS REPORT"
+      echo "========================================="
+      echo "[+] Target URL: {{ .Args.target_url }}"
+      echo ""
+      cat /tmp/ttp_linkanalysis/analysis.txt
+      echo ""
+      echo "[+] PASS: URL analysis complete - review findings above"
     cleanup:
       inline: |
-        rm -rf /tmp/link_analysis
-
-  - name: analyze_link_characteristics
-    description: Analyze link characteristics for phishing indicators
-    inline: |
-      cat > /tmp/link_analysis/url_analysis.txt << 'ANALYSISEOF'
-      PHISHING URL ANALYSIS REPORT
-      URL: {{ phishing_url }}
-      DETECTION INDICATORS:
-      1. Domain similarity score 65 percent
-      2. SSL certificate mismatch
-      3. Hyphenated variation of legitimate domain
-      4. Recently registered domain
-      RISK ASSESSMENT: CRITICAL
-      ANALYSISEOF
-      echo "Completed URL analysis"
-
-  - name: create_detection_rules
-    description: Create detection rules for phishing links
-    inline: |
-      cat > /tmp/link_analysis/detection_rules.txt << 'RULESEOF'
-      PHISHING LINK DETECTION RULES
-      RULE 1: Domain Similarity Detection - HIGH
-      RULE 2: TLD Verification - MEDIUM
-      RULE 3: Urgency Keywords - MEDIUM
-      RULE 4: Certificate Mismatch - CRITICAL
-      RULE 5: New Domain Detection - HIGH
-      RULE 6: Blacklist Check - CRITICAL
-      RULESEOF
-      echo "Created detection rules"
-
-  - name: log_analysis_results
-    description: Log analysis results
-    inline: |
-      mkdir -p /tmp/link_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/link_logs/detection_${timestamp}.log << 'LOGEOF'
-      Phishing Link Detection Report
-      Total URLs Analyzed: 4
-      Phishing URLs Detected: 4
-      Detection Rate: 100 percent
-      LOGEOF
-    cleanup:
-      inline: |
-        rm -rf /tmp/link_logs
-
-  - name: verify_url_database_created
-    description: Verify URL database was created
-    inline: |
-      test -f /tmp/link_analysis/suspicious_urls.txt && echo "PASS: URL database created"
-
-  - name: verify_analysis_report_created
-    description: Verify analysis report was created
-    inline: |
-      test -f /tmp/link_analysis/url_analysis.txt && echo "PASS: Analysis report created"
-
-  - name: verify_detection_rules_created
-    description: Verify detection rules were created
-    inline: |
-      test -f /tmp/link_analysis/detection_rules.txt && echo "PASS: Detection rules created"
+        rm -rf /tmp/ttp_linkanalysis
+        echo "[+] Cleanup: Analysis files removed"
 
 tests:
   - name: phishing_link_detection_test

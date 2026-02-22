@@ -1,11 +1,12 @@
 ---
 api_version: 2.0
 uuid: 550e8400-e29b-41d4-a716-446655440030
-name: Hardware supply chain
+name: Hardware Supply Chain Compromise
 authors:
 - TTPForge
 description: |
-  Simulate hardware supply chain compromise where attacker intercepts hardware during shipment or manufacturing to preload malware or tracking devices before delivery to customer.
+  Hardware supply chain compromise where attacker modifies firmware or boot
+  configuration to establish persistence at the hardware level on macOS.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -25,69 +26,57 @@ args:
   description: Hardware model/generation
   type: string
   default: 2023_m3
-- name: source_repo
-  description: Hardware supplier information
-  type: string
-  default: https://supplier.example.com
-- name: backdoor_payload
-  description: Hardware-level backdoor payload
-  type: string
-  default: nvram boot-args=amfi_get_out_of_my_way=1
 steps:
-- name: Create hardware device simulation directory
-  inline: mkdir -p /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/{bios,firmware,drivers}
-- name: Create device serial number file
+- name: enumerate_hardware_info
+  description: Enumerate hardware information and serial numbers
   inline: |
-    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/device_info.txt << 'DEVICEINFO'
-    Product: {{ .Args.package_name }}
-    Model: {{ .Args.version }}
-    SerialNumber: C02XXXXXXXXXX
-    ManufacturingDate: 2023-06-15
-    Destination: Compromised
-    DEVICEINFO
-- name: Create malicious firmware pre-load
+    system_profiler SPHardwareDataType
+    ioreg -l | grep -i "serial-number" | head -5
+
+- name: check_firmware_status
+  description: Check current firmware and boot configuration
   inline: |
-    mkdir -p /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/efi
-    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/efi/malware.efi << 'EFICODE'
-    EFI_APPLICATION malware.efi
-    Version: 1.0
-    Entry Point: 0x400000
-    BootLoader Size: 262144
-    EFICODE
-- name: Create malicious bootkit
+    system_profiler SPHardwareDataType | grep -i "firmware\|boot\|model"
+    nvram -xp 2>/dev/null | head -20 || echo "nvram access requires elevated privileges"
+
+- name: enumerate_efi_firmware
+  description: Enumerate EFI firmware details
   inline: |
-    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/bootkit.bin << 'BOOTKIT'
-    BOOTKIT_SIGNATURE: 0xDEADC0DE
-    Target: {{ .Args.package_name }} {{ .Args.version }}
-    Payload: hardware_monitor
-    Persistence: Immediate
-    BOOTKIT
-- name: Create supply chain compromise metadata
+    ioreg -l -p IODeviceTree | grep -i "firmware" | head -10
+    system_profiler SPHardwareDataType | grep -i "Chip\|Cores\|Memory"
+
+- name: check_secure_boot_status
+  description: Check secure boot and SIP status
   inline: |
-    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/supply_chain_log.txt << 'SCLOG'
-    Supply Chain Compromise Log
-    Date: 2023-06-10
-    Location: Distributor Facility
-    Action: Device Intercepted
-    Status: Ready for delivery
-    SCLOG
-- name: Create driver with backdoor
+    csrutil status
+    ioreg -l -p IODeviceTree | grep -i "secure" | head -5
+
+- name: create_firmware_payload
+  description: Create a firmware-level persistence payload
   inline: |
-    mkdir -p /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/drivers
-    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/drivers/system_monitor.kext << 'DRIVER'
-    CFBundleName: HardwareMonitor
-    CFBundleVersion: {{ .Args.version }}
-    Executable: system_monitor
-    DRIVER
-- name: Create installation verification log
-  inline: |
+    mkdir -p /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware
+    cat > /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/payload.sh << 'PAYLOAD'
+    #!/bin/bash
     touch /tmp/.hardware_compromised
-    echo "Hardware supply chain compromise initiated" > /tmp/hardware_compromise.log
+    echo "Hardware payload executed at $(date)" >> /tmp/.hardware_compromised
+    PAYLOAD
+    chmod +x /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/payload.sh
+
+- name: execute_firmware_payload
+  description: Execute the hardware-level payload
+  inline: |
+    bash /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}/firmware/payload.sh
+
+- name: verify_payload_execution
+  description: Verify the firmware payload was executed
+  inline: |
+    test -f /tmp/.hardware_compromised && echo "PASS" || echo "FAIL"
+    cat /tmp/.hardware_compromised 2>/dev/null
   cleanup:
-    inline: |-
-      rm -rf /tmp/ttpforge_hardware/{{ .Args.package_name }}_{{ .Args.version }}
-      rm -f /tmp/.hardware_compromised /tmp/hardware_compromise.log
+    inline: |
       rm -rf /tmp/ttpforge_hardware
+      rm -f /tmp/.hardware_compromised
+
 tests:
 - name: dry_run_test
   dry_run: true

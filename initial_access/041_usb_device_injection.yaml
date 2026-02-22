@@ -5,7 +5,9 @@ name: USB Device Injection
 authors:
 - TTPs Generator
 description: |
-  Simulate USB device injection attack to establish initial access via physical device insertion
+  Replication through removable media by enumerating USB devices, creating a disk image
+  to represent a removable volume, writing a payload to the mounted volume, and executing
+  it to demonstrate initial access via physical device insertion on macOS.
 mitre:
   tactics:
   - TA0001 Initial Access
@@ -15,42 +17,59 @@ requirements:
   platforms:
   - os: darwin
 args:
-- name: target_device
-  description: Target macOS device identifier
+- name: payload_name
+  description: Name of the payload script to write to the removable volume
   type: string
-  default: /Volumes
-- name: injection_type
-  description: Type of USB injection (storage, hid, network)
-  type: string
-  default: storage
-- name: malware_payload
-  description: Path to malware payload to inject via USB
-  type: string
-  default: /tmp/malware.bin
-- name: usb_label
-  description: Label for emulated USB device
-  type: string
-  default: UNTRUSTED_USB
+  default: autorun.sh
 steps:
-- name: Check for USB devices
-  description: Enumerate currently connected USB devices
-  inline: system_profiler SPUSBDataType 2>/dev/null | head -20 || echo "USB enumeration completed"
-- name: Simulate USB device appearance
-  description: Create mock USB device indicator in logs
-  inline: 'echo "USB Device Mounted: ${usb_label} at $(date)" >> /tmp/usb_injection_log.txt'
-- name: Prepare injection payload
-  description: Stage malware payload for injection
-  inline: test -f "${malware_payload}" && echo "Payload ready" || touch "${malware_payload}" && echo "Payload staged"
-- name: Execute injection simulation
-  description: Simulate USB device injection attack
-  inline: echo "Injecting payload from USB device ${usb_label}" >> /tmp/usb_injection_log.txt
-- name: Monitor system response
-  description: Check system integration of injected device
-  inline: ls -la /Volumes/ 2>/dev/null || echo "Volume check completed"
+- name: Enumerate USB devices
+  description: List all currently connected USB devices using system_profiler
+  inline: |
+    echo "=== Connected USB Devices ==="
+    system_profiler SPUSBDataType 2>/dev/null || echo "No USB data available"
+- name: List mounted volumes
+  description: List all currently mounted volumes under /Volumes
+  inline: |
+    echo "=== Mounted Volumes ==="
+    ls -la /Volumes/
+- name: Check auto-mount settings
+  description: Check disk image auto-mount configuration
+  inline: |
+    echo "=== Auto-Mount Settings ==="
+    defaults read com.apple.frameworks.diskimages auto-open-ro-root 2>&1 || echo "auto-open-ro-root not configured"
+    defaults read com.apple.frameworks.diskimages auto-open-rw-root 2>&1 || echo "auto-open-rw-root not configured"
+- name: Create and mount removable media disk image
+  description: Create a 10MB HFS+ disk image and mount it to represent a USB removable volume
+  inline: |
+    rm -f /tmp/usb_test.dmg
+    hdiutil create -size 10m -fs HFS+ -volname TTPFORGE_USB /tmp/usb_test.dmg -quiet
+    hdiutil attach /tmp/usb_test.dmg -quiet
+    echo "Disk image created and mounted at /Volumes/TTPFORGE_USB"
+    ls -la /Volumes/TTPFORGE_USB/
+- name: Write payload to mounted volume
+  description: Write a payload script to the mounted removable volume
+  inline: |
+    cat > "/Volumes/TTPFORGE_USB/{{ .Args.payload_name }}" <<'PAYLOAD'
+    #!/bin/bash
+    echo "Payload executed from removable media at $(date)" > /tmp/ttpforge_usb_execution.log
+    whoami >> /tmp/ttpforge_usb_execution.log
+    hostname >> /tmp/ttpforge_usb_execution.log
+    PAYLOAD
+    chmod +x "/Volumes/TTPFORGE_USB/{{ .Args.payload_name }}"
+    echo "Payload written to /Volumes/TTPFORGE_USB/{{ .Args.payload_name }}"
+    ls -la "/Volumes/TTPFORGE_USB/{{ .Args.payload_name }}"
+- name: Execute payload from mounted volume
+  description: Execute the payload from the mounted removable media volume
+  inline: |
+    echo "=== Executing payload from removable media ==="
+    /Volumes/TTPFORGE_USB/{{ .Args.payload_name }}
+    echo "=== Execution log ==="
+    cat /tmp/ttpforge_usb_execution.log
   cleanup:
-    inline: |-
-      rm -f /tmp/usb_injection_log.txt
-      rm -f "${malware_payload}"
+    inline: |
+      rm -f /tmp/ttpforge_usb_execution.log
+      hdiutil detach /Volumes/TTPFORGE_USB -quiet 2>/dev/null || true
+      rm -f /tmp/usb_test.dmg
 tests:
 - name: dry_run_test
   dry_run: true

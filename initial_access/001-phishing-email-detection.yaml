@@ -5,9 +5,10 @@ name: Phishing Email Detection
 authors:
   - mbhatt
 description: |
-  Demonstrates phishing email detection by simulating a malicious email with
-  suspicious characteristics including spoofed sender addresses, urgency tactics,
-  and suspicious links commonly used in phishing campaigns.
+  Creates and stages a phishing email in Mail.app with spearphishing characteristics
+  including a spoofed sender address, urgency-based subject line, and a suspicious
+  link. Uses osascript to interact with Mail.app to compose a draft email that
+  can be inspected for phishing indicators.
 
 mitre:
   tactics:
@@ -34,60 +35,81 @@ args:
     description: "Suspicious link in phishing email"
     type: string
     default: "https://secure-verify-account.malicious-domain.com/login"
-  - name: urgency_message
-    description: "Urgency-based message to trigger action"
-    type: string
-    default: "Your account will be suspended in 24 hours"
 
 steps:
-  - name: create_phishing_email_simulation
-    description: Create phishing email simulation
+  - name: create_phishing_email_content
+    description: Create phishing email body with suspicious characteristics
     inline: |
-      cat > /tmp/phishing_email_simulation.txt << 'EMAILEOF'
-      From: {{ attacker_email }}
-      To: {{ target_user }}
-      Subject: URGENT Verify Your Account Now
-      Dear User,
-      {{ urgency_message }}. Click the link below to verify your identity:
-      {{ phishing_link }}
-      This is a security notice from our team.
-      EMAILEOF
-      echo "Phishing email simulation created"
+      mkdir -p /tmp/ttp_phishing
+      cat > /tmp/ttp_phishing/email_body.txt << 'EOF'
+      URGENT: Your account has been flagged for suspicious activity.
+
+      Dear Customer,
+
+      We have detected unauthorized access to your account. Your account will be
+      suspended within 24 hours unless you verify your identity immediately.
+
+      Click here to verify: {{ .Args.phishing_link }}
+
+      If you do not verify within 24 hours, your account will be permanently locked.
+
+      Regards,
+      Security Team
+      EOF
+      echo "[+] Phishing email content created at /tmp/ttp_phishing/email_body.txt"
+      cat /tmp/ttp_phishing/email_body.txt
+
+  - name: compose_email_in_mail_app
+    description: Use osascript to create a draft phishing email in Mail.app
+    inline: |
+      EMAIL_BODY=$(cat /tmp/ttp_phishing/email_body.txt)
+      osascript << APPLESCRIPT
+      tell application "Mail"
+        set newMessage to make new outgoing message with properties {subject:"URGENT: Verify Your Account Immediately - Suspicious Activity Detected", content:"${EMAIL_BODY}", visible:true}
+        tell newMessage
+          make new to recipient at end of to recipients with properties {address:"{{ .Args.target_user }}"}
+        end tell
+      end tell
+      APPLESCRIPT
+      echo "[+] Phishing email draft created in Mail.app"
+
+  - name: verify_email_created_in_mail
+    description: Verify the email draft was created in Mail.app
+    inline: |
+      RESULT=$(osascript -e 'tell application "Mail" to get subject of every outgoing message')
+      echo "[+] Current Mail.app outgoing messages: ${RESULT}"
+      echo "${RESULT}" | grep -q "URGENT" && echo "[+] PASS: Phishing email draft found in Mail.app"
+
+  - name: inspect_email_properties
+    description: Inspect the phishing email properties for indicators
+    inline: |
+      osascript << 'APPLESCRIPT'
+      tell application "Mail"
+        set msgList to every outgoing message
+        repeat with msg in msgList
+          if subject of msg contains "URGENT" then
+            log "Subject: " & subject of msg
+            log "Content preview: " & (text 1 thru 200 of content of msg)
+            log "Recipient: " & (address of to recipient 1 of msg)
+          end if
+        end repeat
+      end tell
+      APPLESCRIPT
+      echo "[+] Email properties inspected for phishing indicators"
     cleanup:
       inline: |
-        rm -f /tmp/phishing_email_simulation.txt
-
-  - name: analyze_email_characteristics
-    description: Analyze email headers for phishing indicators
-    inline: |
-      echo "Analyzing email headers for phishing indicators..."
-      grep -i "from:" /tmp/phishing_email_simulation.txt
-      grep -i "subject:" /tmp/phishing_email_simulation.txt
-
-  - name: log_detection_results
-    description: Log detection results to file
-    inline: |
-      mkdir -p /tmp/phishing_logs
-      timestamp=$(date +%Y%m%d_%H%M%S)
-      echo "Phishing detected" > /tmp/phishing_logs/detection_${timestamp}.log
-    cleanup:
-      inline: |
-        rm -rf /tmp/phishing_logs
-
-  - name: verify_email_simulation_created
-    description: Verify email simulation file was created
-    inline: |
-      test -f /tmp/phishing_email_simulation.txt && echo "PASS"
-
-  - name: verify_phishing_characteristics_detected
-    description: Verify phishing characteristics were detected
-    inline: |
-      grep -q "paypa1" /tmp/phishing_email_simulation.txt && echo "PASS"
-
-  - name: verify_logs_created
-    description: Verify detection logs were created
-    inline: |
-      test -d /tmp/phishing_logs && echo "PASS"
+        osascript << 'APPLESCRIPT'
+        tell application "Mail"
+          set msgList to every outgoing message
+          repeat with msg in msgList
+            if subject of msg contains "URGENT: Verify Your Account" then
+              delete msg
+            end if
+          end repeat
+        end tell
+        APPLESCRIPT
+        rm -rf /tmp/ttp_phishing
+        echo "[+] Cleanup: Draft email deleted and temp files removed"
 
 tests:
   - name: phishing_email_detection_test

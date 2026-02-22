@@ -1,11 +1,11 @@
 ---
 api_version: 2.0
 uuid: 0b7fe907-44d3-4db0-87f9-120c1f24ba13
-name: HTTP Beacon Simulation
+name: HTTP Beacon Communication
 authors:
 - Claude Code
 description: |
-  Simulates HTTP beacon communication with C2 server
+  HTTP beacon communication with C2 server using periodic GET/POST requests
 mitre:
   tactics:
   - TA0011 Command and Control

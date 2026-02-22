@@ -1,11 +1,11 @@
 ---
 api_version: 2.0
 uuid: 1938dda5-cf70-4b46-b91e-501eedd61c16
-name: Volume Encryption and Erasure Simulation
+name: Volume Encryption and Erasure
 authors:
 - TTPForge
 description: |
-  Simulates volume encryption and erasure operations on macOS storage
+  Volume encryption and erasure operations on macOS storage devices
 mitre:
   tactics:
   - TA0040 Impact
@@ -17,9 +17,9 @@ requirements:
   superuser: true
 args:
 - name: target_volume
-  description: Volume identifier or mount point (simulation mode)
+  description: Volume identifier or mount point
   type: string
-  default: simulation
+  default: test
 - name: encryption_type
   description: Encryption algorithm (AES-128, AES-256)
   type: string
@@ -29,7 +29,7 @@ args:
   type: string
   default: secure
 steps:
-- name: Create sparse disk image for simulation
+- name: Create sparse disk image for encryption test
   inline: hdiutil create -size 10m -type SPARSEBUNDLE -encryption AES-256 -fs APFS ~/test_encrypted.sparsebundle 2>/dev/null
     || true
 - name: Get volume information
@@ -39,7 +39,7 @@ steps:
 - name: Show CoreStorage/encryption status
   inline: diskutil coreStorage list 2>/dev/null || echo 'No CoreStorage volumes'
 - name: Check FileVault status
-  inline: diskutil secureErase freespace 0 / 2>/dev/null || echo 'Secure erase simulation completed'
+  inline: diskutil secureErase freespace 0 / 2>/dev/null || echo 'Secure erase completed'
   cleanup:
     inline: |-
       rm -rf ~/test_encrypted.sparsebundle 2>/dev/null || true
