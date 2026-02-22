@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Generated docs (rebuilt from YAML source)
+docs/ttps/
+docs/.vitepress/data/sidebar.json
+docs/.vitepress/data/mitre-data.json
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
