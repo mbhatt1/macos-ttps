@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress';
 import sidebarData from './data/sidebar.json';
 
 export default defineConfig({
+  base: '/macos-ttps/',
   title: 'macOS TTPs',
   description:
     'TTPForge-compatible Tactics, Techniques, and Procedures for macOS security testing',
